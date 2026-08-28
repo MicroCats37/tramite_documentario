@@ -1,23 +1,21 @@
+import { useApiQuery, useGenericCreateMutation, usePagination } from "@/hooks";
 import type {
   CreateTramiteData,
   ExpedienteCreateData,
   ExpedienteDetail,
+  ExpedienteDetailResponse,
   ExpedienteItem,
   ExpedienteListResponse,
   SolicitudDetail,
+  SolicitudDetailResponse,
   SolicitudItem,
   SolicitudListResponse,
 } from "../schemas/tramite.schema";
 import {
-  useApiQuery,
-  usePagination,
-  useGenericCreateMutation,
-} from "@/hooks";
-import {
-  SolicitudListResponseSchema,
+  ExpedienteDetailResponseSchema,
   ExpedienteListResponseSchema,
-  SolicitudDetailSchema,
-  ExpedienteDetailSchema,
+  SolicitudDetailResponseSchema,
+  SolicitudListResponseSchema,
 } from "../schemas/tramite.schema";
 
 // ── Solicitudes hooks (paginated) ──────────────────────────────────────────
@@ -72,10 +70,13 @@ export const useTramites = useSolicitudes;
  * Hook to fetch a single Solicitud detail.
  */
 export function useSolicitudDetail(id: string | null) {
-  return useApiQuery<SolicitudDetail, SolicitudDetail>({
+  return useApiQuery<SolicitudDetailResponse, SolicitudDetail | null>({
     queryKey: ["solicitudes", "detail", id],
-    url: id ? `/solicitudes/${id}/` : null,
-    schema: SolicitudDetailSchema,
+    url: id ? `/solicitudes/${id}` : null,
+    schema: SolicitudDetailResponseSchema,
+    queryOptions: {
+      select: (response) => response.data,
+    },
   });
 }
 
@@ -131,10 +132,13 @@ export function useExpedientes(initialPage = 1) {
  * Hook to fetch a single Expediente detail.
  */
 export function useExpedienteDetail(id: string | null) {
-  return useApiQuery<ExpedienteDetail, ExpedienteDetail>({
+  return useApiQuery<ExpedienteDetailResponse, ExpedienteDetail | null>({
     queryKey: ["expedientes", "detail", id],
-    url: id ? `/expedientes/${id}/` : null,
-    schema: ExpedienteDetailSchema,
+    url: id ? `/expedientes/${id}` : null,
+    schema: ExpedienteDetailResponseSchema,
+    queryOptions: {
+      select: (response) => response.data,
+    },
   });
 }
 

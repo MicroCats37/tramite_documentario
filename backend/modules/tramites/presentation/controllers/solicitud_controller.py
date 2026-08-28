@@ -251,6 +251,7 @@ class SolicitudController:
             total_pages=total_pages,
         ))
 
+    @route.get("/{solicitud_id}/", response={200: ApiResponse[SolicitudDetailOut]})
     @route.get("/{solicitud_id}", response={200: ApiResponse[SolicitudDetailOut]})
     async def obtener_solicitud(
         self,

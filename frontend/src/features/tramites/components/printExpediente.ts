@@ -221,6 +221,6 @@ export function printWithWindow(htmlContent: string, title: string) {
     </html>
   `);
   printable.document.close();
-  printable.contentWindow?.focus();
-  printable.contentWindow?.print();
+  printable.focus();
+  printable.print();
 }

@@ -306,7 +306,9 @@ export const AreaDistribucionSchema = z.object({
 export const CreateTramiteSchema = z.object({
   prioridad: z.enum(["BAJA", "MEDIA", "ALTA", "URGENTE"]),
   observacion: z.string().nullable(),
-  areas_distribucion: z.array(AreaDistribucionSchema).min(1, "Al menos un área es requerida"),
+  areas_distribucion: z
+    .array(AreaDistribucionSchema)
+    .min(1, "Al menos un área es requerida"),
   expediente: ExpedienteCreateSchema,
 });
 
@@ -340,7 +342,25 @@ export const ExpedienteListResponseSchema = z.object({
     .optional(),
 });
 
-export type ExpedienteListResponse = z.infer<typeof ExpedienteListResponseSchema>;
+export type ExpedienteListResponse = z.infer<
+  typeof ExpedienteListResponseSchema
+>;
+
+export const ExpedienteDetailResponseSchema = z.object({
+  success: z.boolean(),
+  data: ExpedienteDetailSchema.nullable(),
+  error: z
+    .object({
+      code: z.string(),
+      message: z.string(),
+    })
+    .nullable()
+    .optional(),
+});
+
+export type ExpedienteDetailResponse = z.infer<
+  typeof ExpedienteDetailResponseSchema
+>;
 
 /**
  * Paginated response wrapper for Solicitud list.
@@ -366,6 +386,22 @@ export const SolicitudListResponseSchema = z.object({
 });
 
 export type SolicitudListResponse = z.infer<typeof SolicitudListResponseSchema>;
+
+export const SolicitudDetailResponseSchema = z.object({
+  success: z.boolean(),
+  data: SolicitudDetailSchema.nullable(),
+  error: z
+    .object({
+      code: z.string(),
+      message: z.string(),
+    })
+    .nullable()
+    .optional(),
+});
+
+export type SolicitudDetailResponse = z.infer<
+  typeof SolicitudDetailResponseSchema
+>;
 
 // ── Legacy Tramite (basic CRUD - being phased out) ───────────────────────────
 

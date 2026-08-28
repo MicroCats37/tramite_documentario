@@ -228,7 +228,8 @@ class SolicitudConsultaPresenter:
             for periodo in periodos:
                 historial_periodo = [
                     {
-                        "estado": h.estado,
+                        "estado_anterior": h.estado_anterior,
+                        "estado_nuevo": h.estado_nuevo,
                         "fecha_cambio": h.fecha_cambio.isoformat() if h.fecha_cambio else None,
                         "origen": h.origen,
                     }

@@ -3,8 +3,10 @@ import { buildApiPayload } from "@/utils";
 import type {
   CreateTramiteData,
   ExpedienteDetail,
+  ExpedienteDetailResponse,
   ExpedienteListResponse,
   SolicitudDetail,
+  SolicitudDetailResponse,
   SolicitudListResponse,
 } from "../schemas/tramite.schema";
 
@@ -32,8 +34,11 @@ export async function getSolicitudes(
 }
 
 export async function getSolicitudDetail(id: string): Promise<SolicitudDetail> {
-  const response = await api.get<SolicitudDetail>(`/solicitudes/${id}/`);
-  return response.data;
+  const response = await api.get<SolicitudDetailResponse>(`/solicitudes/${id}`);
+  if (!response.data.data) {
+    throw new Error(response.data.error?.message ?? "Solicitud no encontrada");
+  }
+  return response.data.data;
 }
 
 // ── Expedientes (paginated) ─────────────────────────────────────────────────
@@ -53,9 +58,16 @@ export async function getExpedientes(
   return response.data;
 }
 
-export async function getExpedienteDetail(id: string): Promise<ExpedienteDetail> {
-  const response = await api.get<ExpedienteDetail>(`/expedientes/${id}/`);
-  return response.data;
+export async function getExpedienteDetail(
+  id: string,
+): Promise<ExpedienteDetail> {
+  const response = await api.get<ExpedienteDetailResponse>(
+    `/expedientes/${id}`,
+  );
+  if (!response.data.data) {
+    throw new Error(response.data.error?.message ?? "Expediente no encontrado");
+  }
+  return response.data.data;
 }
 
 // ── Hybrid create (multipart/form-data for files) ───────────────────────────
