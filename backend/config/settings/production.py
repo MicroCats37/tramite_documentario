@@ -26,6 +26,7 @@ DATABASES = {
 # En producción, especificar orígenes exactos. Si no se define, no se permite ninguno.
 CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[])
 CORS_ALLOW_ALL_ORIGINS = env.bool("CORS_ALLOW_ALL_ORIGINS", default=False)
+CORS_ALLOW_CREDENTIALS = env.bool("CORS_ALLOW_CREDENTIALS", default=False)
 
 # ── Seguridad HTTP ───────────────────────────────────────────
 SECURE_SSL_REDIRECT = env.bool('SECURE_SSL_REDIRECT', default=False)
