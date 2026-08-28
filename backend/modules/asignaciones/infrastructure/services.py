@@ -1,0 +1,1 @@
+# Concrete implementations of domain ports (API clients, cache, external services).

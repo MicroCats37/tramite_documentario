@@ -1,0 +1,50 @@
+# Environment and secrets
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Dependencies
+node_modules/
+.venv/
+venv/
+
+# Build outputs
+.next/
+out/
+build/
+dist/
+coverage/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Local databases
+*.sqlite
+*.sqlite3
+*.db
+*.bak
+*.bak-*
+
+# User-uploaded/runtime media
+backend/media/
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# Tool caches
+*.tsbuildinfo
+.vercel/
+
+# Local agent/tooling metadata
+.agent/
+.atl/

@@ -1,0 +1,3 @@
+"""
+Presentation — Capa HTTP.
+"""
