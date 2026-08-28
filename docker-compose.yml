@@ -1,0 +1,87 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: tramite_documentario_db
+    environment:
+      # PostgreSQL usa POSTGRES_* internamente; mapeamos desde DB_* del .env
+      POSTGRES_DB: ${DB_NAME:-tramite_documentario_db}
+      POSTGRES_USER: ${DB_USER:-tramite_documentario_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      # Puerto externo (host): ${DB_EXTERNAL_PORT:-12003} → interno5432
+      - "${DB_EXTERNAL_PORT:-12003}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-tramite_documentario_user} -d ${DB_NAME:-tramite_documentario_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  scraper:
+    build:
+      context: worker/scraper
+      dockerfile: Dockerfile
+    container_name: tramite_documentario_scraper
+    environment:
+      PYTHONUNBUFFERED: "1"
+    ports:
+      # Puerto externo (host): ${SCRAPER_PORT:-12002} → interno 8001
+      - "${SCRAPER_PORT:-12002}:8001"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: tramite_documentario_backend
+    env_file:
+      - .env
+    environment:
+      # Django settings module — production por defecto, overridear en .env si es necesario
+      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-config.settings.production}
+    depends_on:
+      db:
+        condition: service_healthy
+      scraper:
+        condition: service_healthy
+    ports:
+      # Puerto externo (host): ${BACKEND_PORT:-12001} → interno 8000
+      - "${BACKEND_PORT:-12001}:8000"
+    volumes:
+      - backend_static:/app/staticfiles
+    restart: unless-stopped
+    entrypoint: ["/app/docker/entrypoint.sh"]
+
+  frontend:
+    build:
+      context: frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://10.10.5.177:12001/api}
+    container_name: tramite_documentario_frontend
+    env_file:
+      - frontend/.env.local
+    environment:
+      PORT: ${FRONTEND_PORT:-12000}
+      HOSTNAME: ${FRONTEND_HOSTNAME:-0.0.0.0}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://10.10.5.177:12001/api}
+    ports:
+      # Puerto externo (host): ${FRONTEND_PORT:-12000} → interno 12000
+      - "${FRONTEND_PORT:-12000}:${FRONTEND_PORT:-12000}"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  backend_static:
