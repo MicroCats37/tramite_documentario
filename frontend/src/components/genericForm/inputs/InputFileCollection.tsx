@@ -192,6 +192,9 @@ export const InputFileCollection: React.FC<InputFileCollectionProps> = ({
   const acceptValue = allowedTypes || "*/*";
   const canAddMore = files.length < maxFiles;
 
+  const createLocalFileId = () =>
+    `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
   const handlePrincipalChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);
     if (selectedFiles.length === 0) return;
@@ -205,7 +208,7 @@ export const InputFileCollection: React.FC<InputFileCollectionProps> = ({
     }
 
     const newFile: ArchivoItem = {
-      id: crypto.randomUUID(),
+      id: createLocalFileId(),
       file: selectedFiles[0],
       tipo_archivo: "PRINCIPAL",
       nombre_original: selectedFiles[0].name,
@@ -236,7 +239,7 @@ export const InputFileCollection: React.FC<InputFileCollectionProps> = ({
     const filesToAdd = selectedFiles.slice(0, remainingSlots);
 
     const newItems: ArchivoItem[] = filesToAdd.map((file) => ({
-      id: crypto.randomUUID(),
+      id: createLocalFileId(),
       file,
       tipo_archivo: "ANEXO" as TipoArchivo,
       nombre_original: file.name,
