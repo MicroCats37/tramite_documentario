@@ -25,16 +25,11 @@ export function useTarifasHistoricas({
   fechaDesde,
   fechaHasta,
 }: UseTarifasHistoricasProps) {
-  const {
-    page,
-    pageSize,
-    onPageChange,
-    onPageSizeChange,
-    paginationParams,
-  } = usePagination({
-    initialPage: 1,
-    initialPageSize: 10,
-  });
+  const { page, pageSize, onPageChange, onPageSizeChange, paginationParams } =
+    usePagination({
+      initialPage: 1,
+      initialPageSize: 10,
+    });
 
   // Build query params
   const params: Record<string, string | number> = {

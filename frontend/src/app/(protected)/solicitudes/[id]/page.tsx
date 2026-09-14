@@ -1,66 +1,39 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
+import { AlertCircle, FileText, MessageSquare } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
-import {
-  AlertCircle,
-  Calendar,
-  Clock,
-  FileText,
-  LinkIcon,
-  Users,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PageWrapper } from "@/components-app/page";
+import type { PeriodoOperation } from "@/features/asignaciones/components";
+import { PeriodoOperacionModal } from "@/features/asignaciones/components";
+import {
+  useCambiarParticipacionPeriodo,
+  useIniciarGestionPeriodo,
+  useMarcarAsignacionErronea,
+  useTomarPeriodoSolicitud,
+} from "@/features/asignaciones/hooks";
+import { useAuthStore } from "@/features/auth/store/auth.store";
+import { ConversacionPanel } from "@/features/conversaciones/components/ConversacionPanel";
+import { FinalizarSolicitudModal } from "@/features/tramites/components/FinalizarSolicitudModal";
+import { GestionOperativaSolicitud } from "@/features/tramites/components/GestionOperativaSolicitud";
+import { SolicitudResumenEjecutivo } from "@/features/tramites/components/SolicitudResumenEjecutivo";
+import { SolicitudWorkspaceLayout } from "@/features/tramites/components/SolicitudWorkspaceLayout";
+import { TrazabilidadView } from "@/features/tramites/components/trazabilidad";
+import { useSolicitudDetail } from "@/features/tramites/hooks/useTramites";
+import {
+  isUserAssignedToArea,
+  normalizeId,
+} from "@/features/tramites/utils/actionVisibility";
 import {
   ESTADO_SOLICITUD,
-  PRIORIDAD_SOLICITUD,
-  TIPO_PARTICIPACION,
   type EstadoSolicitud,
+  PRIORIDAD_SOLICITUD,
   type PrioridadSolicitud,
-  type TipoParticipacion,
 } from "@/shared/constants/tramite.tokens";
-import { useSolicitudDetail } from "@/features/tramites/hooks/useTramites";
-import type { SolicitudDetail } from "@/features/tramites/schemas/tramite.schema";
-import { PageWrapper } from "@/components-app/page";
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function formatDate(iso: string | null | undefined): string {
-  if (!iso) return "—";
-  try {
-    return new Date(iso).toLocaleDateString("es-PE", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  } catch {
-    return "—";
-  }
-}
-
-function formatDateTime(iso: string | null | undefined): string {
-  if (!iso) return "—";
-  try {
-    return new Date(iso).toLocaleString("es-PE", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return "—";
-  }
-}
-
-function getEstadoInstitucionalBadgeClass(
-  estado: string | null,
-): string {
-  if (!estado) return "bg-muted text-muted-foreground border border-border";
-  const token = ESTADO_SOLICITUD[estado as EstadoSolicitud];
-  return token?.badgeClass ?? "bg-muted text-muted-foreground border border-border";
-}
 
 // ── Skeleton ───────────────────────────────────────────────────────────────────
 
@@ -116,6 +89,84 @@ export default function SolicitudDetallePage() {
   const id = params.id as string;
 
   const { data: item, isLoading, isError } = useSolicitudDetail(id);
+  const queryClient = useQueryClient();
+
+  const tomarPeriodo = useTomarPeriodoSolicitud(item?.id ?? "");
+  const iniciarGestion = useIniciarGestionPeriodo(item?.id ?? "");
+  const marcarErronea = useMarcarAsignacionErronea(item?.id ?? "");
+  const cambiarParticipacion = useCambiarParticipacionPeriodo(item?.id ?? "");
+
+  const [finalizarModalOpen, setFinalizarModalOpen] = useState(false);
+  const [operacionModalOpen, setOperacionModalOpen] = useState(false);
+  const [selectedOperation, setSelectedOperation] =
+    useState<PeriodoOperation | null>(null);
+  const [selectedPeriodoId, setSelectedPeriodoId] = useState<string | null>(
+    null,
+  );
+  /**
+   * Chat default state is viewport-dependent to avoid hydration mismatch:
+   * - Desktop (>=1024px): open by default so the conversation is immediately visible.
+   * - Mobile/tablet (<1024px): closed by default so the Solicitud is the initial view.
+   * No localStorage — this is an initial viewport default, not a user preference.
+   */
+  const [chatOpen, setChatOpen] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia("(min-width: 1024px)").matches;
+  });
+
+  /**
+   * Mobile: the conversation panel is a navigable, non-modal view. Pushing a
+   * history entry lets the browser Back button restore the Solicitud view.
+   * Desktop does not touch history — opening chat only reflows the layout.
+   */
+  useEffect(() => {
+    if (!chatOpen) return;
+    const isMobileViewport = window.matchMedia("(max-width: 1023px)").matches;
+    if (!isMobileViewport) return;
+    if (!window.history.state?.solicitudChatPanel) {
+      window.history.pushState({ solicitudChatPanel: true }, "");
+    }
+    const onPopState = () => setChatOpen(false);
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [chatOpen]);
+
+  const handleToggleChat = () => {
+    if (chatOpen) {
+      setChatOpen(false);
+      if (window.history.state?.solicitudChatPanel) {
+        window.history.back();
+      }
+    } else {
+      setChatOpen(true);
+    }
+  };
+
+  const handleOperationSelect = (
+    periodoId: string,
+    operation: PeriodoOperation,
+  ) => {
+    setSelectedPeriodoId(periodoId);
+    setSelectedOperation(operation);
+    setOperacionModalOpen(true);
+  };
+
+  // ── Area gating ────────────────────────────────────────────────────────────────
+  // Safely derive the set of area_ids the current user belongs to.
+  // Failsafe: if user is missing, userAreaIds will be empty,
+  // which disables area operations for everyone rather than crashing.
+  const authUser = useAuthStore((s) => s.user);
+  // Normalize user ID to handle both new shape (user.datos.id) and possible
+  // stale cookies with old flat shape (user.id). The old shape existed before
+  // the { datos, areas_asignadas_vigentes } migration; cookies may persist it.
+  const currentUserId =
+    authUser?.datos?.id ?? (authUser as unknown as { id?: string })?.id ?? null;
+  // Normalize all area IDs to lowercase so Set.has() works reliably regardless
+  // of backend returning uppercase or lowercase UUIDs.
+  const userAreaIds = new Set<string>(
+    authUser?.areas_asignadas_vigentes?.map((a) => normalizeId(a.area_id)) ??
+      [],
+  );
 
   const handleBack = () => router.back();
 
@@ -129,232 +180,134 @@ export default function SolicitudDetallePage() {
     ? `Solicitud ${item.expediente.id_publico}`
     : "Detalle de Solicitud";
 
+  // Gate "Finalizar" on whether user belongs to at least one area in THIS solicitud,
+  // not merely "has any global areas". Normalize both sides for comparison.
+  const userCanFinalize = item.asignaciones.some((asignacion) =>
+    isUserAssignedToArea(asignacion.area_id, userAreaIds),
+  );
+
   return (
-    <PageWrapper
-      title={title}
-      description="Detalle de la solicitud registrada"
-      icon={<FileText className="h-6 w-6 text-primary" />}
-      backHref="/solicitudes"
-      breadcrumbs={[
-        { label: "Solicitudes", href: "/solicitudes" },
-        { label: title },
-      ]}
-      actions={
-        <>
-          <Badge className={ESTADO_SOLICITUD[item.estado as EstadoSolicitud].badgeClass}>
-            {ESTADO_SOLICITUD[item.estado as EstadoSolicitud].label}
-          </Badge>
-          <Badge className={PRIORIDAD_SOLICITUD[item.prioridad as PrioridadSolicitud].badgeClass}>
-            {PRIORIDAD_SOLICITUD[item.prioridad as PrioridadSolicitud].label}
-          </Badge>
-        </>
-      }
-    >
-      {/* Información General */}
-      <div className="app-card p-6 space-y-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Información General
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="flex flex-col gap-1">
-            <span className="text-xs text-muted-foreground">Fecha de Registro</span>
-            <span className="text-sm flex items-center gap-1.5">
-              <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-              {formatDate(item.fecha_registro)}
-            </span>
-          </div>
-          {item.fecha_inicio_gestion && (
-            <div className="flex flex-col gap-1">
-              <span className="text-xs text-muted-foreground">Inicio de Gestión</span>
-              <span className="text-sm flex items-center gap-1.5">
-                <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                {formatDate(item.fecha_inicio_gestion)}
-              </span>
-            </div>
-          )}
-          {item.fecha_limite && (
-            <div className="flex flex-col gap-1">
-              <span className="text-xs text-muted-foreground">Fecha Límite</span>
-              <span className="text-sm flex items-center gap-1.5">
-                <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                {formatDate(item.fecha_limite)}
-              </span>
-            </div>
-          )}
-          {item.observacion && (
-            <div className="flex flex-col gap-1 sm:col-span-2">
-              <span className="text-xs text-muted-foreground">Observación</span>
-              <span className="text-sm">{item.observacion}</span>
-            </div>
-          )}
-        </div>
-      </div>
+    <>
+      <PageWrapper
+        title={title}
+        description="Detalle de la solicitud registrada"
+        icon={<FileText className="h-6 w-6 text-primary" />}
+        backHref="/solicitudes"
+        breadcrumbs={[
+          { label: "Solicitudes", href: "/solicitudes" },
+          { label: title },
+        ]}
+        actions={
+          <>
+            <Badge
+              className={
+                ESTADO_SOLICITUD[item.estado as EstadoSolicitud].badgeClass
+              }
+            >
+              {ESTADO_SOLICITUD[item.estado as EstadoSolicitud].label}
+            </Badge>
+            <Badge
+              className={
+                PRIORIDAD_SOLICITUD[item.prioridad as PrioridadSolicitud]
+                  .badgeClass
+              }
+            >
+              {PRIORIDAD_SOLICITUD[item.prioridad as PrioridadSolicitud].label}
+            </Badge>
 
-      {/* Expediente */}
-      <div className="app-card p-6 space-y-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Expediente
-        </h2>
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-mono font-medium">
-                {item.expediente?.id_publico ?? "—"}
-              </span>
-              {item.expediente?.asunto && (
-                <span className="text-sm text-muted-foreground">
-                  — {item.expediente.asunto}
-                </span>
-              )}
-            </div>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2 shrink-0"
-            onClick={() => router.push(`/expedientes/${item.expediente.id}`)}
-          >
-            <LinkIcon className="h-3.5 w-3.5" />
-            Ver Expediente
-          </Button>
-        </div>
-      </div>
-
-      {/* Áreas y Períodos */}
-      <div className="app-card p-6 space-y-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Áreas / Períodos
-        </h2>
-        {item.asignaciones && item.asignaciones.length > 0 ? (
-          <div className="space-y-6">
-            {item.asignaciones.map((asignacion) => (
-              <div key={asignacion.id} className="border rounded-lg p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-sm">{asignacion.area_nombre}</span>
-                  <Badge
-                    className={
-                      TIPO_PARTICIPACION[
-                        (asignacion.periodos?.[0]?.tipo_participacion ?? "ADJUNTA") as TipoParticipacion
-                      ]?.badgeClass ?? "bg-muted text-muted-foreground border border-border"
-                    }
-                  >
-                    {TIPO_PARTICIPACION[
-                      (asignacion.periodos?.[0]?.tipo_participacion ?? "ADJUNTA") as TipoParticipacion
-                    ]?.label ?? asignacion.periodos?.[0]?.tipo_participacion ?? "—"}
-                  </Badge>
-                </div>
-
-                {asignacion.observacion && (
-                  <p className="text-xs text-muted-foreground italic">
-                    {asignacion.observacion}
-                  </p>
+            {item.conversacion && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 gap-1.5 text-xs"
+                aria-expanded={chatOpen}
+                aria-controls="solicitud-conversacion-panel"
+                onClick={handleToggleChat}
+              >
+                <MessageSquare className="h-3.5 w-3.5" />
+                {chatOpen ? (
+                  <>
+                    <span className="hidden sm:inline">Conversación</span>
+                    <span className="text-[10px] sm:hidden">Abierta</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="hidden sm:inline">Abrir conversación</span>
+                    <span className="sm:hidden">Conversación</span>
+                  </>
                 )}
+              </Button>
+            )}
+          </>
+        }
+      >
+        {/* Workspace: main content + integrated collapsible conversation panel */}
+        <SolicitudWorkspaceLayout
+          chatOpen={chatOpen}
+          onCloseChat={handleToggleChat}
+          chatPanel={({ onClose }) => (
+            <ConversacionPanel
+              conversacionId={item.conversacion?.id ?? null}
+              solicitudId={item.id}
+              currentUserId={currentUserId ?? undefined}
+              disabled={!currentUserId}
+              contextLabel={
+                item.expediente?.id_publico
+                  ? `Solicitud ${item.expediente.id_publico}`
+                  : null
+              }
+              onClose={onClose}
+            />
+          )}
+        >
+          {/* Executive summary — under the header, above operational content */}
+          <SolicitudResumenEjecutivo item={item} />
 
-                {/* Períodos */}
-                {asignacion.periodos && asignacion.periodos.length > 0 && (
-                  <div className="space-y-2">
-                    <span className="text-xs text-muted-foreground uppercase tracking-wide">
-                      Períodos
-                    </span>
-                    <div className="space-y-2">
-                      {asignacion.periodos.map((periodo) => (
-                        <div
-                          key={periodo.id}
-                          className="flex items-center justify-between bg-muted/50 rounded-md px-3 py-2 text-sm"
-                        >
-                          <div className="flex flex-col gap-0.5">
-                            <span className="text-xs font-medium">
-                              {periodo.tipo_participacion} — Ciclo {periodo.numero_ciclo}
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              {formatDate(periodo.fecha_inicio)}
-                              {periodo.fecha_fin ? ` → ${formatDate(periodo.fecha_fin)}` : ""}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {periodo.estado && (
-                              <Badge className={getEstadoInstitucionalBadgeClass(periodo.estado)}>
-                                {ESTADO_SOLICITUD[periodo.estado as EstadoSolicitud]?.label ?? periodo.estado}
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+          {/* Operational management — user area/period actions, surfaced before traceability */}
+          <GestionOperativaSolicitud
+            item={item}
+            currentUserId={currentUserId}
+            userAreaIds={userAreaIds}
+            tomarPeriodo={tomarPeriodo}
+            onOperationSelect={handleOperationSelect}
+            userCanFinalize={userCanFinalize}
+            onFinalizar={() => setFinalizarModalOpen(true)}
+          />
 
-                {/* Participantes */}
-                {asignacion.participantes && asignacion.participantes.length > 0 && (
-                  <div className="space-y-2">
-                    <span className="text-xs text-muted-foreground uppercase tracking-wide">
-                      Participantes
-                    </span>
-                    <div className="flex flex-wrap gap-2">
-                      {asignacion.participantes
-                        .filter(
-                          (p, idx, arr) =>
-                            arr.findIndex((a) => a.usuario_id === p.usuario_id) === idx,
-                        )
-                        .map((participacion) => (
-                          <Badge
-                            key={participacion.usuario_id}
-                            className={
-                              participacion.activo
-                                ? "bg-primary/10 text-primary border border-primary/20"
-                                : "bg-muted text-muted-foreground border border-border"
-                            }
-                          >
-                            {participacion.usuario_nombres}
-                            {participacion.rol ? ` (${participacion.rol})` : ""}
-                          </Badge>
-                        ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground italic">
-            No hay áreas asignadas a esta solicitud.
-          </p>
-        )}
-      </div>
+          {/* Flujo operativo — temporal graph + in-page contextual selection */}
+          <TrazabilidadView
+            solicitudId={item.id}
+            fechaRegistro={item.fecha_registro}
+            fechaCierre={item.fecha_cierre}
+            estado={item.estado}
+            idPublico={item.expediente?.id_publico ?? null}
+          />
+        </SolicitudWorkspaceLayout>
+      </PageWrapper>
 
-      {/* Historial */}
-      <div className="app-card p-6 space-y-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Historial
-        </h2>
-        {item.historial_global && item.historial_global.length > 0 ? (
-          <ol className="relative border-l border-border ml-3 space-y-4">
-            {[...item.historial_global].reverse().map((entry, idx) => (
-              <li key={idx} className="ml-6">
-                <div className="absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full border-2 border-background bg-primary" />
-                <div className="flex flex-col gap-0.5">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-medium">{entry.estado_nuevo}</span>
-                    {entry.cambiado_por_nombres && (
-                      <span className="text-xs text-muted-foreground">por {entry.cambiado_por_nombres}</span>
-                    )}
-                    <span className="text-xs text-muted-foreground ml-auto">
-                      {formatDateTime(entry.fecha_cambio)}
-                    </span>
-                  </div>
-                  {entry.observacion && (
-                    <p className="text-xs text-muted-foreground">{entry.observacion}</p>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ol>
-        ) : (
-          <p className="text-sm text-muted-foreground italic">
-            No hay historial registrado para esta solicitud.
-          </p>
-        )}
-      </div>
-    </PageWrapper>
+      <FinalizarSolicitudModal
+        open={finalizarModalOpen}
+        onOpenChange={setFinalizarModalOpen}
+        solicitudId={item.id}
+        disabled={!userCanFinalize}
+      />
+      <PeriodoOperacionModal
+        open={operacionModalOpen}
+        onOpenChange={setOperacionModalOpen}
+        periodoId={selectedPeriodoId ?? ""}
+        operation={selectedOperation}
+        iniciarGestion={iniciarGestion}
+        marcarErronea={marcarErronea}
+        cambiarParticipacion={cambiarParticipacion}
+        onSuccess={() => {
+          setOperacionModalOpen(false);
+          setSelectedOperation(null);
+          setSelectedPeriodoId(null);
+          queryClient.invalidateQueries({
+            queryKey: ["solicitudes", "trazabilidad", item.id],
+          });
+        }}
+      />
+    </>
   );
 }

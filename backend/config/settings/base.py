@@ -51,6 +51,8 @@ LOCAL_APPS = [
     "modules.tramites",
     "modules.asignaciones",
     "modules.consultas",
+    "modules.notificaciones",
+    "modules.conversaciones",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -143,6 +145,8 @@ NINJA_EXTRA = {
         "modules.tramites.di.TramitesModule",
         "modules.usuarios.di.UsuariosModule",
         "modules.consultas.di.ConsultasModule",
+        "modules.notificaciones.di.NotificacionesModule",
+        "modules.conversaciones.di.ConversacionesModule",
     ]
 }
 

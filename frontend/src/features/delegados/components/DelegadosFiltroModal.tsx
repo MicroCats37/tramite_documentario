@@ -50,7 +50,8 @@ export function DelegadosFiltroModal({
   initialFiltros,
   onApply,
 }: DelegadosFiltroModalProps) {
-  const { data: municipalidades, isLoading: isLoadingMunicipalidades } = useMunicipalidades();
+  const { data: municipalidades, isLoading: isLoadingMunicipalidades } =
+    useMunicipalidades();
 
   const initialData: FiltroFormData = {
     cip: initialFiltros?.cip ?? "",
@@ -62,7 +63,8 @@ export function DelegadosFiltroModal({
     async (data: FiltroFormData) => {
       const filtros: DelegadoFiltros = {};
       if (data.cip) filtros.cip = data.cip;
-      if (data.municipalidad_id) filtros.municipalidad_id = data.municipalidad_id;
+      if (data.municipalidad_id)
+        filtros.municipalidad_id = data.municipalidad_id;
       if (data.estado) filtros.estado = data.estado as DelegadoEstado;
       onApply(filtros);
     },
@@ -112,13 +114,23 @@ export function DelegadosFiltroModal({
                 value={methods.watch("municipalidad_id") || ""}
                 onValueChange={(v) => methods.setValue("municipalidad_id", v)}
               >
-                <SelectTrigger id="filtro-municipalidad" className="pl-10 h-10 w-full">
-                  <SelectValue placeholder={isLoadingMunicipalidades ? "Cargando..." : "Seleccionar municipalidad"} />
+                <SelectTrigger
+                  id="filtro-municipalidad"
+                  className="pl-10 h-10 w-full"
+                >
+                  <SelectValue
+                    placeholder={
+                      isLoadingMunicipalidades
+                        ? "Cargando..."
+                        : "Seleccionar municipalidad"
+                    }
+                  />
                 </SelectTrigger>
                 <SelectContent>
                   {(municipalidades || []).map((m) => (
                     <SelectItem key={m.id} value={m.id}>
-                      {m.codigo ? `${m.codigo} - ` : ""}{m.nombre}
+                      {m.codigo ? `${m.codigo} - ` : ""}
+                      {m.nombre}
                     </SelectItem>
                   ))}
                 </SelectContent>

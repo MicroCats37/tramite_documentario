@@ -46,10 +46,9 @@ export function GestionarInspectoresModal({
     [inspectoresActuales],
   );
 
-  const {
-    data: inspectoresVigentes = [],
-    isLoading,
-  } = useInspectoresVigentes(open ? liquidacionId : null);
+  const { data: inspectoresVigentes = [], isLoading } = useInspectoresVigentes(
+    open ? liquidacionId : null,
+  );
 
   const batchMutation = useMutation({
     mutationFn: async (selectedIds: string[]) => {

@@ -72,10 +72,7 @@ export function ExpedienteFormBody<T extends FieldValues>({
             name={"tipo_persona" as Path<T>}
             control={control}
             render={({ field }) => (
-              <Select
-                value={field.value ?? ""}
-                onValueChange={field.onChange}
-              >
+              <Select value={field.value ?? ""} onValueChange={field.onChange}>
                 <SelectTrigger aria-invalid={!!errors.tipo_persona}>
                   <SelectValue placeholder="Seleccione..." />
                 </SelectTrigger>
@@ -135,13 +132,19 @@ export function ExpedienteFormBody<T extends FieldValues>({
             )}
           />
           {errors.dni && (
-            <p className="text-xs text-destructive mt-1">{errors.dni.message}</p>
+            <p className="text-xs text-destructive mt-1">
+              {errors.dni.message}
+            </p>
           )}
           {errors.ruc && (
-            <p className="text-xs text-destructive mt-1">{errors.ruc.message}</p>
+            <p className="text-xs text-destructive mt-1">
+              {errors.ruc.message}
+            </p>
           )}
           {errors.cip && (
-            <p className="text-xs text-destructive mt-1">{errors.cip.message}</p>
+            <p className="text-xs text-destructive mt-1">
+              {errors.cip.message}
+            </p>
           )}
         </div>
       </div>
@@ -239,7 +242,9 @@ export function ExpedienteFormBody<T extends FieldValues>({
             )}
           />
           {errors.correo && (
-            <p className="text-xs text-destructive mt-1">{errors.correo.message}</p>
+            <p className="text-xs text-destructive mt-1">
+              {errors.correo.message}
+            </p>
           )}
         </div>
         <div>
@@ -280,10 +285,7 @@ export function ExpedienteFormBody<T extends FieldValues>({
             name={"tipo_documento" as Path<T>}
             control={control}
             render={({ field }) => (
-              <Select
-                value={field.value ?? ""}
-                onValueChange={field.onChange}
-              >
+              <Select value={field.value ?? ""} onValueChange={field.onChange}>
                 <SelectTrigger aria-invalid={!!errors.tipo_documento}>
                   <SelectValue placeholder="Seleccione..." />
                 </SelectTrigger>
@@ -367,15 +369,15 @@ export function ExpedienteFormBody<T extends FieldValues>({
           )}
         />
         {errors.asunto && (
-          <p className="text-xs text-destructive mt-1">{errors.asunto.message}</p>
+          <p className="text-xs text-destructive mt-1">
+            {errors.asunto.message}
+          </p>
         )}
       </div>
 
       {/* Observaciones */}
       <div>
-        <label className="text-sm font-medium mb-1 block">
-          Observaciones
-        </label>
+        <label className="text-sm font-medium mb-1 block">Observaciones</label>
         <Controller
           name={"observaciones" as Path<T>}
           control={control}

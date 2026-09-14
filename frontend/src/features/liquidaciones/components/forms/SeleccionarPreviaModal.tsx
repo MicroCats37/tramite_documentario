@@ -14,7 +14,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Building2, RefreshCw, Search, X } from "lucide-react";
 import { GenericModal } from "@/components/genericModal/GenericModal";
-import { useLiquidacionesGenerales, type LiquidacionGeneralItem } from "../../hooks/useLiquidacionesGenerales";
+import {
+  useLiquidacionesGenerales,
+  type LiquidacionGeneralItem,
+} from "../../hooks/useLiquidacionesGenerales";
 import { Pagination } from "@/components/genericPagination/Pagination";
 
 interface SeleccionarPreviaModalProps {
@@ -40,21 +43,26 @@ export function SeleccionarPreviaModal({
   const [searched, setSearched] = useState(false);
   const [page, setPage] = useState(1);
 
-  const isDocumentoValid = documento.trim().length === 8 || documento.trim().length === 11;
+  const isDocumentoValid =
+    documento.trim().length === 8 || documento.trim().length === 11;
 
-  const { items, total, totalPages, pageSize, isLoading, isError, refetch } = useLiquidacionesGenerales({
-    page,
-    pageSize: 10,
-    documento: documento || undefined,
-    tipo: tiposPermitidos?.length === 1 ? tiposPermitidos[0] : undefined,
-    enabled: searched && open,
-    soloUltimasRevisiones: true,
-  });
+  const { items, total, totalPages, pageSize, isLoading, isError, refetch } =
+    useLiquidacionesGenerales({
+      page,
+      pageSize: 10,
+      documento: documento || undefined,
+      tipo: tiposPermitidos?.length === 1 ? tiposPermitidos[0] : undefined,
+      enabled: searched && open,
+      soloUltimasRevisiones: true,
+    });
 
   // Filtrar por tipo en frontend si hay varios permitidos
-  const filteredItems = tiposPermitidos && tiposPermitidos.length > 1
-    ? items.filter((i) => tiposPermitidos.includes(i.tipo_liquidacion?.codigo ?? ""))
-    : items;
+  const filteredItems =
+    tiposPermitidos && tiposPermitidos.length > 1
+      ? items.filter((i) =>
+          tiposPermitidos.includes(i.tipo_liquidacion?.codigo ?? ""),
+        )
+      : items;
 
   const handleSearch = useCallback(() => {
     if (!isDocumentoValid) return;
@@ -72,7 +80,10 @@ export function SeleccionarPreviaModal({
   return (
     <GenericModal open={open} onOpenChange={onOpenChange} preventClose={false}>
       <GenericModal.Content size="lg">
-        <GenericModal.Header title="" className="bg-primary/[0.03] border-b border-border px-6 py-5">
+        <GenericModal.Header
+          title=""
+          className="bg-primary/[0.03] border-b border-border px-6 py-5"
+        >
           <div className="flex items-center gap-3 w-full">
             <div className="p-2 bg-primary/10 rounded-xl border border-primary/20 shadow-sm shrink-0">
               <RefreshCw className="h-5 w-5 text-primary" />
@@ -81,8 +92,12 @@ export function SeleccionarPreviaModal({
               <span className="hidden sm:block text-[10px] font-bold uppercase tracking-widest text-primary leading-none">
                 Liquidaciones
               </span>
-              <h2 className="text-2xl font-black tracking-tight text-foreground leading-tight">{title}</h2>
-              <p className="hidden sm:block text-sm text-muted-foreground leading-relaxed">{description}</p>
+              <h2 className="text-2xl font-black tracking-tight text-foreground leading-tight">
+                {title}
+              </h2>
+              <p className="hidden sm:block text-sm text-muted-foreground leading-relaxed">
+                {description}
+              </p>
             </div>
             <div className="w-9 shrink-0" aria-hidden="true" />
           </div>
@@ -92,7 +107,10 @@ export function SeleccionarPreviaModal({
           {/* Búsqueda */}
           <div className="p-4 rounded-xl border border-border/60 bg-muted/10 space-y-3">
             <div className="space-y-2">
-              <Label htmlFor="buscar-documento" className="text-sm font-semibold">
+              <Label
+                htmlFor="buscar-documento"
+                className="text-sm font-semibold"
+              >
                 N° Documento (RUC/DNI)
               </Label>
               <div className="flex gap-2">
@@ -106,10 +124,18 @@ export function SeleccionarPreviaModal({
                     setDocumento(val);
                     setSearched(false);
                   }}
-                  onKeyDown={(e) => e.key === "Enter" && isDocumentoValid && handleSearch()}
+                  onKeyDown={(e) =>
+                    e.key === "Enter" && isDocumentoValid && handleSearch()
+                  }
                   className="w-full h-10 font-mono"
                 />
-                <Button type="button" variant="default" onClick={handleSearch} disabled={!isDocumentoValid} className="h-10 shrink-0 gap-1.5 px-5">
+                <Button
+                  type="button"
+                  variant="default"
+                  onClick={handleSearch}
+                  disabled={!isDocumentoValid}
+                  className="h-10 shrink-0 gap-1.5 px-5"
+                >
                   <Search className="h-4 w-4" />
                   Buscar
                 </Button>
@@ -129,13 +155,21 @@ export function SeleccionarPreviaModal({
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted/40 mb-3">
                   <Search className="h-5 w-5 text-muted-foreground/70" />
                 </div>
-                <p className="text-sm text-muted-foreground">Ingresa un número de documento y presiona Buscar</p>
-                <p className="text-xs text-muted-foreground/60 mt-1">DNI: 8 dígitos · RUC: 11 dígitos</p>
+                <p className="text-sm text-muted-foreground">
+                  Ingresa un número de documento y presiona Buscar
+                </p>
+                <p className="text-xs text-muted-foreground/60 mt-1">
+                  DNI: 8 dígitos · RUC: 11 dígitos
+                </p>
               </div>
             ) : isLoading ? (
               <div className="space-y-3">
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="rounded-xl border bg-card p-4" style={{ animationDelay: `${i * 150}ms` }}>
+                  <div
+                    key={i}
+                    className="rounded-xl border bg-card p-4"
+                    style={{ animationDelay: `${i * 150}ms` }}
+                  >
                     <div className="flex items-center gap-3">
                       <div className="h-10 w-10 shrink-0 rounded-lg bg-gradient-to-r from-muted via-muted/50 to-muted animate-pulse" />
                       <div className="flex-1 space-y-2">
@@ -148,20 +182,30 @@ export function SeleccionarPreviaModal({
               </div>
             ) : isError ? (
               <div className="flex flex-col items-center justify-center py-10 text-center">
-                <p className="text-destructive font-medium">Error al cargar las liquidaciones</p>
-                <Button variant="outline" size="sm" className="mt-3" onClick={() => refetch()}>
+                <p className="text-destructive font-medium">
+                  Error al cargar las liquidaciones
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-3"
+                  onClick={() => refetch()}
+                >
                   Reintentar
                 </Button>
               </div>
             ) : filteredItems.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 text-center">
                 <Building2 className="h-8 w-8 text-muted-foreground mb-2" />
-                <p className="text-muted-foreground text-sm">No se encontraron liquidaciones previas</p>
+                <p className="text-muted-foreground text-sm">
+                  No se encontraron liquidaciones previas
+                </p>
               </div>
             ) : (
               <div className="space-y-3">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  {filteredItems.length} resultado{filteredItems.length !== 1 ? "s" : ""}
+                  {filteredItems.length} resultado
+                  {filteredItems.length !== 1 ? "s" : ""}
                 </p>
                 <div className="flex flex-col gap-2">
                   {filteredItems.map((item) => {
@@ -178,7 +222,9 @@ export function SeleccionarPreviaModal({
                               <Building2 className="h-4 w-4 text-primary" />
                             </div>
                             <div className="min-w-0">
-                              <p className="text-sm font-semibold truncate">{item.proyecto.denominacion}</p>
+                              <p className="text-sm font-semibold truncate">
+                                {item.proyecto.denominacion}
+                              </p>
                               <p className="text-xs text-muted-foreground truncate">
                                 {item.expediente || "Sin expediente"}
                               </p>
@@ -211,12 +257,23 @@ export function SeleccionarPreviaModal({
         <GenericModal.Footer className="px-6 py-4 bg-muted/30 border-t border-border">
           <div className="flex items-center justify-end gap-2">
             {searched && (
-              <Button type="button" variant="ghost" size="sm" onClick={handleReset} className="h-10 gap-1 text-xs text-muted-foreground">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleReset}
+                className="h-10 gap-1 text-xs text-muted-foreground"
+              >
                 <X className="h-3 w-3" />
                 Limpiar
               </Button>
             )}
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="h-10 rounded-xl font-semibold">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              className="h-10 rounded-xl font-semibold"
+            >
               Cancelar
             </Button>
           </div>

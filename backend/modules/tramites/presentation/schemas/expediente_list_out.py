@@ -12,8 +12,9 @@ from typing import Optional
 from ninja import Field
 
 from core.types import BaseSchema
-from modules.tramites.domain.constants import TipoPersona, TipoDocumento
+from modules.tramites.domain.constants import TipoPersona
 from modules.tramites.presentation.schemas.expediente_out import ExpedienteArchivoOut
+from modules.tramites.presentation.schemas.tipo_documento_out import TipoDocumentoOut
 
 
 class ExpedienteItemOut(BaseSchema):
@@ -37,7 +38,7 @@ class ExpedienteItemOut(BaseSchema):
     apellidos: Optional[str] = Field(None, description="Apellidos del ciudadano")
     correo: Optional[str] = Field(None, description="Correo electrónico")
     telefono: Optional[str] = Field(None, description="Teléfono de contacto")
-    tipo_documento: TipoDocumento = Field(..., description="Tipo de documento presentado")
+    tipo_documento: TipoDocumentoOut = Field(..., description="Tipo de documento presentado")
     numero_documento: Optional[str] = Field(None, description="Número de documento")
     numero_folios: int = Field(..., description="Número de folios")
     asunto: str = Field(..., description="Asunto del trámite")
@@ -73,7 +74,7 @@ class ExpedienteDetailOut(BaseSchema):
     apellidos: Optional[str] = Field(None, description="Apellidos del ciudadano")
     correo: Optional[str] = Field(None, description="Correo electrónico")
     telefono: Optional[str] = Field(None, description="Teléfono de contacto")
-    tipo_documento: TipoDocumento = Field(..., description="Tipo de documento")
+    tipo_documento: TipoDocumentoOut = Field(..., description="Tipo de documento")
     numero_documento: Optional[str] = Field(None, description="Número de documento")
     numero_folios: int = Field(..., description="Número de folios")
     asunto: str = Field(..., description="Asunto del trámite")

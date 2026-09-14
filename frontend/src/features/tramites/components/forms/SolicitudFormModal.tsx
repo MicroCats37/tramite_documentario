@@ -36,7 +36,10 @@ import { GenericForm } from "@/components/genericForm/GenericForm";
 import { InputSelect } from "@/components/genericForm/inputs/InputSelect";
 import { InputAreaDistribution } from "@/components/genericForm/inputs/InputAreaDistribution";
 import { InputFileCollection } from "@/components/genericForm/inputs/InputFileCollection";
-import type { FormField, SectionWrapperProps } from "@/components/genericForm/GenericInput";
+import type {
+  FormField,
+  SectionWrapperProps,
+} from "@/components/genericForm/GenericInput";
 import { FormSectionHeader } from "@/components-app/forms/FormSectionHeader";
 
 import { PrintPreviewModal } from "@/features/tramites/components/PrintPreviewModal";
@@ -45,7 +48,6 @@ import { buildSolicitudPrintHTML } from "@/features/tramites/components/printExp
 import { notify } from "@/errors";
 
 import {
-  TIPO_DOCUMENTO,
   CREAR_SOLICITUD_DEFAULT,
   CrearSolicitudSchema,
   type CrearSolicitudData,
@@ -66,10 +68,6 @@ const TIPO_PERSONA_OPTIONS = [
   { label: "Persona Jurídica", value: "JURIDICA" },
   { label: "Colegiado", value: "COLEGIADO" },
 ] as const;
-
-const TIPO_DOCUMENTO_OPTIONS: { label: string; value: string }[] = TIPO_DOCUMENTO.map(
-  (d) => ({ label: d, value: d }),
-);
 
 const PRIORIDAD_OPTIONS = [
   { label: "Baja", value: "BAJA" },
@@ -134,7 +132,7 @@ export function SolicitudFormModal({
             "cip",
             "correo",
             "telefono",
-            "tipo_documento",
+            "tipo_documento_id",
             "numero_documento",
             "numero_folios",
             "asunto",
@@ -196,7 +194,7 @@ export function SolicitudFormModal({
             apellidos: data.apellidos ?? null,
             correo: data.correo ?? null,
             telefono: data.telefono ?? null,
-            tipo_documento: data.tipo_documento,
+            tipo_documento_id: data.tipo_documento_id,
             numero_documento: data.numero_documento ?? null,
             numero_folios: data.numero_folios ?? 0,
             asunto: data.asunto,
@@ -210,7 +208,9 @@ export function SolicitudFormModal({
         const envelope = (await crearTramite.mutateAsync(
           payload as never,
         )) as unknown as { data?: SolicitudDetail } | undefined;
-        const creado = envelope?.data ?? (envelope as unknown as SolicitudDetail | undefined);
+        const creado =
+          envelope?.data ??
+          (envelope as unknown as SolicitudDetail | undefined);
 
         notify.success("Solicitud creada correctamente");
         formMethods.reset(CREAR_SOLICITUD_DEFAULT);
@@ -237,231 +237,244 @@ export function SolicitudFormModal({
         onOpenChange={handleClose}
         preventClose={crearTramite.isPending}
       >
-      <GenericModal.Content
-        size="xl"
-        
-      >
-        {/* ── Header custom ──────────────────────────────────────────── */}
-        <div className="bg-gradient-to-r from-primary/5 via-primary/[0.02] to-transparent border-b border-border px-6 py-5 sm:px-8">
-          <div className="flex items-center gap-3 w-full">
-            <div className="p-2 sm:p-2.5 bg-primary/10 rounded-xl sm:rounded-2xl border border-primary/20 shadow-sm shrink-0">
-              <FilePlus className="h-5 w-5 text-primary" />
-            </div>
-            <div className="flex flex-col gap-0.5 min-w-0 flex-1">
-              <span className="hidden sm:block text-[10px] font-bold uppercase tracking-widest text-primary leading-none">
-                Mesa de Partes
-              </span>
-              <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground leading-tight">
-                Nueva Solicitud
-              </h2>
-              <p className="hidden sm:block max-w-prose text-pretty line-clamp-2 text-sm text-muted-foreground leading-relaxed">
-                Complete los datos del expediente, asigne las áreas y adjunte los archivos.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* ── Stepper Header ─────────────────────────────────────────── */}
-        <StepperProgress steps={STEPS as unknown as { id: string; title: string; icon: typeof FileText }[]} currentStep={currentStep} />
-
-        {/* ── Body: form por step ────────────────────────────────────── */}
-        <GenericModal.Body>
-          {currentStep === 0 && (
-            <GenericForm<CrearSolicitudData>
-              formId={`${formId}-step-0`}
-              formMethods={formMethods}
-              formSections={STEP_1_SECTIONS as Parameters<typeof GenericForm>[0]["formSections"]}
-              schema={CrearSolicitudSchema}
-              initialData={CREAR_SOLICITUD_DEFAULT}
-              onSubmit={async () => {
-                /* submit real solo en el último paso */
-              }}
-              skipFooter
-            />
-          )}
-
-          {currentStep === 1 && (
-            <GenericForm<CrearSolicitudData>
-              formId={`${formId}-step-1`}
-              formMethods={formMethods}
-              fields={[
-                {
-                  name: "areas_distribucion",
-                  label: "Distribución de Áreas",
-                  type: "custom",
-                  containerClassName: "md:col-span-12",
-                },
-              ]}
-              schema={CrearSolicitudSchema}
-              initialData={CREAR_SOLICITUD_DEFAULT}
-              onSubmit={async () => {}}
-              skipFooter
-              customFields={{
-                areas_distribucion: () => (
-                  <InputAreaDistribution
-                    field={{
-                      name: "areas_distribucion",
-                      label: "Distribución de Áreas",
-                      type: "area-distribution",
-                    }}
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    control={formMethods.control as any}
-                    id={`${formId}-area-distribution`}
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    register={formMethods.register as any}
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    error={formMethods.formState.errors.areas_distribucion as any}
-                  />
-                ),
-              }}
-            />
-          )}
-
-          {currentStep === 2 && (
-            <GenericForm<CrearSolicitudData>
-              formId={`${formId}-step-2`}
-              formMethods={formMethods}
-              fields={[
-                {
-                  name: "archivos",
-                  label: "Archivos Adjuntos",
-                  type: "custom",
-                  containerClassName: "md:col-span-12",
-                },
-              ]}
-              schema={CrearSolicitudSchema}
-              initialData={CREAR_SOLICITUD_DEFAULT}
-              onSubmit={async () => {}}
-              skipFooter
-              customFields={{
-                archivos: () => (
-                  <InputFileCollection
-                    field={{
-                      name: "archivos",
-                      label: "Archivos Adjuntos",
-                      type: "file-collection",
-                    }}
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    control={formMethods.control as any}
-                    id={`${formId}-file-collection`}
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    register={formMethods.register as any}
-                    fileKind="all"
-                    maxFiles={20}
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    error={formMethods.formState.errors.archivos as any}
-                  />
-                ),
-              }}
-            />
-          )}
-
-          {currentStep === 3 && (
-            <GenericForm<CrearSolicitudData>
-              formId={`${formId}-step-3`}
-              formMethods={formMethods}
-              fields={STEP_4_FIELDS}
-              schema={CrearSolicitudSchema}
-              initialData={CREAR_SOLICITUD_DEFAULT}
-              onSubmit={handleSubmit}
-              isLoading={crearTramite.isPending}
-              skipFooter
-            />
-          )}
-        </GenericModal.Body>
-
-        {/* ── Footer: navegación del stepper ─────────────────────────── */}
-        <GenericModal.Footer className="px-6 py-4 sm:px-8 bg-muted/30 border-t border-border">
-          <div className="flex items-center justify-between gap-2 sm:gap-3">
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground hidden sm:inline">
-                Paso {currentStep + 1} de {TOTAL_STEPS}
-              </span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => handleClose(false)}
-                disabled={crearTramite.isPending}
-                className="text-muted-foreground"
-              >
-                Cancelar
-              </Button>
-            </div>
-
-            <div className="flex items-center gap-2">
-              {!isFirstStep && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleBack}
-                  disabled={crearTramite.isPending}
-                  className="gap-1"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  <span className="hidden sm:inline">Anterior</span>
-                </Button>
-              )}
-
-              {!isLastStep && (
-                <Button
-                  type="button"
-                  onClick={handleNext}
-                  disabled={crearTramite.isPending}
-                  className="gap-1"
-                >
-                  <span>Siguiente</span>
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              )}
-
-              {isLastStep && (
-                <Button
-                  type="button"
-                  onClick={() => {
-                    void formMethods.handleSubmit(handleSubmit as never)();
-                  }}
-                  disabled={crearTramite.isPending}
-                  className="gap-2 font-bold"
-                >
-                  {crearTramite.isPending ? (
-                    "Creando..."
-                  ) : (
-                    <>
-                      <CheckCircle2 className="h-4 w-4" />
-                      Crear Solicitud
-                    </>
-                  )}
-                </Button>
-              )}
+        <GenericModal.Content size="xl">
+          {/* ── Header custom ──────────────────────────────────────────── */}
+          <div className="bg-gradient-to-r from-primary/5 via-primary/[0.02] to-transparent border-b border-border px-6 py-5 sm:px-8">
+            <div className="flex items-center gap-3 w-full">
+              <div className="p-2 sm:p-2.5 bg-primary/10 rounded-xl sm:rounded-2xl border border-primary/20 shadow-sm shrink-0">
+                <FilePlus className="h-5 w-5 text-primary" />
+              </div>
+              <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                <span className="hidden sm:block text-[10px] font-bold uppercase tracking-widest text-primary leading-none">
+                  Mesa de Partes
+                </span>
+                <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground leading-tight">
+                  Nueva Solicitud
+                </h2>
+                <p className="hidden sm:block max-w-prose text-pretty line-clamp-2 text-sm text-muted-foreground leading-relaxed">
+                  Complete los datos del expediente, asigne las áreas y adjunte
+                  los archivos.
+                </p>
+              </div>
             </div>
           </div>
-        </GenericModal.Footer>
 
-        <GenericModal.CloseX />
-      </GenericModal.Content>
-    </GenericModal>
-
-    {/* ── Modal de impresión: se abre automáticamente al crear la solicitud ── */}
-    {printItem && (
-      <PrintPreviewModal
-        open={printOpen}
-        onOpenChange={setPrintOpen}
-        title={`Solicitud ${printItem.expediente?.id_publico ?? printItem.id}`}
-        htmlContent={printHtml}
-        previewContent={
-          <SolicitudPrintPreview
-            item={
-              // El PrintPreviewModal espera SolicitudItem; el detail
-              // comparte los campos base. Usamos un cast seguro.
-              printItem as never as Parameters<
-                typeof SolicitudPrintPreview
-              >[0]["item"]
+          {/* ── Stepper Header ─────────────────────────────────────────── */}
+          <StepperProgress
+            steps={
+              STEPS as unknown as {
+                id: string;
+                title: string;
+                icon: typeof FileText;
+              }[]
             }
+            currentStep={currentStep}
           />
-        }
-      />
-    )}
+
+          {/* ── Body: form por step ────────────────────────────────────── */}
+          <GenericModal.Body>
+            {currentStep === 0 && (
+              <GenericForm<CrearSolicitudData>
+                formId={`${formId}-step-0`}
+                formMethods={formMethods}
+                formSections={
+                  STEP_1_SECTIONS as Parameters<
+                    typeof GenericForm
+                  >[0]["formSections"]
+                }
+                schema={CrearSolicitudSchema}
+                initialData={CREAR_SOLICITUD_DEFAULT}
+                onSubmit={async () => {
+                  /* submit real solo en el último paso */
+                }}
+                skipFooter
+              />
+            )}
+
+            {currentStep === 1 && (
+              <GenericForm<CrearSolicitudData>
+                formId={`${formId}-step-1`}
+                formMethods={formMethods}
+                fields={[
+                  {
+                    name: "areas_distribucion",
+                    label: "Distribución de Áreas",
+                    type: "custom",
+                    containerClassName: "md:col-span-12",
+                  },
+                ]}
+                schema={CrearSolicitudSchema}
+                initialData={CREAR_SOLICITUD_DEFAULT}
+                onSubmit={async () => {}}
+                skipFooter
+                customFields={{
+                  areas_distribucion: () => (
+                    <InputAreaDistribution
+                      field={{
+                        name: "areas_distribucion",
+                        label: "Distribución de Áreas",
+                        type: "area-distribution",
+                      }}
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      control={formMethods.control as any}
+                      id={`${formId}-area-distribution`}
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      register={formMethods.register as any}
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      error={
+                        formMethods.formState.errors.areas_distribucion as any
+                      }
+                    />
+                  ),
+                }}
+              />
+            )}
+
+            {currentStep === 2 && (
+              <GenericForm<CrearSolicitudData>
+                formId={`${formId}-step-2`}
+                formMethods={formMethods}
+                fields={[
+                  {
+                    name: "archivos",
+                    label: "Archivos Adjuntos",
+                    type: "custom",
+                    containerClassName: "md:col-span-12",
+                  },
+                ]}
+                schema={CrearSolicitudSchema}
+                initialData={CREAR_SOLICITUD_DEFAULT}
+                onSubmit={async () => {}}
+                skipFooter
+                customFields={{
+                  archivos: () => (
+                    <InputFileCollection
+                      field={{
+                        name: "archivos",
+                        label: "Archivos Adjuntos",
+                        type: "file-collection",
+                      }}
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      control={formMethods.control as any}
+                      id={`${formId}-file-collection`}
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      register={formMethods.register as any}
+                      fileKind="all"
+                      maxFiles={20}
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      error={formMethods.formState.errors.archivos as any}
+                    />
+                  ),
+                }}
+              />
+            )}
+
+            {currentStep === 3 && (
+              <GenericForm<CrearSolicitudData>
+                formId={`${formId}-step-3`}
+                formMethods={formMethods}
+                fields={STEP_4_FIELDS}
+                schema={CrearSolicitudSchema}
+                initialData={CREAR_SOLICITUD_DEFAULT}
+                onSubmit={handleSubmit}
+                isLoading={crearTramite.isPending}
+                skipFooter
+              />
+            )}
+          </GenericModal.Body>
+
+          {/* ── Footer: navegación del stepper ─────────────────────────── */}
+          <GenericModal.Footer className="px-6 py-4 sm:px-8 bg-muted/30 border-t border-border">
+            <div className="flex items-center justify-between gap-2 sm:gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground hidden sm:inline">
+                  Paso {currentStep + 1} de {TOTAL_STEPS}
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleClose(false)}
+                  disabled={crearTramite.isPending}
+                  className="text-muted-foreground"
+                >
+                  Cancelar
+                </Button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {!isFirstStep && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleBack}
+                    disabled={crearTramite.isPending}
+                    className="gap-1"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    <span className="hidden sm:inline">Anterior</span>
+                  </Button>
+                )}
+
+                {!isLastStep && (
+                  <Button
+                    type="button"
+                    onClick={handleNext}
+                    disabled={crearTramite.isPending}
+                    className="gap-1"
+                  >
+                    <span>Siguiente</span>
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                )}
+
+                {isLastStep && (
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      void formMethods.handleSubmit(handleSubmit as never)();
+                    }}
+                    disabled={crearTramite.isPending}
+                    className="gap-2 font-bold"
+                  >
+                    {crearTramite.isPending ? (
+                      "Creando..."
+                    ) : (
+                      <>
+                        <CheckCircle2 className="h-4 w-4" />
+                        Crear Solicitud
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
+            </div>
+          </GenericModal.Footer>
+
+          <GenericModal.CloseX />
+        </GenericModal.Content>
+      </GenericModal>
+
+      {/* ── Modal de impresión: se abre automáticamente al crear la solicitud ── */}
+      {printItem && (
+        <PrintPreviewModal
+          open={printOpen}
+          onOpenChange={setPrintOpen}
+          title={`Solicitud ${printItem.expediente?.id_publico ?? printItem.id}`}
+          htmlContent={printHtml}
+          previewContent={
+            <SolicitudPrintPreview
+              item={
+                // El PrintPreviewModal espera SolicitudItem; el detail
+                // comparte los campos base. Usamos un cast seguro.
+                printItem as never as Parameters<
+                  typeof SolicitudPrintPreview
+                >[0]["item"]
+              }
+            />
+          }
+        />
+      )}
     </>
   );
 }
@@ -493,7 +506,9 @@ function StepperProgress({ steps, currentStep }: StepperProgressProps) {
                   isCurrent &&
                     "bg-primary text-primary-foreground border-primary shadow-sm",
                   isCompleted && "bg-primary/10 text-primary border-primary/30",
-                  !isCurrent && !isCompleted && "bg-muted text-muted-foreground",
+                  !isCurrent &&
+                    !isCompleted &&
+                    "bg-muted text-muted-foreground",
                 )}
               >
                 <Icon className="h-3.5 w-3.5" />
@@ -520,12 +535,18 @@ function StepperProgress({ steps, currentStep }: StepperProgressProps) {
 // Estructura organizada en cards con headers (patrón LiquidacionFormBodyBase).
 
 /** Custom card wrapper: rounded-xl border bg-card con header visual. */
-const SectionCard: FC<SectionWrapperProps> = ({ children, title, icon: Icon }) => (
+const SectionCard: FC<SectionWrapperProps> = ({
+  children,
+  title,
+  icon: Icon,
+}) => (
   <div className="rounded-xl border border-border/50 bg-card p-4 space-y-4">
     {title && (
       <div className="flex items-center gap-2 border-b border-border/40 pb-2">
         {Icon && <Icon className="h-4 w-4 text-primary" />}
-        <h3 className="text-sm font-semibold uppercase tracking-wide">{title}</h3>
+        <h3 className="text-sm font-semibold uppercase tracking-wide">
+          {title}
+        </h3>
       </div>
     )}
     <div className="grid grid-cols-1 gap-4">{children}</div>
@@ -601,10 +622,9 @@ const CONTACTO_FIELDS: FormField[] = [
 // ── Datos del Documento ───────────────────────────────────────────────────────
 const DOCUMENTO_FIELDS: FormField[] = [
   {
-    name: "tipo_documento",
+    name: "tipo_documento_id",
     label: "Tipo de Documento",
-    type: "select",
-    options: TIPO_DOCUMENTO_OPTIONS,
+    type: "select-tipo-documento",
     required: true,
     containerClassName: "md:col-span-6",
   },

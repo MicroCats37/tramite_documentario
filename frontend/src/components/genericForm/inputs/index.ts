@@ -14,6 +14,7 @@ export { InputNumber } from "./InputNumber";
 export { InputRadio } from "./InputRadio";
 export { InputSearchableSelect } from "./InputSearchableSelect";
 export { InputSelectArea } from "./InputSelectArea";
+export { InputSelectTipoDocumento } from "./InputSelectTipoDocumento";
 export { InputSelect } from "./InputSelect";
 export { InputText } from "./InputText";
 export { InputTextarea } from "./InputTextarea";

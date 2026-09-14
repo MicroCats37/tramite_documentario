@@ -11,6 +11,12 @@ from django.http import HttpRequest
 from .utils import format_errors
 from .responses import error_response
 
+# Late import to avoid circular dependency with notificaciones app
+# (notificaciones.domain.exceptions does NOT import from core.exceptions)
+from modules.notificaciones.domain.exceptions import (
+    NotificacionEventoNoRegistradoError,
+)
+
 # Configuración del logger para errores internos inesperados
 logger = logging.getLogger(__name__)
 
@@ -166,6 +172,19 @@ def register_exception_handlers(api):
             message=str(exc),
             details={"non_field_errors": str(exc)},
             status=401,
+        )
+        return api.create_response(request, body, status=status)
+
+    @api.exception_handler(NotificacionEventoNoRegistradoError)
+    def on_notificacion_evento_no_registrado(
+        request: HttpRequest, exc: NotificacionEventoNoRegistradoError
+    ):
+        """Maneja eventos de notificación no registrados (400)."""
+        body, status = error_response(
+            code="BUSINESS_ERROR",
+            message=str(exc),
+            details={"non_field_errors": str(exc)},
+            status=400,
         )
         return api.create_response(request, body, status=status)
 

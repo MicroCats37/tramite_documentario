@@ -20,7 +20,7 @@ from ninja_extra.testing import TestClient
 from ninja_jwt.tokens import AccessToken
 from config.api import api
 
-from modules.tramites.domain.models import Expediente, Solicitud, SolicitudEstadoHistorial
+from modules.tramites.domain.models import Expediente, Solicitud, SolicitudEstadoHistorial, TipoDocumento
 from modules.tramites.domain.constants import EstadoSolicitud
 from modules.asignaciones.domain.models import (
     SolicitudAsignacion,
@@ -68,6 +68,13 @@ def _make_auth_client(user):
 
 def _crear_expediente_simple(usuario, numero, **kwargs):
     """Create an Expediente row directly."""
+    # Resolve tipo_documento: accept either a TipoDocumento instance or a string (nombre).
+    tipo_doc_value = kwargs.pop("tipo_documento", "SOLICITUD")
+    if isinstance(tipo_doc_value, str):
+        tipo_documento = TipoDocumento.objects.get(nombre=tipo_doc_value)
+    else:
+        tipo_documento = tipo_doc_value
+
     defaults = dict(
         numero=numero,
         tipo_persona="NATURAL",
@@ -76,7 +83,7 @@ def _crear_expediente_simple(usuario, numero, **kwargs):
         apellidos="Perez",
         correo="juan@test.com",
         telefono="999888777",
-        tipo_documento="SOLICITUD",
+        tipo_documento=tipo_documento,
         numero_documento=f"DOC-SOL-{numero:03d}",
         numero_folios=5,
         asunto=f"Trámite de prueba {numero}",
@@ -475,3 +482,49 @@ def test_estado_operativo_no_vencida(usuario_solicitud, area_sol_1):
 
     data = response.json()["data"]
     assert data["vencida"] is False
+
+
+# ── Conversation in detail tests ─────────────────────────────────────────────
+
+
+@pytest.mark.django_db
+def test_detalle_solicitud_incluye_conversacion(usuario_solicitud, area_sol_1):
+    """
+    GIVEN:  one solicitud created via the API (which creates a conversation)
+    WHEN:   GET /solicitudes/{id} is called
+    THEN:   response includes conversacion object with id, titulo, estado, fecha_inicio
+    """
+    from modules.conversaciones.domain.models import SolicitudConversacion, Conversacion
+    # Create via API to trigger conversation creation
+    exp = _crear_expediente_simple(usuario_solicitud, numero=200, asunto="Trámite con conversación")
+    sol = _crear_solicitud_simple(exp, usuario_solicitud, estado="EN_GESTION")
+
+    # Manually create the conversation (since _crear_solicitud_simple bypasses the flow)
+    # Note: Conversacion has no estado field - it's computed from fecha_cierre
+    conversacion = Conversacion.objects.create(
+        titulo=f"Conversación - {exp.id_publico}",
+        creada_por=usuario_solicitud,
+        fecha_inicio=datetime.now(),
+        # fecha_cierre=None means ABIERTA
+    )
+    SolicitudConversacion.objects.create(
+        solicitud=sol,
+        conversacion=conversacion,
+    )
+
+    client = _make_auth_client(usuario_solicitud)
+    response = client.get(f"/solicitudes/{sol.id}")
+
+    assert response.status_code == 200, (
+        f"Expected 200, got {response.status_code}: {response.content}"
+    )
+
+    data = response.json()["data"]
+    assert "conversacion" in data, "conversacion field should be present"
+    assert data["conversacion"] is not None, "conversacion should not be None"
+    assert "id" in data["conversacion"]
+    assert data["conversacion"]["titulo"] == f"Conversación - {exp.id_publico}"
+    assert data["conversacion"]["estado"] == "ABIERTA", (
+        f"Expected ABIERTA, got {data['conversacion']['estado']}"
+    )
+    assert "fecha_inicio" in data["conversacion"]

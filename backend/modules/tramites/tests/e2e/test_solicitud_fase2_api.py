@@ -34,6 +34,7 @@ from modules.tramites.domain.models import (
     ExpedienteAntecedente,
     Solicitud,
     SolicitudEstadoHistorial,
+    TipoDocumento,
 )
 from modules.asignaciones.domain.models import (
     SolicitudAsignacion,
@@ -90,13 +91,25 @@ def pdf_file_anexo():
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
 
+class AuthTestClient(TestClient):
+    """TestClient that sends the same Bearer JWT contract used by production."""
+
+    def __init__(self, user, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._auth_user = user
+        self._access_token = str(AccessToken.for_user(user))
+
+    def request(self, method, path, data=None, json=None, **request_params):
+        headers = dict(getattr(self, "headers", {}))
+        headers.update(request_params.pop("headers", {}))
+        headers.setdefault("Authorization", f"Bearer {self._access_token}")
+        request_params["headers"] = headers
+        return super().request(method, path, data, json, **request_params)
+
+
 def _make_auth_client(user):
-    """Create a ninja_extra TestClient with JWT auth for the given user."""
-    client = TestClient(api)
-    token = AccessToken.for_user(user)
-    client.headers.update({"Authorization": f"Bearer {token}"})
-    client.user = user
-    return client
+    """Create a ninja_extra TestClient with auth for the given user."""
+    return AuthTestClient(user=user, router_or_app=api)
 
 
 def _build_solicitud_hibrida_payload(
@@ -105,22 +118,48 @@ def _build_solicitud_hibrida_payload(
     areas_distribucion: list = None,
     antecedentes: list = None,
 ) -> dict:
-    """Build a SolicitudHibridaCreateIn payload dict for FormData."""
+    """
+    Build a SolicitudHibridaCreateIn payload dict for FormData.
+
+    If expediente_data contains tipo_documento_id as a TipoDocumento instance
+    (instead of a UUID string), it is converted to str(id).
+    """
     if areas_distribucion is None:
         areas_distribucion = []
     if antecedentes is None:
         antecedentes = []
+
+    exp = expediente_data.copy()
+    # Normalize tipo_documento_id: if it's a TipoDocumento instance, use its id.
+    td_id = exp.get("tipo_documento_id")
+    if td_id is not None:
+        from modules.tramites.domain.models import TipoDocumento
+        if isinstance(td_id, TipoDocumento):
+            exp["tipo_documento_id"] = str(td_id.id)
+    elif exp.get("tipo_documento") is not None:
+        # Legacy: convert string nombre to UUID via DB lookup.
+        from modules.tramites.domain.models import TipoDocumento
+        td_nombre = exp.pop("tipo_documento")
+        exp["tipo_documento_id"] = str(TipoDocumento.objects.get(nombre=td_nombre).id)
+
     return {
         "prioridad": "MEDIA",
         "observacion": None,
         "areas_distribucion": areas_distribucion,
         "antecedentes": antecedentes,
-        "expediente": expediente_data,
+        "expediente": exp,
     }
 
 
 def _crear_expediente_directo(usuario, numero, **kwargs):
     """Create an Expediente row directly for /crear tests."""
+    # Resolve tipo_documento: accept either a TipoDocumento instance or a string (nombre).
+    tipo_doc_value = kwargs.pop("tipo_documento", "SOLICITUD")
+    if isinstance(tipo_doc_value, str):
+        tipo_documento = TipoDocumento.objects.get(nombre=tipo_doc_value)
+    else:
+        tipo_documento = tipo_doc_value
+
     defaults = dict(
         numero=numero,
         tipo_persona="NATURAL",
@@ -129,7 +168,7 @@ def _crear_expediente_directo(usuario, numero, **kwargs):
         apellidos="Perez",
         correo="juan@test.com",
         telefono="999888777",
-        tipo_documento="SOLICITUD",
+        tipo_documento=tipo_documento,
         numero_documento=f"DOC-2026-{numero:03d}",
         numero_folios=5,
         asunto="Trámite de prueba",
@@ -700,3 +739,131 @@ def test_presenter_incluye_asignaciones(usuario_creador_sol, area_test, pdf_file
     assert len(data["areas_activas"]) == 1
     assert data["areas_activas"][0]["area_id"] == str(area_test.id)
     assert data["areas_activas"][0]["area_nombre"] == area_test.nombre
+
+
+# ── Conversation creation tests ─────────────────────────────────────────────────
+
+@pytest.mark.django_db
+def test_crear_solicitud_crea_conversacion_vinculada(usuario_creador_sol, area_test):
+    """
+    GIVEN:  an existing Expediente
+    WHEN:   POST /solicitudes/crear is called (solicitud-only flow)
+    THEN:   a SolicitudConversacion bridge is created
+            AND a Conversacion record exists
+            AND the bridge links the solicitud to the conversation
+    """
+    from modules.conversaciones.domain.models import SolicitudConversacion, Conversacion
+
+    expediente = _crear_expediente_directo(
+        usuario_creador_sol,
+        numero=100,
+        asunto="Trámite con conversación",
+    )
+
+    payload = {
+        "expediente_id": str(expediente.id),
+        "prioridad": "MEDIA",
+        "observacion": None,
+        "areas_distribucion": [
+            {
+                "area_id": str(area_test.id),
+                "tipo_participacion": "PRINCIPAL",
+                "observacion": None,
+            }
+        ],
+    }
+
+    client = _make_auth_client(usuario_creador_sol)
+    response = client.post(
+        "/solicitudes/crear",
+        json=payload,
+    )
+
+    assert response.status_code == 200, (
+        f"Expected 200, got {response.status_code}: {response.content}"
+    )
+
+    data = response.json()["data"]
+    solicitud_id = data["id"]
+
+    # Verify bridge was created
+    bridge = SolicitudConversacion.objects.filter(solicitud_id=solicitud_id).first()
+    assert bridge is not None, "SolicitudConversacion bridge should exist"
+
+    # Verify Conversacion was created
+    conversacion = bridge.conversacion
+    assert conversacion is not None, "Conversacion should exist"
+    assert conversacion.titulo == f"Conversación - {expediente.id_publico}"
+    assert conversacion.fecha_cierre is None, "New conversation should be open"
+    assert conversacion.creada_por_id == usuario_creador_sol.id
+
+
+@pytest.mark.django_db
+def test_crear_solicitud_hibrida_crea_conversacion_vinculada(usuario_creador_sol, area_test, pdf_file_principal):
+    """
+    GIVEN:  a valid SolicitudHibridaCreateIn payload
+    WHEN:   POST /solicitudes/crear-completo is called (hybrid flow)
+    THEN:   a SolicitudConversacion bridge is created
+            AND a Conversacion record exists
+    """
+    from modules.conversaciones.domain.models import SolicitudConversacion, Conversacion
+
+    payload = _build_solicitud_hibrida_payload(
+        expediente_data={
+            "tipo_persona": "NATURAL",
+            "dni": "11223344",
+            "nombres": "Rosa",
+            "apellidos": "Morales",
+            "correo": "rosa@test.com",
+            "telefono": "988776611",
+            "tipo_documento": "SOLICITUD",
+            "numero_documento": "DOC-CONV-001",
+            "numero_folios": 3,
+            "asunto": "Trámite híbrido con conversación",
+            "archivos": {
+                "principal": [
+                    {
+                        "tipo_archivo": "PRINCIPAL",
+                        "nombre_original": "documento.pdf",
+                        "descripcion": "Documento principal",
+                        "archivo": "token_principal_pdf",
+                    }
+                ],
+                "anexo": [],
+            },
+        },
+        areas_distribucion=[
+            {
+                "area_id": str(area_test.id),
+                "tipo_participacion": "PRINCIPAL",
+                "observacion": None,
+            }
+        ],
+    )
+
+    with patch(
+        "django.core.files.storage.FileSystemStorage.save",
+        return_value="expedientes/archivos/dummy.pdf",
+    ):
+        client = _make_auth_client(usuario_creador_sol)
+        response = client.post(
+            "/solicitudes/crear-completo",
+            data={"data": json.dumps(payload), "files": pdf_file_principal},
+        )
+
+    assert response.status_code == 200, (
+        f"Expected 200, got {response.status_code}: {response.content}"
+    )
+
+    data = response.json()["data"]
+    solicitud_id = data["id"]
+
+    # Verify bridge was created
+    bridge = SolicitudConversacion.objects.filter(solicitud_id=solicitud_id).first()
+    assert bridge is not None, "SolicitudConversacion bridge should exist"
+
+    # Verify Conversacion was created
+    conversacion = bridge.conversacion
+    assert conversacion is not None, "Conversacion should exist"
+    assert conversacion.fecha_cierre is None, "New conversation should be open"
+

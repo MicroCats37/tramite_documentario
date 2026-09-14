@@ -17,6 +17,11 @@ import {
   SolicitudDetailResponseSchema,
   SolicitudListResponseSchema,
 } from "../schemas/tramite.schema";
+import type {
+  SolicitudTrazabilidad,
+  SolicitudTrazabilidadResponse,
+} from "../schemas/trazabilidad.schema";
+import { SolicitudTrazabilidadResponseSchema } from "../schemas/trazabilidad.schema";
 
 // ── Solicitudes hooks (paginated) ──────────────────────────────────────────
 
@@ -136,6 +141,27 @@ export function useExpedienteDetail(id: string | null) {
     queryKey: ["expedientes", "detail", id],
     url: id ? `/expedientes/${id}` : null,
     schema: ExpedienteDetailResponseSchema,
+    queryOptions: {
+      select: (response) => response.data,
+    },
+  });
+}
+
+// ── Solicitud trazabilidad ────────────────────────────────────────────────────
+
+/**
+ * Hook to fetch the complete operative traceability graph for a Solicitud.
+ * Query is disabled when id is null — standard TanStack Query v5 pattern.
+ * Exposes standard loading/error/refetch behavior via useApiQuery.
+ */
+export function useSolicitudTrazabilidad(id: string | null) {
+  return useApiQuery<
+    SolicitudTrazabilidadResponse,
+    SolicitudTrazabilidad | null
+  >({
+    queryKey: ["solicitudes", "trazabilidad", id],
+    url: id ? `/solicitudes/${id}/trazabilidad` : null,
+    schema: SolicitudTrazabilidadResponseSchema,
     queryOptions: {
       select: (response) => response.data,
     },

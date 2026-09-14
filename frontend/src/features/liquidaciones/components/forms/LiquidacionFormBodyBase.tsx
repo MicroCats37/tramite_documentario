@@ -20,7 +20,15 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { GenericInput } from "@/components/genericForm/GenericInput";
 import { useMunicipalidades } from "../../hooks/useMunicipalidades";
 import { useDistritos } from "../../hooks/useDistritos";
-import { Building2, FileText, MapPin, Phone, Plus, Trash2, User } from "lucide-react";
+import {
+  Building2,
+  FileText,
+  MapPin,
+  Phone,
+  Plus,
+  Trash2,
+  User,
+} from "lucide-react";
 import type { ContactoInline } from "../../schemas/liquidacion-form-base.schema";
 import { EntidadLookupField } from "./EntidadLookupSmartField";
 import { ReactNode } from "react";
@@ -28,20 +36,41 @@ import { ReactNode } from "react";
 // ── Generic fields (useController pattern) ──────────────────────────────
 
 function ExpedienteField({ control }: { control: Control<any> }) {
-  const { field, fieldState } = useController({ name: "expediente", control, defaultValue: "" });
+  const { field, fieldState } = useController({
+    name: "expediente",
+    control,
+    defaultValue: "",
+  });
   return (
     <div className="space-y-2">
-      <Label htmlFor="expediente">Expediente <span className="text-destructive">*</span></Label>
+      <Label htmlFor="expediente">
+        Expediente <span className="text-destructive">*</span>
+      </Label>
       <div className="relative">
         <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input id="expediente" placeholder="Número de expediente" className="pl-10 w-full" {...field} />
+        <Input
+          id="expediente"
+          placeholder="Número de expediente"
+          className="pl-10 w-full"
+          {...field}
+        />
       </div>
-      {fieldState.error && <p className="text-xs text-destructive">{fieldState.error.message}</p>}
+      {fieldState.error && (
+        <p className="text-xs text-destructive">{fieldState.error.message}</p>
+      )}
     </div>
   );
 }
 
-function MunicipalidadField({ register, control, errors }: { register: any; control: any; errors: FieldErrors<any> }) {
+function MunicipalidadField({
+  register,
+  control,
+  errors,
+}: {
+  register: any;
+  control: any;
+  errors: FieldErrors<any>;
+}) {
   const { data: municipalidades, isLoading } = useMunicipalidades();
   return (
     <GenericInput
@@ -66,17 +95,30 @@ function MunicipalidadField({ register, control, errors }: { register: any; cont
 }
 
 function ObservacionField({ control }: { control: Control<any> }) {
-  const { field } = useController({ name: "observacion", control, defaultValue: "" });
+  const { field } = useController({
+    name: "observacion",
+    control,
+    defaultValue: "",
+  });
   return (
     <div className="space-y-2">
       <Label htmlFor="observacion">Observación</Label>
-      <Textarea id="observacion" placeholder="Observaciones adicionales (opcional)" rows={2} {...field} />
+      <Textarea
+        id="observacion"
+        placeholder="Observaciones adicionales (opcional)"
+        rows={2}
+        {...field}
+      />
     </div>
   );
 }
 
 function RetencionField({ control }: { control: Control<any> }) {
-  const { field } = useController({ name: "retencion", control, defaultValue: false });
+  const { field } = useController({
+    name: "retencion",
+    control,
+    defaultValue: false,
+  });
   return (
     <div className="flex items-center gap-3 rounded-lg border border-border/60 bg-background px-3 py-2.5">
       <Checkbox
@@ -92,44 +134,89 @@ function RetencionField({ control }: { control: Control<any> }) {
 }
 
 function DenominacionField({ control }: { control: Control<any> }) {
-  const { field, fieldState } = useController({ name: "denominacion", control, defaultValue: "" });
+  const { field, fieldState } = useController({
+    name: "denominacion",
+    control,
+    defaultValue: "",
+  });
   return (
     <div className="space-y-2">
-      <Label htmlFor="denominacion">Denominación <span className="text-destructive">*</span></Label>
+      <Label htmlFor="denominacion">
+        Denominación <span className="text-destructive">*</span>
+      </Label>
       <div className="relative">
         <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input id="denominacion" placeholder="Nombre del proyecto" className="pl-10 w-full" {...field} />
+        <Input
+          id="denominacion"
+          placeholder="Nombre del proyecto"
+          className="pl-10 w-full"
+          {...field}
+        />
       </div>
-      {fieldState.error && <p className="text-xs text-destructive">{fieldState.error.message}</p>}
+      {fieldState.error && (
+        <p className="text-xs text-destructive">{fieldState.error.message}</p>
+      )}
     </div>
   );
 }
 
 function NombrePropietarioInline({ control }: { control: Control<any> }) {
-  const { field } = useController({ name: "nombre_propietario", control, defaultValue: "" });
+  const { field } = useController({
+    name: "nombre_propietario",
+    control,
+    defaultValue: "",
+  });
   return (
     <div className="space-y-2">
-      <Label htmlFor="nombre_propietario">Propietario <span className="text-destructive">*</span></Label>
-      <Input id="nombre_propietario" placeholder="Nombre del propietario" className="w-full" {...field} />
+      <Label htmlFor="nombre_propietario">
+        Propietario <span className="text-destructive">*</span>
+      </Label>
+      <Input
+        id="nombre_propietario"
+        placeholder="Nombre del propietario"
+        className="w-full"
+        {...field}
+      />
     </div>
   );
 }
 
 function DireccionField({ control }: { control: Control<any> }) {
-  const { field, fieldState } = useController({ name: "direccion", control, defaultValue: "" });
+  const { field, fieldState } = useController({
+    name: "direccion",
+    control,
+    defaultValue: "",
+  });
   return (
     <div className="space-y-2">
-      <Label htmlFor="direccion">Dirección <span className="text-destructive">*</span></Label>
+      <Label htmlFor="direccion">
+        Dirección <span className="text-destructive">*</span>
+      </Label>
       <div className="relative">
         <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input id="direccion" placeholder="Dirección del proyecto" className="pl-10 w-full" {...field} />
+        <Input
+          id="direccion"
+          placeholder="Dirección del proyecto"
+          className="pl-10 w-full"
+          {...field}
+        />
       </div>
-      {fieldState.error && <p className="text-xs text-destructive">{fieldState.error.message}</p>}
+      {fieldState.error && (
+        <p className="text-xs text-destructive">{fieldState.error.message}</p>
+      )}
     </div>
   );
 }
 
-function DistritoField({ register, control, errors }: { register: any; control: any; errors: FieldErrors<any> }) {
+function DistritoField({
+  register,
+  control,
+  errors,
+}: {
+  register: any;
+  control: any;
+  errors: FieldErrors<any>;
+}) {
   const { data: distritos, isLoading } = useDistritos();
   return (
     <GenericInput
@@ -176,7 +263,10 @@ export function LiquidacionFormBodyBase({
   tramiteField,
   motorSection,
 }: LiquidacionFormBodyBaseProps) {
-  const { formState: { errors }, register } = methods;
+  const {
+    formState: { errors },
+    register,
+  } = methods;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -186,10 +276,16 @@ export function LiquidacionFormBodyBase({
         <div className="rounded-xl border border-border/50 bg-card p-4 space-y-4">
           <div className="flex items-center gap-2 border-b border-border/40 pb-2">
             <FileText className="h-4 w-4 text-primary" />
-            <h3 className="text-sm font-semibold uppercase tracking-wide">Datos del Trámite</h3>
+            <h3 className="text-sm font-semibold uppercase tracking-wide">
+              Datos del Trámite
+            </h3>
           </div>
           <div className="flex flex-col gap-4">
-            <MunicipalidadField register={register} control={control} errors={errors} />
+            <MunicipalidadField
+              register={register}
+              control={control}
+              errors={errors}
+            />
             <div className="grid grid-cols-1 gap-4">
               <ExpedienteField control={control} />
               {tramiteField}
@@ -208,20 +304,24 @@ export function LiquidacionFormBodyBase({
         <div className="rounded-xl border border-border/50 bg-card p-4 space-y-4">
           <div className="flex items-center gap-2 border-b border-border/40 pb-2">
             <FileText className="h-4 w-4 text-primary" />
-            <h3 className="text-sm font-semibold uppercase tracking-wide">Datos del Proyecto</h3>
+            <h3 className="text-sm font-semibold uppercase tracking-wide">
+              Datos del Proyecto
+            </h3>
           </div>
 
           <EntidadLookupField
             control={control as never}
             errors={errors}
-            razonSocialSideSlot={
-              <NombrePropietarioInline control={control} />
-            }
+            razonSocialSideSlot={<NombrePropietarioInline control={control} />}
           />
 
           <div className="grid grid-cols-1 gap-4">
             <DenominacionField control={control} />
-            <DistritoField register={register} control={control} errors={errors} />
+            <DistritoField
+              register={register}
+              control={control}
+              errors={errors}
+            />
             <div className="sm:col-span-2">
               <DireccionField control={control} />
             </div>
@@ -260,7 +360,9 @@ export function LiquidacionFormBodyBase({
                     {contacto.nombres} {contacto.apellidos}
                   </p>
                   <p className="text-xs text-muted-foreground truncate">
-                    {[contacto.cargo, contacto.email, contacto.celular].filter(Boolean).join(" · ") || "Sin datos"}
+                    {[contacto.cargo, contacto.email, contacto.celular]
+                      .filter(Boolean)
+                      .join(" · ") || "Sin datos"}
                   </p>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">

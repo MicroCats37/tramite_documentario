@@ -27,13 +27,20 @@ from modules.tramites.domain.services.core.solicitud_core_service import (
 from modules.asignaciones.domain.services.core.asignacion_core_service import (
     AsignacionCoreService,
 )
-from modules.asignaciones.domain.models.notificacion import Notificacion
-from modules.asignaciones.domain.constants import (
-    TipoNotificacion,
-    EstadoNotificacion,
-    EstadoPeriodo,
+from modules.asignaciones.domain.constants import EstadoPeriodo
+from modules.notificaciones.domain.constants import (
+    AmbitoNotificacion,
+    EventoNotificacion,
+    PrioridadNotificacion,
 )
+from modules.notificaciones.domain.models import Notificacion
 from modules.usuarios.domain.models import Area
+from modules.conversaciones.domain.services.flujos.conversacion_flujo import (
+    ConversacionFlujo,
+)
+from modules.conversaciones.domain.schemas.conversacion_schemas import (
+    ConversacionCreateData,
+)
 
 
 class SolicitudCreacionFlujo:
@@ -57,10 +64,12 @@ class SolicitudCreacionFlujo:
         solicitud_core: SolicitudCoreService,
         asignacion_core: "AsignacionCoreService",
         expediente_flujo: ExpedienteCreacionFlujo,
+        conversacion_flujo: "ConversacionFlujo",
     ):
         self.solicitud_core = solicitud_core
         self.asignacion_core = asignacion_core
         self.expediente_flujo = expediente_flujo
+        self.conversacion_flujo = conversacion_flujo
 
     async def _proceso_crear_solicitud(
         self,
@@ -192,6 +201,13 @@ class SolicitudCreacionFlujo:
                 fecha_evento=ahora,
             )
 
+        # Crear conversación vinculada a la solicitud
+        self._crear_conversacion_vinculada(
+            solicitud=solicitud,
+            usuario_id=usuario_id,
+            ahora=ahora,
+        )
+
         return solicitud
 
     async def _proceso_crear_hibrido(
@@ -306,7 +322,14 @@ class SolicitudCreacionFlujo:
                 observaciones=ant_data.observaciones,
             )
 
-        # g) Retornar la Solicitud
+        # g) Crear conversación vinculada a la solicitud
+        self._crear_conversacion_vinculada(
+            solicitud=solicitud,
+            usuario_id=usuario_id,
+            ahora=ahora,
+        )
+
+        # h) Retornar la Solicitud
         return solicitud
 
     def _crear_notificacion_nueva_asignacion(
@@ -321,7 +344,13 @@ class SolicitudCreacionFlujo:
         """
         Crea una notificación de nueva asignación para el área.
 
-        También materializa NotificacionUsuario para cada usuario activo del área.
+        Delega en NotificacionService.crear_notificacion_area(...) que crea:
+        - Notificacion (el evento central)
+        - NotificacionArea (contexto de audiencia)
+        - NotificacionSolicitud (contexto de solicitud, si se provee)
+        - NotificacionAsignacion (contexto de asignación, si se provee)
+        - NotificacionPeriodo (contexto de período, si se provee)
+        - NotificacionUsuario para cada usuario elegible del área
 
         Args:
             area: Instancia de Area.
@@ -334,33 +363,31 @@ class SolicitudCreacionFlujo:
         Returns:
             Instancia de Notificacion creada.
         """
-        from modules.asignaciones.domain.models.notificacion import NotificacionUsuario
+        # Importación local para evitar circular imports
+        from modules.notificaciones.domain.services.core.notificacion_service import (
+            NotificacionService,
+        )
 
-        notificacion = Notificacion.objects.create(
+        titulo = f"Nueva asignación - Expediente {solicitud.expediente.id_publico}"
+        mensaje = (
+            f"Se le ha asignado el expediente {solicitud.expediente.id_publico} "
+            "para su atención."
+        )
+
+        service = NotificacionService()
+        notificacion = service.crear_notificacion_area(
             area=area,
-            tipo=TipoNotificacion.NUEVA_ASIGNACION,
+            titulo=titulo,
+            mensaje=mensaje,
+            ambito=AmbitoNotificacion.SOLICITUD,
+            evento=EventoNotificacion.ASIGNACION_CREADA,
+            prioridad=PrioridadNotificacion.NORMAL,
+            generada_por_id=generado_por_id,
+            ocurrido_en=fecha_evento,
             solicitud=solicitud,
             asignacion=asignacion,
             periodo=periodo,
-            titulo=f"Nueva asignación - Expediente {solicitud.expediente.id_publico}",
-            mensaje=f"Se le ha asignado el expediente {solicitud.expediente.id_publico} para su atención.",
-            generada_por_id=generado_por_id,
-            fecha_evento=fecha_evento,
-            estado=EstadoNotificacion.PENDIENTE,
         )
-
-        # Materializar NotificacionUsuario para cada usuario con asignación vigente al área.
-        User = get_user_model()
-        usuarios_area = User.objects.filter(
-            asignaciones__area=area,
-            asignaciones__periodo_fin__isnull=True,
-            is_active=True,
-        ).distinct()
-        for usuario in usuarios_area:
-            NotificacionUsuario.objects.create(
-                notificacion=notificacion,
-                usuario=usuario,
-            )
 
         return notificacion
 
@@ -401,6 +428,41 @@ class SolicitudCreacionFlujo:
             antecedente=antecedente,
             categoria=categoria,
             observaciones=observaciones,
+        )
+
+    def _crear_conversacion_vinculada(
+        self,
+        solicitud: "Solicitud",
+        usuario_id: int,
+        ahora: datetime,
+    ) -> None:
+        """
+        Crea una Conversacion vinculada a la Solicitud y el puente SolicitudConversacion.
+
+        Se llama al final de _creacion_atomica y _creacion_hibrida_atomica, dentro
+        del mismo transaction.atomic() que creó la solicitud, por lo que usa
+        _crear_conversacion_atomica directamente (no el wrapper async) para evitar
+        problemas de threading.
+
+        El título de la conversación se construye con el id_publico del expediente
+        asociado a la solicitud.
+
+        Args:
+            solicitud: Instancia de Solicitud recién creada.
+            usuario_id: ID del usuario que crea la solicitud.
+            ahora: Fecha/hora actual (recibida del caller para reuse).
+        """
+        titulo = f"Conversación - {solicitud.expediente.id_publico}"
+        conv_data = ConversacionCreateData(
+            titulo=titulo,
+            creada_por_id=usuario_id,
+            fecha_inicio=ahora,
+        )
+        # Se llama directamente la versión atómica sync (ya estamos en un
+        # transaction.atomic), así Django anida la transacción correctamente.
+        self.conversacion_flujo._crear_conversacion_atomica(
+            data=conv_data,
+            solicitud_id=solicitud.pk,
         )
 
 

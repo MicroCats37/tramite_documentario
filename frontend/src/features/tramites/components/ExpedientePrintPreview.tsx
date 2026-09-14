@@ -6,10 +6,31 @@
  */
 "use client";
 
-import { Building2, Calendar, FileText, Mail, Paperclip, Phone, User } from "lucide-react";
+import {
+  Building2,
+  Calendar,
+  FileText,
+  Mail,
+  Paperclip,
+  Phone,
+  User,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { TIPO_PERSONA, type TipoPersona } from "@/shared/constants/tramite.tokens";
+import {
+  TIPO_PERSONA,
+  type TipoPersona,
+} from "@/shared/constants/tramite.tokens";
 import type { ExpedienteItem } from "../schemas/tramite.schema";
+
+/** Safe accessor for tipo_documento which may be a string or {id,nombre,descripcion} object. */
+function getTipoDocumentoLabel(td: unknown): string {
+  if (!td) return "—";
+  if (typeof td === "object" && "nombre" in (td as object)) {
+    return (td as { nombre: string }).nombre;
+  }
+  if (typeof td === "string") return td;
+  return "—";
+}
 
 interface ExpedientePrintPreviewProps {
   item: ExpedienteItem;
@@ -69,12 +90,13 @@ export function ExpedientePrintPreview({ item }: ExpedientePrintPreviewProps) {
     "—";
   const documentoIdentidad = item.dni || item.ruc || item.cip || "—";
 
-  const principalArchivos = item.archivos.filter((a) => a.tipo_archivo === "PRINCIPAL");
+  const principalArchivos = item.archivos.filter(
+    (a) => a.tipo_archivo === "PRINCIPAL",
+  );
   const anexoArchivos = item.archivos.filter((a) => a.tipo_archivo === "ANEXO");
 
   return (
     <div className="space-y-4">
-
       {/* ── Modal header: icon left, big ID/title, doc type badge, registration line; right: persona badge ── */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3">
@@ -87,7 +109,7 @@ export function ExpedientePrintPreview({ item }: ExpedientePrintPreviewProps) {
                 {item.id_publico}
               </span>
               <Badge variant="outline" className="text-[10px] font-bold">
-                {item.tipo_documento}
+                {getTipoDocumentoLabel(item.tipo_documento)}
               </Badge>
               <Badge className={tipoToken.badgeClass} variant="secondary">
                 {tipoToken.label}
@@ -118,7 +140,6 @@ export function ExpedientePrintPreview({ item }: ExpedientePrintPreviewProps) {
 
       {/* ── Two-column body ── */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.05fr_0.95fr]">
-
         {/* LEFT column */}
         <div className="space-y-4">
           {/* Persona / Entidad */}
@@ -129,21 +150,29 @@ export function ExpedientePrintPreview({ item }: ExpedientePrintPreviewProps) {
             <FieldRow label="Nombre" value={nombreCompleto} />
             <FieldRow label="Documento" value={documentoIdentidad} mono />
             <FieldRow label="Tipo" value={item.tipo_persona} />
-            {item.telefono && <FieldRow label="Teléfono" value={item.telefono} />}
+            {item.telefono && (
+              <FieldRow label="Teléfono" value={item.telefono} />
+            )}
             {item.correo && <FieldRow label="Correo" value={item.correo} />}
           </SectionCard>
 
           {/* Documento */}
           <SectionCard title="Documento" icon={FileText}>
-            <FieldRow label="Tipo" value={item.tipo_documento} />
-            <FieldRow label="Número" value={item.numero_documento || "—"} mono />
+            <FieldRow label="Tipo" value={getTipoDocumentoLabel(item.tipo_documento)} />
+            <FieldRow
+              label="Número"
+              value={item.numero_documento || "—"}
+              mono
+            />
             <FieldRow label="Folios" value={item.numero_folios} />
           </SectionCard>
 
           {/* Observaciones */}
           {item.observaciones && (
             <SectionCard title="Observaciones">
-              <p className="text-xs text-foreground whitespace-pre-wrap">{item.observaciones}</p>
+              <p className="text-xs text-foreground whitespace-pre-wrap">
+                {item.observaciones}
+              </p>
             </SectionCard>
           )}
         </div>
@@ -153,7 +182,9 @@ export function ExpedientePrintPreview({ item }: ExpedientePrintPreviewProps) {
           {/* Archivos */}
           <SectionCard title="Archivos" icon={Paperclip}>
             {item.archivos.length === 0 ? (
-              <span className="text-xs text-muted-foreground italic">Sin archivos</span>
+              <span className="text-xs text-muted-foreground italic">
+                Sin archivos
+              </span>
             ) : (
               <div className="space-y-2">
                 {principalArchivos.length > 0 && (
@@ -174,7 +205,13 @@ export function ExpedientePrintPreview({ item }: ExpedientePrintPreviewProps) {
                   </div>
                 )}
                 {anexoArchivos.length > 0 && (
-                  <div className={principalArchivos.length > 0 ? "pt-2 border-t border-border/60" : ""}>
+                  <div
+                    className={
+                      principalArchivos.length > 0
+                        ? "pt-2 border-t border-border/60"
+                        : ""
+                    }
+                  >
                     <p className="text-[9px] font-black uppercase tracking-wide text-muted-foreground mb-1">
                       Anexo{anexoArchivos.length !== 1 ? "s" : ""}
                     </p>

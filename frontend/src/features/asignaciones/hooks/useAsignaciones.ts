@@ -8,11 +8,20 @@ import {
   deleteAsignacion,
   getPeriodosBandeja,
   tomarPeriodo,
+  incorporarArea,
+  iniciarGestionPeriodo,
+  finalizarPeriodo,
+  marcarAsignacionErronea,
+  cambiarParticipacionPeriodo,
 } from "../services/asignacion.service";
 import { useApiQuery } from "@/hooks/callsApi/useApiQuery";
 import { usePagination } from "@/hooks/system/usePagination";
 import type {
   BandejaResponse,
+  CambiarParticipacionData,
+  FinalizarPeriodoData,
+  IncorporarAreaData,
+  MarcarAsignacionErroneaData,
   PeriodoItem,
   CreateAsignacionData,
   UpdateAsignacionData,
@@ -67,7 +76,9 @@ export function useUpdateAsignacion() {
       updateAsignacion(id, data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["asignaciones"] });
-      queryClient.invalidateQueries({ queryKey: ["asignaciones", variables.id] });
+      queryClient.invalidateQueries({
+        queryKey: ["asignaciones", variables.id],
+      });
     },
   });
 }
@@ -153,6 +164,154 @@ export function useTomarPeriodo() {
       // Invalidate bandeja and related queries
       queryClient.invalidateQueries({ queryKey: ["periodos", "bandeja"] });
       queryClient.invalidateQueries({ queryKey: ["solicitudes"] });
+    },
+  });
+}
+
+/**
+ * Mutation hook for taking a period from within a Solicitud detail page.
+ * Extends useTomarPeriodo with Solicitud detail cache invalidation.
+ * POST /api/periodos/{periodoId}/tomar
+ *
+ * @param solicitudId - The parent Solicitud ID, used to invalidate the detail cache.
+ */
+export function useTomarPeriodoSolicitud(solicitudId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (periodoId: string) => tomarPeriodo(periodoId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["periodos", "bandeja"] });
+      queryClient.invalidateQueries({ queryKey: ["solicitudes"] });
+      // Invalidate the solicitud detail so the period card refreshes
+      queryClient.invalidateQueries({
+        queryKey: ["solicitudes", "detail", solicitudId],
+      });
+    },
+  });
+}
+
+/**
+ * Mutation hook for incorporating an area into a Solicitud.
+ * POST /api/solicitudes/{solicitudId}/areas
+ *
+ * @param solicitudId - The Solicitud ID to add the area to.
+ */
+export function useIncorporarArea(solicitudId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: IncorporarAreaData) =>
+      incorporarArea(solicitudId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["solicitudes"] });
+      queryClient.invalidateQueries({
+        queryKey: ["solicitudes", "detail", solicitudId],
+      });
+    },
+  });
+}
+
+// ── Periodo Operation Hooks ────────────────────────────────────────────────────
+
+/**
+ * Mutation hook for initiating period management.
+ * POST /api/periodos/{periodoId}/iniciar-gestion
+ *
+ * @param solicitudId - The parent Solicitud ID, used to invalidate the detail cache.
+ */
+export function useIniciarGestionPeriodo(solicitudId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (periodoId: string) => iniciarGestionPeriodo(periodoId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["periodos", "bandeja"] });
+      queryClient.invalidateQueries({ queryKey: ["solicitudes"] });
+      queryClient.invalidateQueries({
+        queryKey: ["solicitudes", "detail", solicitudId],
+      });
+    },
+  });
+}
+
+/**
+ * Mutation hook for finalizing a period.
+ * POST /api/periodos/{periodoId}/finalizar
+ *
+ * @param solicitudId - The parent Solicitud ID, used to invalidate the detail cache.
+ */
+export function useFinalizarPeriodo(solicitudId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      periodoId,
+      data,
+    }: {
+      periodoId: string;
+      data: FinalizarPeriodoData;
+    }) => finalizarPeriodo(periodoId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["periodos", "bandeja"] });
+      queryClient.invalidateQueries({ queryKey: ["solicitudes"] });
+      queryClient.invalidateQueries({
+        queryKey: ["solicitudes", "detail", solicitudId],
+      });
+    },
+  });
+}
+
+/**
+ * Mutation hook for marking a period as erroneous.
+ * POST /api/periodos/{periodoId}/marcar-asignacion-erronea
+ *
+ * @param solicitudId - The parent Solicitud ID, used to invalidate the detail cache.
+ */
+export function useMarcarAsignacionErronea(solicitudId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      periodoId,
+      data,
+    }: {
+      periodoId: string;
+      data: MarcarAsignacionErroneaData;
+    }) => marcarAsignacionErronea(periodoId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["periodos", "bandeja"] });
+      queryClient.invalidateQueries({ queryKey: ["solicitudes"] });
+      queryClient.invalidateQueries({
+        queryKey: ["solicitudes", "detail", solicitudId],
+      });
+    },
+  });
+}
+
+/**
+ * Mutation hook for changing period participation type.
+ * POST /api/periodos/{periodoId}/cambiar-participacion
+ *
+ * @param solicitudId - The parent Solicitud ID, used to invalidate the detail cache.
+ */
+export function useCambiarParticipacionPeriodo(solicitudId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      periodoId,
+      data,
+    }: {
+      periodoId: string;
+      data: CambiarParticipacionData;
+    }) => cambiarParticipacionPeriodo(periodoId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["periodos", "bandeja"] });
+      queryClient.invalidateQueries({ queryKey: ["solicitudes"] });
+      queryClient.invalidateQueries({
+        queryKey: ["solicitudes", "detail", solicitudId],
+      });
     },
   });
 }

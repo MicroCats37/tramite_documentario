@@ -380,11 +380,7 @@ export const GenericForm = <T extends FieldValues>({
   if (children) {
     return (
       <Form {...methods}>
-        <form
-          id={formId}
-          onSubmit={onSubmitFn}
-          className={formClassName}
-        >
+        <form id={formId} onSubmit={onSubmitFn} className={formClassName}>
           {children({
             methods,
             isSubmitting: isLocked,
@@ -492,14 +488,16 @@ export const GenericForm = <T extends FieldValues>({
             </fieldset>
 
             {/* Dynamic Footer: Either custom, suppressed, or default */}
-            {skipFooter ? null : renderFooter
-              ? renderFooter({
-                  isSubmitting: isLocked,
-                  onCancel,
-                  onSubmit: onSubmitFn,
-                  methods,
-                })
-              : DefaultFooter}
+            {skipFooter
+              ? null
+              : renderFooter
+                ? renderFooter({
+                    isSubmitting: isLocked,
+                    onCancel,
+                    onSubmit: onSubmitFn,
+                    methods,
+                  })
+                : DefaultFooter}
           </form>
         </Form>
       </CardContent>

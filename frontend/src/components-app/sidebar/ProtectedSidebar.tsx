@@ -158,8 +158,8 @@ export function ProtectedSidebar({
                 href={item.href}
                 onClick={handleNavClick}
                 className={cn(
-                   "group/item relative flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-bold transition-all duration-200 ease-out",
-                   isActive
+                  "group/item relative flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-bold transition-all duration-200 ease-out",
+                  isActive
                     ? "bg-white/15 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]"
                     : "text-white/78 hover:bg-white/10 hover:text-white hover:translate-x-0.5",
                   collapsed && "w-full justify-center px-0",
@@ -181,7 +181,9 @@ export function ProtectedSidebar({
                 >
                   <item.icon className="h-3.5 w-3.5" />
                 </span>
-                {!collapsed && <span className="min-w-0 flex-1">{item.title}</span>}
+                {!collapsed && (
+                  <span className="min-w-0 flex-1">{item.title}</span>
+                )}
               </a>
             );
           })}
@@ -189,7 +191,10 @@ export function ProtectedSidebar({
       </nav>
 
       {/* ─── Subtle gold separator above footer ─── */}
-      <div className="mx-4 mb-1 h-px bg-gradient-to-r from-transparent via-accent/60 to-transparent" aria-hidden="true" />
+      <div
+        className="mx-4 mb-1 h-px bg-gradient-to-r from-transparent via-accent/60 to-transparent"
+        aria-hidden="true"
+      />
 
       {/* ─── Footer: user dropdown + logout ─── */}
       <div className="border-t border-white/10 px-3 py-3">
@@ -202,18 +207,20 @@ export function ProtectedSidebar({
                 "flex w-full items-center gap-3 rounded-2xl bg-white/8 px-3 py-3 backdrop-blur-sm transition-colors duration-200 hover:bg-white/12 cursor-pointer",
                 collapsed && "w-full justify-center px-0",
               )}
-              title={collapsed ? `${user.nombres} ${user.apellidos}` : undefined}
+              title={
+                collapsed ? `${user.datos.nombres} ${user.datos.apellidos}` : undefined
+              }
             >
               <Avatar size="sm" className="shrink-0 ring-2 ring-primary/20">
                 <AvatarFallback className="bg-white text-primary text-xs font-bold">
-                  {user.nombres?.charAt(0) ?? ""}
-                  {user.apellidos?.charAt(0) ?? ""}
+                  {user.datos.nombres?.charAt(0) ?? ""}
+                  {user.datos.apellidos?.charAt(0) ?? ""}
                 </AvatarFallback>
               </Avatar>
               {!collapsed && (
                 <div className="flex min-w-0 flex-col text-left">
                   <p className="truncate text-sm font-bold text-white">
-                    {user.nombres} {user.apellidos}
+                    {user.datos.nombres} {user.datos.apellidos}
                   </p>
                   <p className="truncate text-[10px] text-white/55">
                     Funcionario
@@ -226,7 +233,7 @@ export function ProtectedSidebar({
             <DropdownMenuLabel className="font-normal">
               <div className="flex flex-col gap-0.5">
                 <p className="text-sm font-semibold">
-                  {user.nombres} {user.apellidos}
+                  {user.datos.nombres} {user.datos.apellidos}
                 </p>
                 <p className="text-xs text-muted-foreground">Funcionario</p>
               </div>

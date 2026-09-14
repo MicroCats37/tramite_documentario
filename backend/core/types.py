@@ -71,23 +71,25 @@ def AsForm(schema_cls: Type[T]) -> Type[Schema]:
         annotation = field_info.annotation
 
         if annotation is not None and _is_file_type(annotation):
+            # UploadedFile → str for FormData
             new_fields[field_name] = (str, _clone_field_as_str(field_info))
         elif annotation is not None and _is_list_of_schema(annotation):
             inner_type = get_args(annotation)[0]
             inner_form = AsForm(inner_type)
+            # Preserve original field info (including default_factory)
             new_fields[field_name] = (list[inner_form], field_info)
         elif annotation is not None and _is_nested_schema(annotation):
             inner_form = AsForm(annotation)
+            # Preserve original field info
             new_fields[field_name] = (inner_form, field_info)
         else:
-            if field_info.is_required():
-                new_fields[field_name] = (annotation, field_info)
-            else:
-                new_fields[field_name] = (annotation, field_info.default)
+            # For simple types, preserve the original field info to keep defaults
+            new_fields[field_name] = (annotation, field_info)
 
     form_schema = create_model(
         f"{schema_cls.__name__}Form",
         __base__=Schema,
+        __module__=schema_cls.__module__,
         **new_fields,
     )
 

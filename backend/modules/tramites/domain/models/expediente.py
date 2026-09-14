@@ -12,7 +12,7 @@ from simple_history.models import HistoricalRecords
 from core.models import BaseModel
 from modules.usuarios.domain.models.usuario import Usuario
 
-from ..constants import TipoDocumento, TipoPersona
+from ..constants import TipoPersona
 
 
 class Expediente(BaseModel):
@@ -84,9 +84,10 @@ class Expediente(BaseModel):
         blank=True,
         verbose_name="Teléfono",
     )
-    tipo_documento = models.CharField(
-        max_length=20,
-        choices=TipoDocumento.choices,
+    tipo_documento = models.ForeignKey(
+        "tramites.TipoDocumento",
+        on_delete=models.PROTECT,
+        related_name="expedientes",
         verbose_name="Tipo de Documento",
     )
     numero_documento = models.CharField(

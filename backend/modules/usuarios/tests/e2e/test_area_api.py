@@ -8,6 +8,8 @@ Controllers are now sync (contrato P3).
 
 URL: GET /areas
 """
+from datetime import timedelta
+
 import pytest
 from django.contrib.auth import get_user_model
 
@@ -34,11 +36,12 @@ def usuario_test(db):
 
 @pytest.fixture
 def area_activa(db):
-    """Create an active test area."""
+    """Create an active test area with default 72h response time."""
     return Area.objects.create(
         nombre="Área Activa Test",
         descripcion="Área activa para tests",
         activo=True,
+        tiempo_respuesta=timedelta(hours=72),
     )
 
 
@@ -101,6 +104,9 @@ def test_listar_areas_activas(usuario_test, area_activa, area_inactiva):
         assert "descripcion" in area, "Area should have 'descripcion' field"
         assert "activo" in area, "Area should have 'activo' field"
         assert area["activo"] is True, "Only active areas should be returned"
+        assert "tiempo_respuesta" in area, "Area should have 'tiempo_respuesta' field"
+        assert "tiempo_respuesta_dias" in area, "Area should have 'tiempo_respuesta_dias' field"
+        assert "tiempo_respuesta_horas" in area, "Area should have 'tiempo_respuesta_horas' field"
 
 
 @pytest.mark.django_db
@@ -155,3 +161,70 @@ def test_listar_areas_orden_nombre(usuario_test):
     assert nombres == sorted(nombres), (
         f"Areas should be ordered by nombre. Got: {nombres}"
     )
+
+
+@pytest.mark.django_db
+def test_area_tiempo_respuesta_en_output(usuario_test, area_activa):
+    """
+    GIVEN: an active area with tiempo_respuesta=72h and an authenticated user
+    WHEN:  GET /areas is called
+    THEN:  response includes tiempo_respuesta as timedelta string
+            AND tiempo_respuesta_dias equals 3
+            AND tiempo_respuesta_horas equals 0
+    """
+    client = _make_auth_client(usuario_test)
+    response = client.get("/areas/")
+
+    assert response.status_code == 200, (
+        f"Expected 200, got {response.status_code}: {response.content}"
+    )
+
+    data = response.json()
+    areas = data["data"]
+
+    # Find the test area
+    area_ids = [a["id"] for a in areas]
+    assert str(area_activa.id) in area_ids
+
+    area = next(a for a in areas if a["id"] == str(area_activa.id))
+
+    # Verify tiempo_respuesta is present (serialized as ISO timedelta string by Ninja)
+    assert area["tiempo_respuesta"] is not None, (
+        "tiempo_respuesta should not be null for seeded area"
+    )
+    # Verify computed parts: 72h = 3 days, 0 hours
+    assert area["tiempo_respuesta_dias"] == 3, (
+        f"Expected 3 days, got {area['tiempo_respuesta_dias']}"
+    )
+    assert area["tiempo_respuesta_horas"] == 0, (
+        f"Expected 0 hours, got {area['tiempo_respuesta_horas']}"
+    )
+
+
+@pytest.mark.django_db
+def test_area_tiempo_respuesta_null(db, usuario_test):
+    """
+    GIVEN: an active area with tiempo_respuesta=None and an authenticated user
+    WHEN:  GET /areas is called
+    THEN:  tiempo_respuesta, tiempo_respuesta_dias, and tiempo_respuesta_horas are all None
+    """
+    Area.objects.create(
+        nombre="Área Sin Tiempo de Respuesta",
+        descripcion="Área sin SLA definido",
+        activo=True,
+        tiempo_respuesta=None,
+    )
+
+    client = _make_auth_client(usuario_test)
+    response = client.get("/areas/")
+
+    assert response.status_code == 200
+
+    data = response.json()
+    areas = data["data"]
+
+    area = next(a for a in areas if a["nombre"] == "Área Sin Tiempo de Respuesta")
+
+    assert area["tiempo_respuesta"] is None
+    assert area["tiempo_respuesta_dias"] is None
+    assert area["tiempo_respuesta_horas"] is None

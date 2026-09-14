@@ -1,0 +1,1 @@
+"""Selectors for notificaciones module."""

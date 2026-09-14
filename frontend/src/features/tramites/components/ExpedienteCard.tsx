@@ -21,12 +21,25 @@ import { PrintPreviewModal } from "./PrintPreviewModal";
 import { ExpedientePrintPreview } from "./ExpedientePrintPreview";
 import { buildExpedientePrintHTML } from "./printExpediente";
 
+/** Safe accessor for tipo_documento which may be a string or {id,nombre,descripcion} object. */
+function getTipoDocumentoLabel(td: unknown): string {
+  if (!td) return "—";
+  if (typeof td === "object" && "nombre" in (td as object)) {
+    return (td as { nombre: string }).nombre;
+  }
+  if (typeof td === "string") return td;
+  return "—";
+}
+
 interface ExpedienteCardProps {
   item: ExpedienteItem;
   onClick?: () => void;
 }
 
-export function ExpedienteCard({ item, onClick: _onClick }: ExpedienteCardProps) {
+export function ExpedienteCard({
+  item,
+  onClick: _onClick,
+}: ExpedienteCardProps) {
   const router = useRouter();
 
   const [printOpen, setPrintOpen] = useState(false);
@@ -59,12 +72,15 @@ export function ExpedienteCard({ item, onClick: _onClick }: ExpedienteCardProps)
                 {item.id_publico}
               </span>
               <p className="font-mono text-[10px] font-bold uppercase text-muted-foreground">
-                {item.tipo_documento}
+                {getTipoDocumentoLabel(item.tipo_documento)}
               </p>
             </div>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <p className="truncate text-base font-black uppercase text-foreground" title={nombreCompleto}>
+                <p
+                  className="truncate text-base font-black uppercase text-foreground"
+                  title={nombreCompleto}
+                >
                   {nombreCompleto}
                 </p>
                 <Badge className={tipoToken.badgeClass} variant="secondary">
@@ -72,14 +88,22 @@ export function ExpedienteCard({ item, onClick: _onClick }: ExpedienteCardProps)
                 </Badge>
               </div>
               <p className="mt-1 font-mono text-[10px] font-semibold text-muted-foreground">
-                {item.dni ? `DNI: ${item.dni}` : item.ruc ? `RUC: ${item.ruc}` : item.cip ? `CIP: ${item.cip}` : documentoIdentidad}
+                {item.dni
+                  ? `DNI: ${item.dni}`
+                  : item.ruc
+                    ? `RUC: ${item.ruc}`
+                    : item.cip
+                      ? `CIP: ${item.cip}`
+                      : documentoIdentidad}
               </p>
             </div>
             <div className="flex items-start justify-between gap-4 md:justify-end">
               <div className="space-y-1 text-[10px] font-semibold text-muted-foreground md:text-right">
                 <p className="flex items-center gap-1.5 md:justify-end">
                   <Mail className="h-3 w-3" />
-                  <span className="max-w-56 truncate">{item.correo || "Sin correo"}</span>
+                  <span className="max-w-56 truncate">
+                    {item.correo || "Sin correo"}
+                  </span>
                 </p>
                 <p className="flex items-center gap-1.5 md:justify-end">
                   <Phone className="h-3 w-3" />
@@ -121,7 +145,9 @@ export function ExpedienteCard({ item, onClick: _onClick }: ExpedienteCardProps)
                 <Paperclip className="h-3 w-3" />
                 Principal
               </span>
-              <span className="text-muted-foreground">Folios: {item.numero_folios}</span>
+              <span className="text-muted-foreground">
+                Folios: {item.numero_folios}
+              </span>
             </div>
           </div>
 

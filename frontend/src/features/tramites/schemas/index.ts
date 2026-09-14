@@ -20,6 +20,7 @@ export type {
   SolicitudDetailResponse,
   SolicitudItem,
   SolicitudListResponse,
+  TipoDocumento,
 } from "./tramite.schema";
 export {
   ArchivoSchema,
@@ -42,4 +43,28 @@ export {
   SolicitudDetailSchema,
   SolicitudItemSchema,
   SolicitudListResponseSchema,
+  TipoDocumentoSchema,
 } from "./tramite.schema";
+// ── Trazabilidad schemas (M5) ─────────────────────────────────────────────────
+export type {
+  AsignacionTrazabilidad,
+  HistorialEstadoGlobalTrazabilidad,
+  ParticipanteTrazabilidad,
+  PeriodoEstadoHistorial,
+  PeriodoTrazabilidad,
+  RespuestaTrazabilidad,
+  SolicitudTrazabilidad,
+  SolicitudTrazabilidadResponse,
+  TimelineEvent,
+} from "./trazabilidad.schema";
+export {
+  AsignacionTrazabilidadSchema,
+  HistorialEstadoGlobalTrazabilidadSchema,
+  ParticipanteTrazabilidadSchema,
+  PeriodoEstadoHistorialSchema,
+  PeriodoTrazabilidadSchema,
+  RespuestaTrazabilidadSchema,
+  SolicitudTrazabilidadResponseSchema,
+  SolicitudTrazabilidadSchema,
+  TimelineEventSchema,
+} from "./trazabilidad.schema";

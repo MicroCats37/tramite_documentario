@@ -27,6 +27,11 @@
       "react": "recommended"
     }
   },
+  "css": {
+    "parser": {
+      "cssModules": true
+    }
+  },
   "assist": {
     "actions": {
       "source": {

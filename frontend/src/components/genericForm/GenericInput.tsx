@@ -55,7 +55,10 @@ export const DefaultFieldWrapper: FC<FieldWrapperProps> = ({
   return (
     <div className={`space-y-2 ${field.containerClassName || "col-span-12"}`}>
       {!field.hidden && (
-        <Label htmlFor={labelId} className={cn("text-sm font-medium", field.labelClassName)}>
+        <Label
+          htmlFor={labelId}
+          className={cn("text-sm font-medium", field.labelClassName)}
+        >
           {field.label}
           {field.required && <span className="text-destructive ml-1">*</span>}
         </Label>
@@ -98,7 +101,9 @@ export type FieldType =
   | "formatted-number"
   | "file-collection"
   | "area-distribution"
-  | "documento-lookup";
+  | "documento-lookup"
+  | "select-area"
+  | "select-tipo-documento";
 
 export interface FormField {
   name: string;

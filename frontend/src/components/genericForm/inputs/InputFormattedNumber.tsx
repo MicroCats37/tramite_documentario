@@ -16,12 +16,9 @@ import type { KeyboardEvent } from "react";
 import type { InputComponentProps } from "./types";
 import { FormattedNumberInput } from "./FormattedNumberInput";
 
-export function InputFormattedNumber<TFieldValues extends FieldValues = FieldValues>({
-  field,
-  control,
-  error,
-  id: _id,
-}: InputComponentProps<TFieldValues>) {
+export function InputFormattedNumber<
+  TFieldValues extends FieldValues = FieldValues,
+>({ field, control, error, id: _id }: InputComponentProps<TFieldValues>) {
   // Bridge field.onKeyDown (Enter handler) → onEnter prop.
   // FormattedNumberInput guards on Enter before calling onEnter and calls preventDefault.
   // We wrap field.onKeyDown to satisfy the () => void contract.

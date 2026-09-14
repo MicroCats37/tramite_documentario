@@ -17,4 +17,6 @@ from modules.tramites.tests.fixtures.expediente_fixtures import (
     ExpedienteController,
     ExpedienteOrchestrator,
     ExpedienteCreacionFlujo,
+    tipo_documento_solicitud,
+    tipo_documento_oficio,
 )

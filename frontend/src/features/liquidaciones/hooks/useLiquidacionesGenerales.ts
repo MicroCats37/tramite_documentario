@@ -5,15 +5,22 @@
  */
 import { useApiQuery } from "@/hooks";
 import { apiResponseSchema } from "@/types/api.types";
-import { paginatedResponseSchema, LiquidacionGeneralOutputSchema } from "../schemas/liquidacion-base.schema";
+import {
+  paginatedResponseSchema,
+  LiquidacionGeneralOutputSchema,
+} from "../schemas/liquidacion-base.schema";
 import { z } from "zod";
 
 export const liquidacionGeneralItemSchema = LiquidacionGeneralOutputSchema;
 
 /** Item de liquidación general — inferido del schema real del backend */
-export type LiquidacionGeneralItem = z.infer<typeof liquidacionGeneralItemSchema>;
+export type LiquidacionGeneralItem = z.infer<
+  typeof liquidacionGeneralItemSchema
+>;
 
-const paginatedSchema = apiResponseSchema(paginatedResponseSchema(liquidacionGeneralItemSchema));
+const paginatedSchema = apiResponseSchema(
+  paginatedResponseSchema(liquidacionGeneralItemSchema),
+);
 
 interface UseLiquidacionesGeneralesProps {
   page?: number;
@@ -55,7 +62,9 @@ export function useLiquidacionesGenerales({
       razonSocial,
       propietario,
     ],
-    url: soloUltimasRevisiones ? "/liquidaciones/generales/ultimas-revisiones" : "/liquidaciones/generales",
+    url: soloUltimasRevisiones
+      ? "/liquidaciones/generales/ultimas-revisiones"
+      : "/liquidaciones/generales",
     schema: paginatedSchema,
     params,
     queryOptions: {

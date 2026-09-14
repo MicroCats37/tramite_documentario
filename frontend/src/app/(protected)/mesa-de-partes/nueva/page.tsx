@@ -17,9 +17,9 @@
  */
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { zodResolver } from "@hookform/resolvers/zod";
 import {
+  AlertTriangle,
   ArrowLeft,
   ArrowRight,
   CheckCircle2,
@@ -30,17 +30,15 @@ import {
   Trash2,
   User,
   Users,
-  AlertTriangle,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useId, useState } from "react";
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
+import { InputSelectTipoDocumento } from "@/components/genericForm/inputs";
 import {
   Select,
   SelectContent,
@@ -48,23 +46,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
 import { PageWrapper } from "@/components-app/page";
+import { useCrearTramite } from "@/features/tramites/hooks/useTramites";
+import { useTiposDocumento } from "@/features/tramites/hooks/useTiposDocumento";
 import {
-  CreateTramiteSchema,
-  CreateTramiteData,
   type ArchivoData,
   type AreaDistribucionData,
+  type CreateTramiteData,
+  CreateTramiteSchema,
 } from "@/features/tramites/schemas/tramite.schema";
 import {
-  useCrearTramite,
-} from "@/features/tramites/hooks/useTramites";
-import {
-  TIPO_PERSONA,
   PRIORIDAD_SOLICITUD,
-  TIPO_PARTICIPACION,
-  type TipoPersona,
   type PrioridadSolicitud,
+  TIPO_PARTICIPACION,
+  TIPO_PERSONA,
   type TipoParticipacion,
+  type TipoPersona,
 } from "@/shared/constants/tramite.tokens";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -94,20 +93,6 @@ const PLACEHOLDER_AREAS = [
   { id: "00000000-0000-0000-0000-000000000004", nombre: "Secretaría" },
 ] as const;
 
-// ── Tipo Documento options ───────────────────────────────────────────────────
-
-const TIPO_DOCUMENTO_OPTIONS = [
-  { value: "OFICIO", label: "Oficio" },
-  { value: "CARTA", label: "Carta" },
-  { value: "SOLICITUD", label: "Solicitud" },
-  { value: "MEMORANDO", label: "Memorando" },
-  { value: "INFORME", label: "Informe" },
-  { value: "EXPEDIENTE", label: "Expediente" },
-  { value: "RECIBO", label: "Recibo" },
-  { value: "CERTIFICADO", label: "Certificado" },
-  { value: "OTRO", label: "Otro" },
-] as const;
-
 // ── Default form values ───────────────────────────────────────────────────────
 
 const defaultValues: CreateTramiteData = {
@@ -124,7 +109,7 @@ const defaultValues: CreateTramiteData = {
     apellidos: null,
     correo: null,
     telefono: null,
-    tipo_documento: "SOLICITUD",
+    tipo_documento_id: null,
     numero_documento: null,
     numero_folios: 0,
     asunto: "",
@@ -145,7 +130,12 @@ interface StepperProps {
   completedSteps: number[];
 }
 
-function Stepper({ currentStep, labels, onStepClick, completedSteps }: StepperProps) {
+function Stepper({
+  currentStep,
+  labels,
+  onStepClick,
+  completedSteps,
+}: StepperProps) {
   return (
     <div className="flex items-center gap-1 overflow-x-auto pb-2">
       {labels.map((label, idx) => {
@@ -171,7 +161,11 @@ function Stepper({ currentStep, labels, onStepClick, completedSteps }: StepperPr
               aria-current={isCurrent ? "step" : undefined}
             >
               <span className="flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold border shrink-0">
-                {isCompleted ? <CheckCircle2 className="h-3.5 w-3.5" /> : stepNum}
+                {isCompleted ? (
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                ) : (
+                  stepNum
+                )}
               </span>
               <span className="hidden sm:inline">{label}</span>
             </button>
@@ -202,9 +196,7 @@ function Field({ label, error, required, children }: FieldProps) {
         {required && <span className="text-destructive ml-0.5">*</span>}
       </label>
       {children}
-      {error && (
-        <span className="text-xs text-destructive">{error}</span>
-      )}
+      {error && <span className="text-xs text-destructive">{error}</span>}
     </div>
   );
 }
@@ -240,7 +232,9 @@ function FileInput({
     const selected = Array.from(e.target.files ?? []);
     if (!selected.length) return;
     if (maxFiles && files.length + selected.length > maxFiles) {
-      toast.error(`Máximo ${maxFiles} archivo${maxFiles !== 1 ? "s" : ""} permitidos`);
+      toast.error(
+        `Máximo ${maxFiles} archivo${maxFiles !== 1 ? "s" : ""} permitidos`,
+      );
       return;
     }
     const newFiles = selected.map((file) => ({
@@ -257,9 +251,7 @@ function FileInput({
   };
 
   const updateDescripcion = (id: string, descripcion: string) => {
-    onFilesChange(
-      files.map((f) => (f.id === id ? { ...f, descripcion } : f)),
-    );
+    onFilesChange(files.map((f) => (f.id === id ? { ...f, descripcion } : f)));
   };
 
   return (
@@ -286,7 +278,10 @@ function FileInput({
       {files.length > 0 && (
         <div className="space-y-2">
           {files.map((item) => (
-            <div key={item.id} className="flex items-start gap-2 p-2 bg-muted/50 rounded-lg border">
+            <div
+              key={item.id}
+              className="flex items-start gap-2 p-2 bg-muted/50 rounded-lg border"
+            >
               <FileText className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium truncate">{item.file.name}</p>
@@ -342,9 +337,7 @@ function AreaRow({
   error,
   allAreas,
 }: AreaRowProps) {
-  const usedAreaIds = allAreas
-    .filter((a) => a !== area)
-    .map((a) => a.area_id);
+  const usedAreaIds = allAreas.filter((a) => a !== area).map((a) => a.area_id);
 
   const availableAreas = areas.filter((a) => !usedAreaIds.includes(a.id));
 
@@ -353,9 +346,7 @@ function AreaRow({
       <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
         <Select
           value={area.area_id}
-          onValueChange={(val) =>
-            onChange({ ...area, area_id: val })
-          }
+          onValueChange={(val) => onChange({ ...area, area_id: val })}
         >
           <SelectTrigger className="h-8 text-sm">
             <SelectValue placeholder="Seleccionar área" />
@@ -400,7 +391,9 @@ function AreaRow({
         <Trash2 className="h-3.5 w-3.5" />
       </Button>
 
-      {error && <span className="text-xs text-destructive col-span-full">{error}</span>}
+      {error && (
+        <span className="text-xs text-destructive col-span-full">{error}</span>
+      )}
     </div>
   );
 }
@@ -436,16 +429,20 @@ function Step1TipoPersona({ tipoPersona, onChange }: Step1Props) {
               className={`
                 flex flex-col items-start gap-2 p-4 rounded-xl border-2 text-left
                 transition-all
-                ${isSelected
-                  ? "border-primary bg-primary/5"
-                  : "border-border hover:border-primary/40 bg-card"}
+                ${
+                  isSelected
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/40 bg-card"
+                }
               `}
             >
               <div className="flex items-center gap-2">
-                <div className={`
+                <div
+                  className={`
                   w-5 h-5 rounded-full border-2 flex items-center justify-center
                   ${isSelected ? "border-primary bg-primary" : "border-muted-foreground"}
-                `}>
+                `}
+                >
                   {isSelected && (
                     <CheckCircle2 className="h-3 w-3 text-primary-foreground" />
                   )}
@@ -547,7 +544,9 @@ function Step2DatosInteresado({ data, onChange, errors }: Step2Props) {
               placeholder="Nombre o razón social"
               value={data.razon_social ?? ""}
               maxLength={255}
-              onChange={(e) => onChange({ razon_social: e.target.value || null })}
+              onChange={(e) =>
+                onChange({ razon_social: e.target.value || null })
+              }
             />
           </Field>
         )}
@@ -603,9 +602,12 @@ interface Step3Props {
   data: CreateTramiteData["expediente"];
   onChange: (patch: Partial<CreateTramiteData["expediente"]>) => void;
   errors: Record<string, string>;
+  control: ReturnType<typeof useForm<CreateTramiteData>>["control"];
+  register: ReturnType<typeof useForm<CreateTramiteData>>["register"];
 }
 
-function Step3DatosDocumento({ data, onChange, errors }: Step3Props) {
+function Step3DatosDocumento({ data, onChange, errors, control, register }: Step3Props) {
+  const id = useId();
   return (
     <div className="space-y-4">
       <div>
@@ -619,25 +621,13 @@ function Step3DatosDocumento({ data, onChange, errors }: Step3Props) {
 
       <div className="grid grid-cols-1 gap-4">
         <Field label="Tipo de documento" error={errors.tipo_documento} required>
-          <Select
-            value={data.tipo_documento}
-            onValueChange={(val) =>
-              onChange({
-                tipo_documento: val as CreateTramiteData["expediente"]["tipo_documento"],
-              })
-            }
-          >
-            <SelectTrigger className="h-10">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {TIPO_DOCUMENTO_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <InputSelectTipoDocumento
+            field={{ name: "expediente.tipo_documento_id", label: "Tipo de documento", type: "select-tipo-documento" }}
+            control={control as any}
+            register={register as any}
+            id={id}
+            error={errors.tipo_documento ? { message: errors.tipo_documento } : undefined}
+          />
         </Field>
 
         <Field label="Número de documento" error={errors.numero_documento}>
@@ -645,7 +635,9 @@ function Step3DatosDocumento({ data, onChange, errors }: Step3Props) {
             placeholder="Número del documento"
             value={data.numero_documento ?? ""}
             maxLength={50}
-            onChange={(e) => onChange({ numero_documento: e.target.value || null })}
+            onChange={(e) =>
+              onChange({ numero_documento: e.target.value || null })
+            }
           />
         </Field>
 
@@ -676,7 +668,9 @@ function Step3DatosDocumento({ data, onChange, errors }: Step3Props) {
             <Textarea
               placeholder="Observaciones adicionales (opcional)"
               value={data.observaciones ?? ""}
-              onChange={(e) => onChange({ observaciones: e.target.value || null })}
+              onChange={(e) =>
+                onChange({ observaciones: e.target.value || null })
+              }
               className="min-h-20"
             />
           </Field>
@@ -690,7 +684,9 @@ function Step3DatosDocumento({ data, onChange, errors }: Step3Props) {
 
 interface Step4Props {
   data: CreateTramiteData["expediente"]["archivos"];
-  onChange: (patch: Partial<CreateTramiteData["expediente"]["archivos"]>) => void;
+  onChange: (
+    patch: Partial<CreateTramiteData["expediente"]["archivos"]>,
+  ) => void;
   principalError?: string;
 }
 
@@ -797,26 +793,30 @@ function Step5Prioridad({
       <div className="space-y-4">
         <Field label="Prioridad de atención">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {(Object.keys(PRIORIDAD_SOLICITUD) as PrioridadSolicitud[]).map((key) => {
-              const token = PRIORIDAD_SOLICITUD[key];
-              const isSelected = prioridad === key;
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => onPrioridadChange(key)}
-                  className={`
+            {(Object.keys(PRIORIDAD_SOLICITUD) as PrioridadSolicitud[]).map(
+              (key) => {
+                const token = PRIORIDAD_SOLICITUD[key];
+                const isSelected = prioridad === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => onPrioridadChange(key)}
+                    className={`
                     flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 text-center
                     transition-all
-                    ${isSelected
-                      ? "border-primary bg-primary/5"
-                      : "border-border hover:border-primary/40 bg-card"}
+                    ${
+                      isSelected
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/40 bg-card"
+                    }
                   `}
-                >
-                  <span className="text-sm font-medium">{token.label}</span>
-                </button>
-              );
-            })}
+                  >
+                    <span className="text-sm font-medium">{token.label}</span>
+                  </button>
+                );
+              },
+            )}
           </div>
         </Field>
 
@@ -852,9 +852,7 @@ function Step6Areas({ areas, onChange, error }: Step6Props) {
   };
 
   const updateArea = (index: number, patch: Partial<AreaDistribucionData>) => {
-    const updated = areas.map((a, i) =>
-      i === index ? { ...a, ...patch } : a,
-    );
+    const updated = areas.map((a, i) => (i === index ? { ...a, ...patch } : a));
     onChange(updated);
   };
 
@@ -883,8 +881,11 @@ function Step6Areas({ areas, onChange, error }: Step6Props) {
         <div className="flex items-center gap-2 p-3 mb-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
           <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-500 shrink-0" />
           <p className="text-xs text-yellow-700 dark:text-yellow-400">
-            <strong>TODO:</strong> El catálogo de áreas se reemplazará con la chamada real
-            a <code className="bg-yellow-100 dark:bg-yellow-900/50 px-1 rounded">GET /api/areas</code>{" "}
+            <strong>TODO:</strong> El catálogo de áreas se reemplazará con la
+            chamada real a{" "}
+            <code className="bg-yellow-100 dark:bg-yellow-900/50 px-1 rounded">
+              GET /api/areas
+            </code>{" "}
             cuando el endpoint exista. Áreas actuales son placeholders.
           </p>
         </div>
@@ -914,7 +915,10 @@ function Step6Areas({ areas, onChange, error }: Step6Props) {
           <AreaRow
             key={idx}
             area={area}
-            areas={PLACEHOLDER_AREAS.map((a) => ({ id: a.id, nombre: a.nombre }))}
+            areas={PLACEHOLDER_AREAS.map((a) => ({
+              id: a.id,
+              nombre: a.nombre,
+            }))}
             onChange={(updated) => updateArea(idx, updated)}
             onRemove={() => removeArea(idx)}
             allAreas={areas}
@@ -925,7 +929,8 @@ function Step6Areas({ areas, onChange, error }: Step6Props) {
 
       {areas.length === 0 && (
         <p className="text-sm text-muted-foreground italic py-4 text-center">
-          No hay áreas agregadas. Haga clic en &quot;Agregar área&quot; para asignar al menos una.
+          No hay áreas agregadas. Haga clic en &quot;Agregar área&quot; para
+          asignar al menos una.
         </p>
       )}
 
@@ -952,6 +957,7 @@ interface Step7Props {
 
 function Step7Revision({ data }: Step7Props) {
   const { expediente, prioridad, observacion, areas_distribucion } = data;
+  const { tiposDocumento } = useTiposDocumento();
 
   const tipoPersonaLabel = TIPO_PERSONA[expediente.tipo_persona]?.label;
   const prioridadLabel = PRIORIDAD_SOLICITUD[prioridad]?.label;
@@ -978,15 +984,19 @@ function Step7Revision({ data }: Step7Props) {
     if (expediente.tipo_persona === "JURIDICA") {
       return expediente.razon_social ?? "—";
     }
-    return [expediente.nombres, expediente.apellidos]
-      .filter(Boolean)
-      .join(" ");
+    return [expediente.nombres, expediente.apellidos].filter(Boolean).join(" ");
   };
 
   const getIdentificacionLabel = () => {
     if (expediente.tipo_persona === "NATURAL") return expediente.dni ?? "—";
     if (expediente.tipo_persona === "JURIDICA") return expediente.ruc ?? "—";
     return expediente.cip ?? "—";
+  };
+
+  const getTipoDocumentoLabel = () => {
+    if (!expediente.tipo_documento_id) return "—";
+    const found = tiposDocumento.find((t) => t.id === expediente.tipo_documento_id);
+    return found ? `${found.nombre}${found.descripcion ? ` — ${found.descripcion}` : ""}` : expediente.tipo_documento_id;
   };
 
   return (
@@ -1042,11 +1052,7 @@ function Step7Revision({ data }: Step7Props) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
             <div>
               <span className="text-muted-foreground">Tipo: </span>
-              <span className="font-medium">
-                {TIPO_DOCUMENTO_OPTIONS.find(
-                  (t) => t.value === expediente.tipo_documento,
-                )?.label ?? expediente.tipo_documento}
-              </span>
+              <span className="font-medium">{getTipoDocumentoLabel()}</span>
             </div>
             {expediente.numero_documento && (
               <div>
@@ -1081,7 +1087,10 @@ function Step7Revision({ data }: Step7Props) {
           {expediente.archivos.principal.length > 0 ? (
             <div className="space-y-1">
               {expediente.archivos.principal.map((f) => (
-                <div key={f.nombre_original} className="flex items-center gap-2 text-sm">
+                <div
+                  key={f.nombre_original}
+                  className="flex items-center gap-2 text-sm"
+                >
                   <FileText className="h-4 w-4 text-primary shrink-0" />
                   <span className="font-medium">{f.nombre_original}</span>
                   <Badge className="bg-primary/10 text-primary border-primary/20 text-[10px]">
@@ -1090,10 +1099,15 @@ function Step7Revision({ data }: Step7Props) {
                 </div>
               ))}
               {expediente.archivos.anexo.map((f) => (
-                <div key={f.nombre_original} className="flex items-center gap-2 text-sm">
+                <div
+                  key={f.nombre_original}
+                  className="flex items-center gap-2 text-sm"
+                >
                   <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
                   <span>{f.nombre_original}</span>
-                  <Badge variant="outline" className="text-[10px]">Anexo</Badge>
+                  <Badge variant="outline" className="text-[10px]">
+                    Anexo
+                  </Badge>
                 </div>
               ))}
             </div>
@@ -1187,10 +1201,7 @@ export default function CrearTramitePage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
 
-  const {
-    mutate: crearTramite,
-    isPending: isSubmitting,
-  } = useCrearTramite();
+  const { mutate: crearTramite, isPending: isSubmitting } = useCrearTramite();
 
   const {
     register,
@@ -1198,6 +1209,7 @@ export default function CrearTramitePage() {
     watch,
     setValue,
     trigger,
+    control,
     formState: { errors },
   } = useForm<CreateTramiteData>({
     resolver: zodResolver(CreateTramiteSchema),
@@ -1241,7 +1253,7 @@ export default function CrearTramitePage() {
       ]);
     } else if (currentStep === 3) {
       isValid = await trigger([
-        "expediente.tipo_documento",
+        "expediente.tipo_documento_id",
         "expediente.asunto",
         "expediente.numero_folios",
       ]);
@@ -1328,7 +1340,6 @@ export default function CrearTramitePage() {
       description="Cree un nuevo trámite de Mesa de Partes"
       icon={<FileText className="h-6 w-6 text-primary" />}
     >
-
       {/* Stepper */}
       <div className="app-card p-4">
         <Stepper
@@ -1347,7 +1358,9 @@ export default function CrearTramitePage() {
             <Step1TipoPersona
               tipoPersona={formValues.expediente.tipo_persona}
               onChange={(val) =>
-                setValue("expediente.tipo_persona", val, { shouldValidate: true })
+                setValue("expediente.tipo_persona", val, {
+                  shouldValidate: true,
+                })
               }
             />
           )}
@@ -1356,9 +1369,13 @@ export default function CrearTramitePage() {
             <Step2DatosInteresado
               data={formValues.expediente}
               onChange={(patch) =>
-                setValue("expediente", { ...formValues.expediente, ...patch }, {
-                  shouldValidate: true,
-                })
+                setValue(
+                  "expediente",
+                  { ...formValues.expediente, ...patch },
+                  {
+                    shouldValidate: true,
+                  },
+                )
               }
               errors={flatErrors}
             />
@@ -1368,11 +1385,17 @@ export default function CrearTramitePage() {
             <Step3DatosDocumento
               data={formValues.expediente}
               onChange={(patch) =>
-                setValue("expediente", { ...formValues.expediente, ...patch }, {
-                  shouldValidate: true,
-                })
+                setValue(
+                  "expediente",
+                  { ...formValues.expediente, ...patch },
+                  {
+                    shouldValidate: true,
+                  },
+                )
               }
               errors={flatErrors}
+              control={control}
+              register={register}
             />
           )}
 
@@ -1448,11 +1471,7 @@ export default function CrearTramitePage() {
 
           <div className="flex items-center gap-2">
             {currentStep < TOTAL_STEPS ? (
-              <Button
-                type="button"
-                className="gap-2"
-                onClick={nextStep}
-              >
+              <Button type="button" className="gap-2" onClick={nextStep}>
                 Siguiente
                 <ArrowRight className="h-4 w-4" />
               </Button>

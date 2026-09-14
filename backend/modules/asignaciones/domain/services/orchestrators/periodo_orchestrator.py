@@ -186,22 +186,27 @@ class PeriodoOrchestrator:
         periodo_id: UUID,
         usuario_id: int,
         nuevo_tipo: str,
+        motivo: str | None = None,
     ):
         """
         Cambia el tipo de participación de un período (PRINCIPAL ↔ ADJUNTA).
+
+        Cierra el período actual y crea uno nuevo con el tipo de participación solicitado.
 
         Args:
             periodo_id: UUID del SolicitudAsignacionPeriodo.
             usuario_id: ID del usuario que ejecuta el cambio.
             nuevo_tipo: Nuevo tipo de participación (PRINCIPAL o ADJUNTA).
+            motivo: Motivo opcional del cambio.
 
         Returns:
-            Instancia de SolicitudAsignacionPeriodo con relaciones precargadas.
+            Instancia de SolicitudAsignacionPeriodo (nuevo período) con relaciones precargadas.
         """
         return await self.periodo_operaciones_flujo._proceso_cambiar_participacion(
             periodo_id=periodo_id,
             usuario_id=usuario_id,
             nuevo_tipo=nuevo_tipo,
+            motivo=motivo,
         )
 
     async def crear_respuesta_borrador(

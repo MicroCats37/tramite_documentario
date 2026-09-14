@@ -5,6 +5,7 @@ from modules.tramites.domain.models.expediente import Expediente
 from modules.tramites.domain.models import ExpedienteArchivo
 from modules.tramites.presentation.schemas.expediente_out import ExpedienteArchivoOut
 from modules.tramites.presentation.schemas.expediente_list_out import ExpedienteItemOut
+from modules.tramites.presentation.schemas.tipo_documento_out import TipoDocumentoOut
 
 
 class ExpedientePresenter:
@@ -48,7 +49,11 @@ class ExpedientePresenter:
             apellidos=expediente.apellidos,
             correo=expediente.correo,
             telefono=expediente.telefono,
-            tipo_documento=expediente.tipo_documento,
+            tipo_documento=TipoDocumentoOut(
+                id=expediente.tipo_documento.id,
+                nombre=expediente.tipo_documento.nombre,
+                descripcion=expediente.tipo_documento.descripcion,
+            ),
             numero_documento=expediente.numero_documento,
             numero_folios=expediente.numero_folios,
             asunto=expediente.asunto,

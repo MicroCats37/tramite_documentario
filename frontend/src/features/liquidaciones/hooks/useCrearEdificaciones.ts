@@ -26,7 +26,8 @@ export function useCrearEdificaciones() {
     () => ({
       ...mutation,
       mutate: (payload: EdificacionesFormData) => {
-        const { tarifa_unica_id, especialidades_seleccionadas, ...rest } = payload;
+        const { tarifa_unica_id, especialidades_seleccionadas, ...rest } =
+          payload;
         mutation.mutate({
           liquidacion_general: {
             municipalidad_id: rest.municipalidad_id,
@@ -59,7 +60,8 @@ export function useCrearEdificaciones() {
         });
       },
       mutateAsync: async (payload: EdificacionesFormData) => {
-        const { tarifa_unica_id, especialidades_seleccionadas, ...rest } = payload;
+        const { tarifa_unica_id, especialidades_seleccionadas, ...rest } =
+          payload;
         return mutation.mutateAsync({
           liquidacion_general: {
             municipalidad_id: rest.municipalidad_id,

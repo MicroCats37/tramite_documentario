@@ -17,7 +17,9 @@ from modules.tramites.presentation.schemas.solicitud_list_out import (
     ParticipanteDetalleOut,
     RespuestaDetalleOut,
     HistorialEstadoGlobalOut,
+    ConversacionSummaryOut,
 )
+from modules.conversaciones.domain.constants import EstadoConversacion
 from modules.tramites.presentation.schemas.expediente_out import ExpedienteArchivoOut
 from modules.tramites.presentation.schemas.expediente_list_out import ExpedienteItemOut, ExpedienteDetailOut, ExpedienteAntecedenteOut
 
@@ -312,6 +314,28 @@ class SolicitudConsultaPresenter:
                 "respuestas": respuestas_out,
             })
 
+        # Conversación vinculada (si existe — old solicitudes may not have one)
+        conversacion_out = None
+        try:
+            bridge = getattr(solicitud, "conversacionpuente", None)
+            if bridge is not None and bridge.conversacion is not None:
+                conv = bridge.conversacion
+                # Estado se computa de fecha_cierre (same logic as ConversacionPresenter)
+                estado = (
+                    EstadoConversacion.CERRADA.value
+                    if conv.fecha_cierre is not None
+                    else EstadoConversacion.ABIERTA.value
+                )
+                conversacion_out = ConversacionSummaryOut(
+                    id=conv.id,
+                    titulo=conv.titulo,
+                    estado=estado,
+                    fecha_inicio=conv.fecha_inicio,
+                )
+        except Exception:
+            # Graceful degradation: if relation is broken or not loaded, return None
+            pass
+
         return SolicitudDetailOut(
             id=solicitud.id,
             estado=solicitud.estado,
@@ -324,4 +348,5 @@ class SolicitudConsultaPresenter:
             expediente=expediente_out,
             historial_global=historial_global,
             asignaciones=asignaciones_out,
+            conversacion=conversacion_out,
         )

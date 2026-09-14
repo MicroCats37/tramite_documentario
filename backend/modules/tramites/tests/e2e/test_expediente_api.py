@@ -79,6 +79,7 @@ def pdf_file_anexo():
 def test_e2e_crear_expediente_success(
     usuario_creador,
     pdf_file,
+    tipo_documento_solicitud,
 ):
     """
     E2E test for Expediente creation with file upload.
@@ -99,7 +100,7 @@ def test_e2e_crear_expediente_success(
         apellidos="Perez",
         correo="juan.perez@example.com",
         telefono="999888777",
-        tipo_documento="SOLICITUD",
+        tipo_documento_id=tipo_documento_solicitud.id,
         numero_documento="SOL-2026-001",
         numero_folios=5,
         asunto="Solicitud de trámite de prueba E2E",
@@ -175,6 +176,7 @@ def test_e2e_crear_expediente_multiple_files(
     usuario_creador,
     pdf_file,
     pdf_file_anexo,
+    tipo_documento_oficio,
 ):
     """
     E2E test for Expediente creation with multiple files (principal + anexo).
@@ -192,7 +194,7 @@ def test_e2e_crear_expediente_multiple_files(
         apellidos="Garcia",
         correo="maria.garcia@example.com",
         telefono="988776655",
-        tipo_documento="OFICIO",
+        tipo_documento_id=tipo_documento_oficio.id,
         numero_documento="OFICIO-2026-002",
         numero_folios=8,
         asunto="Solicitud con múltiples archivos E2E",
@@ -259,6 +261,7 @@ def test_e2e_crear_expediente_multiple_files(
 def test_e2e_crear_expediente_persona_juridica(
     usuario_creador,
     pdf_file,
+    tipo_documento_oficio,
 ):
     """
     E2E test for Expediente creation for persona jurídica (company).
@@ -277,7 +280,7 @@ def test_e2e_crear_expediente_persona_juridica(
         apellidos=None,
         correo="empresa_e2e@test.com",
         telefono="012345678",
-        tipo_documento="OFICIO",
+        tipo_documento_id=tipo_documento_oficio.id,
         numero_documento="OFICIO-J-2026-001",
         numero_folios=12,
         asunto="Solicitud de empresa E2E - Trámite de habilitación",
@@ -327,6 +330,7 @@ def test_e2e_crear_expediente_persona_juridica(
 def test_e2e_crear_expediente_response_structure(
     usuario_creador,
     pdf_file,
+    tipo_documento_solicitud,
 ):
     """
     E2E test verifying the response structure includes required fields.
@@ -343,7 +347,7 @@ def test_e2e_crear_expediente_response_structure(
         apellidos="Lopez",
         correo="ana.lopez@example.com",
         telefono="123456789",
-        tipo_documento="SOLICITUD",
+        tipo_documento_id=tipo_documento_solicitud.id,
         numero_documento="SOL-2026-003",
         numero_folios=3,
         asunto="Test de respuesta E2E",

@@ -66,10 +66,17 @@
  */
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CheckCircle2, Loader2, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { CheckCircle2, Loader2, X } from "lucide-react";
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   type DefaultValues,
   type FieldValues,
@@ -302,11 +309,7 @@ interface AnimatedStepProps {
   isActive: boolean;
 }
 
-function AnimatedStep({
-  children,
-  direction,
-  isActive,
-}: AnimatedStepProps) {
+function AnimatedStep({ children, direction, isActive }: AnimatedStepProps) {
   return (
     <div
       data-state={isActive ? "active" : "inactive"}
@@ -423,7 +426,7 @@ export function MultiPartFormStepper({
   mapToFinal,
   finalSchema,
   onSubmit,
-  initialAggregate = {},
+  initialAggregate,
   onAggregateChange,
   onStepChange,
   isLoading = false,
@@ -442,8 +445,13 @@ export function MultiPartFormStepper({
   const [pendingStep, setPendingStep] = useState<number | null>(null);
 
   // Aggregate state — shared across all parts
+  // Use useMemo to ensure stable reference for default {} to avoid reset-effect loops
+  const stableInitialAggregate = useMemo(
+    () => initialAggregate ?? {},
+    [initialAggregate],
+  );
   const [aggregate, setAggregate] = useState<Record<string, unknown>>(
-    initialAggregate,
+    stableInitialAggregate,
   );
 
   // Track the active part's form methods for imperative access
@@ -474,10 +482,10 @@ export function MultiPartFormStepper({
       setDirection("forward");
       setIsTransitioning(false);
       setPendingStep(null);
-      setAggregate(initialAggregate);
+      setAggregate(stableInitialAggregate);
       activeMethodsRef.current = null;
     }
-  }, [open, initialAggregate]);
+  }, [open, stableInitialAggregate]);
 
   // Commit step change after transition animation
   useEffect(() => {
@@ -730,9 +738,7 @@ export function MultiPartFormStepper({
                 className="flex-1 h-10 sm:h-12 rounded-xl sm:rounded-2xl font-bold shadow-lg shadow-primary/25 gap-2 sm:max-w-[180px] text-base transition-all duration-200 hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-0.5 active:translate-y-0 disabled:hover:translate-y-0 disabled:hover:shadow-lg"
               >
                 {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
-                <span>
-                  {isLoading ? primaryLoadingLabel : primaryLabel}
-                </span>
+                <span>{isLoading ? primaryLoadingLabel : primaryLabel}</span>
               </Button>
             ) : (
               <Button

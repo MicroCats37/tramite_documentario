@@ -152,7 +152,9 @@ export function AppFormModal<T extends FieldValues>({
               )}
             </div>
             {/* Spacer to mirror icon width */}
-            {icon && <div className="w-9 sm:w-11 shrink-0" aria-hidden="true" />}
+            {icon && (
+              <div className="w-9 sm:w-11 shrink-0" aria-hidden="true" />
+            )}
           </div>
         </GenericModal.Header>
 
@@ -201,7 +203,9 @@ export function AppFormModal<T extends FieldValues>({
               aria-label={primaryLabel}
             >
               {primaryLoading && <Loader2 className="h-4 w-4 animate-spin" />}
-              {!primaryLoading && <CheckCircle2 className="h-4 w-4 sm:hidden" />}
+              {!primaryLoading && (
+                <CheckCircle2 className="h-4 w-4 sm:hidden" />
+              )}
               <span className="hidden sm:inline">
                 {primaryLoading
                   ? (primaryLoadingLabel ?? "Guardando...")

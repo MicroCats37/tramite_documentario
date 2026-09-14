@@ -10,7 +10,12 @@ from ninja_jwt.tokens import RefreshToken
 
 from injector import inject
 from modules.usuarios.domain.models import Usuario
-from modules.usuarios.domain.schemas.auth_result_schemas import AuthUserResult, LoginTokenResult
+from modules.usuarios.domain.schemas.auth_result_schemas import (
+    AreaAsignadaResult,
+    AuthUserResult,
+    LoginTokenResult,
+    UserDatosResult,
+)
 
 
 class AuthCoreService:
@@ -26,17 +31,37 @@ class AuthCoreService:
     def _build_user_result(self, usuario: Usuario) -> AuthUserResult:
         """
         Construye AuthUserResult a partir de una instancia de Usuario.
+        Incluye áreas asignadas vigentes.
         Seguro para llamar dentro de sync_to_async.
         """
+        from modules.usuarios.domain.models import AsignacionUsuario
+
+        # Get active area assignments
+        areas = []
+        asignaciones = AsignacionUsuario.objects.vigentes().filter(
+            usuario=usuario
+        ).select_related("area", "cargo")
+        for asig in asignaciones:
+            areas.append(AreaAsignadaResult(
+                id=asig.id,
+                area_id=asig.area.id,
+                area_nombre=asig.area.nombre,
+                cargo_id=asig.cargo.id,
+                cargo_nombre=asig.cargo.nombre,
+            ))
+
         return AuthUserResult(
-            id=str(usuario.id),
-            username=usuario.username,
-            dni=usuario.dni,
-            email=usuario.email,
-            nombres=usuario.nombres,
-            apellidos=usuario.apellidos,
-            is_staff=usuario.is_staff,
-            is_superuser=usuario.is_superuser,
+            datos=UserDatosResult(
+                id=str(usuario.id),
+                username=usuario.username,
+                dni=usuario.dni,
+                email=usuario.email,
+                nombres=usuario.nombres,
+                apellidos=usuario.apellidos,
+                is_staff=usuario.is_staff,
+                is_superuser=usuario.is_superuser,
+            ),
+            areas_asignadas_vigentes=areas,
         )
 
     def _get_usuario_by_username(self, username: str) -> Usuario | None:
@@ -85,7 +110,7 @@ class AuthCoreService:
         return await sync_to_async(self._get_usuario_by_username)(username)
 
     async def buscar_usuario_por_dni(self, dni: str) -> Usuario | None:
-        """Async: busca usuario por dni."""
+        """Async: busca usuario por DNI."""
         return await sync_to_async(self._get_usuario_by_dni)(dni)
 
     async def buscar_usuario_por_email(self, email: str) -> Usuario | None:
@@ -104,7 +129,7 @@ class AuthCoreService:
         return await sync_to_async(self._create_jwt_tokens)(usuario)
 
     async def build_user_result(self, usuario: Usuario) -> AuthUserResult:
-        """Async: construye DTO de resultado de usuario."""
+        """Async: construye DTO de resultado de usuario con áreas asignadas vigentes."""
         return await sync_to_async(self._build_user_result)(usuario)
 
     @property

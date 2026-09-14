@@ -19,7 +19,7 @@ from ninja_extra.testing import TestClient
 from ninja_jwt.tokens import AccessToken
 from config.api import api
 
-from modules.tramites.domain.models import Expediente, ExpedienteArchivo, ExpedienteAntecedente
+from modules.tramites.domain.models import Expediente, ExpedienteArchivo, ExpedienteAntecedente, TipoDocumento
 from modules.tramites.domain.constants import TipoArchivo, EstadoSolicitud
 
 
@@ -58,6 +58,13 @@ def _make_auth_client(user):
 
 def _crear_expediente_directo(usuario, numero, **kwargs):
     """Create an Expediente row directly for testing."""
+    # Resolve tipo_documento: accept either a TipoDocumento instance or a string (nombre).
+    tipo_doc_value = kwargs.pop("tipo_documento", "SOLICITUD")
+    if isinstance(tipo_doc_value, str):
+        tipo_documento = TipoDocumento.objects.get(nombre=tipo_doc_value)
+    else:
+        tipo_documento = tipo_doc_value
+
     defaults = dict(
         numero=numero,
         tipo_persona="NATURAL",
@@ -66,7 +73,7 @@ def _crear_expediente_directo(usuario, numero, **kwargs):
         apellidos="Perez",
         correo="juan@test.com",
         telefono="999888777",
-        tipo_documento="SOLICITUD",
+        tipo_documento=tipo_documento,
         numero_documento=f"DOC-2026-{numero:03d}",
         numero_folios=5,
         asunto=f"Trámite de prueba {numero}",

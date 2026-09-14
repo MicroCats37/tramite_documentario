@@ -1,14 +1,12 @@
 """Modelos — re-exportados desde domain/models/."""
 
 from .domain.models import (
-    Notificacion,
-    NotificacionUsuario,
     SolicitudAsignacion,
     SolicitudAsignacionPeriodo,
-    SolicitudAsignacionPeriodoEstadoHistorial,
-    SolicitudAsignacionRespuesta,
     SolicitudAsignacionUsuario,
+    SolicitudAsignacionPeriodoEstadoHistorial,
     SolicitudDerivacion,
+    SolicitudAsignacionRespuesta,
 )
 
 __all__ = [
@@ -18,6 +16,4 @@ __all__ = [
     "SolicitudAsignacionPeriodoEstadoHistorial",
     "SolicitudDerivacion",
     "SolicitudAsignacionRespuesta",
-    "Notificacion",
-    "NotificacionUsuario",
 ]

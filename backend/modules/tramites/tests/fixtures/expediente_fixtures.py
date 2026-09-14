@@ -141,3 +141,25 @@ def ExpedienteCreacionFlujo():
     """
     from modules.tramites.domain.services.flujos.expediente_flujo import ExpedienteCreacionFlujo
     return ExpedienteCreacionFlujo
+
+
+@pytest.fixture
+def tipo_documento_solicitud(db):
+    """
+    Return the SOLICITUD TipoDocumento catalog entry.
+
+    Use this as tipo_documento_solicitud.id for API payloads.
+    """
+    from modules.tramites.domain.models import TipoDocumento
+    return TipoDocumento.objects.get(nombre="SOLICITUD")
+
+
+@pytest.fixture
+def tipo_documento_oficio(db):
+    """
+    Return the OFICIO TipoDocumento catalog entry.
+
+    Use this as tipo_documento_oficio.id for API payloads.
+    """
+    from modules.tramites.domain.models import TipoDocumento
+    return TipoDocumento.objects.get(nombre="OFICIO")

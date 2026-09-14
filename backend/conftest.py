@@ -49,6 +49,10 @@ def _patch_ninja_extra_test_client():
 
     class AsyncAwareTestClient(testing_client.NinjaExtraClientBase):
         def request(self, method, path, data=None, json=None, **request_params):
+            headers = dict(getattr(self, "headers", {}))
+            headers.update(request_params.pop("headers", {}))
+            request_params["headers"] = headers
+
             if method.upper() == "GET" and isinstance(data, dict) and data:
                 separator = "&" if "?" in path else "?"
                 path = f"{path}{separator}{urlencode(data)}"

@@ -19,6 +19,15 @@ from modules.asignaciones.domain.constants import TipoParticipacion, EstadoPerio
 from modules.tramites.presentation.schemas.expediente_list_out import ExpedienteItemOut, ExpedienteDetailOut
 
 
+class ConversacionSummaryOut(BaseSchema):
+    """Resumen de conversación vinculada a una solicitud (para detalle)."""
+
+    id: uuid.UUID = Field(..., description="ID de la conversación")
+    titulo: Optional[str] = Field(None, description="Título de la conversación")
+    estado: str = Field(..., description="Estado de la conversación (ABIERTA o CERRADA)")
+    fecha_inicio: datetime = Field(..., description="Fecha de inicio")
+
+
 class AreaActivaOut(BaseSchema):
     """Área activa en item de listado de solicitudes."""
 
@@ -138,6 +147,9 @@ class SolicitudDetailOut(BaseSchema):
 
     # Asignaciones con detalle
     asignaciones: list[AsignacionDetalleOut] = Field(default_factory=list, description="Asignaciones con períodos, participantes y respuestas")
+
+    # Conversación vinculada (puede ser None para solicitudes creadas antes de esta característica)
+    conversacion: Optional[ConversacionSummaryOut] = Field(None, description="Conversación vinculada a la solicitud")
 
 
 class EstadoOperativoOut(BaseSchema):

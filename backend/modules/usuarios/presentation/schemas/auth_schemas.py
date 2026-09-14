@@ -25,8 +25,8 @@ class LoginEmailIn(BaseSchema):
     password: str = Field(..., min_length=1, description="Contraseña")
 
 
-class AuthUserOut(BaseSchema):
-    """Datos de usuario en respuesta de login."""
+class UserDatosOut(BaseSchema):
+    """Datos básicos del usuario en respuesta de login."""
     id: uuid.UUID = Field(..., description="ID único del usuario")
     username: str = Field(..., description="Nombre de usuario")
     dni: str | None = Field(None, description="DNI")
@@ -35,6 +35,23 @@ class AuthUserOut(BaseSchema):
     apellidos: str | None = Field(None, description="Apellidos")
     is_staff: bool = Field(..., description="Es staff")
     is_superuser: bool = Field(..., description="Es superusuario")
+
+
+class AreaAsignadaOut(BaseSchema):
+    """Área asignada vigente al usuario."""
+    id: uuid.UUID = Field(..., description="ID de la asignación")
+    area_id: uuid.UUID = Field(..., description="ID del área")
+    area_nombre: str = Field(..., description="Nombre del área")
+    cargo_id: uuid.UUID = Field(..., description="ID del cargo")
+    cargo_nombre: str = Field(..., description="Nombre del cargo")
+
+
+class AuthUserOut(BaseSchema):
+    """Respuesta de usuario autenticado con datos y áreas asignadas vigentes."""
+    datos: UserDatosOut = Field(..., description="Datos básicos del usuario")
+    areas_asignadas_vigentes: list[AreaAsignadaOut] = Field(
+        ..., description="Áreas asignadas vigentes del usuario"
+    )
 
 
 class LoginTokenOut(BaseSchema):

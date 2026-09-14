@@ -12,7 +12,9 @@ from django.db import IntegrityError
 from injector import inject
 
 from modules.tramites.domain.models import Expediente
+from modules.tramites.domain.models.tipo_documento import TipoDocumento
 from modules.tramites.presentation.schemas.expediente_in import ExpedienteCreateIn
+from core.exceptions import NotFoundError
 
 
 class ExpedienteCoreService:
@@ -70,6 +72,7 @@ class ExpedienteCoreService:
         numero = self._obtener_siguiente_numero(año_actual)
 
         try:
+            tipo_doc = TipoDocumento.objects.get(id=data.tipo_documento_id)
             expediente = Expediente.objects.create(
                 numero=numero,
                 tipo_persona=data.tipo_persona,
@@ -81,37 +84,49 @@ class ExpedienteCoreService:
                 apellidos=data.apellidos,
                 correo=data.correo,
                 telefono=data.telefono,
-                tipo_documento=data.tipo_documento,
+                tipo_documento=tipo_doc,
                 numero_documento=data.numero_documento,
                 numero_folios=data.numero_folios,
                 asunto=data.asunto,
                 observaciones=data.observaciones,
                 fecha_registro=datetime.now(),
                 creado_por_id=creado_por_id,
+            )
+        except TipoDocumento.DoesNotExist:
+            raise NotFoundError(
+                resource="Tipo de documento",
+                detail=f"Tipo de documento con ID '{data.tipo_documento_id}' no encontrado.",
             )
         except IntegrityError:
             # Reintento: otra transacción insertó entre el SELECT y el INSERT.
             # Recalcular y reintentar una sola vez.
             numero = self._obtener_siguiente_numero(año_actual)
-            expediente = Expediente.objects.create(
-                numero=numero,
-                tipo_persona=data.tipo_persona,
-                dni=data.dni,
-                ruc=data.ruc,
-                cip=data.cip,
-                razon_social=data.razon_social,
-                nombres=data.nombres,
-                apellidos=data.apellidos,
-                correo=data.correo,
-                telefono=data.telefono,
-                tipo_documento=data.tipo_documento,
-                numero_documento=data.numero_documento,
-                numero_folios=data.numero_folios,
-                asunto=data.asunto,
-                observaciones=data.observaciones,
-                fecha_registro=datetime.now(),
-                creado_por_id=creado_por_id,
-            )
+            try:
+                tipo_doc = TipoDocumento.objects.get(id=data.tipo_documento_id)
+                expediente = Expediente.objects.create(
+                    numero=numero,
+                    tipo_persona=data.tipo_persona,
+                    dni=data.dni,
+                    ruc=data.ruc,
+                    cip=data.cip,
+                    razon_social=data.razon_social,
+                    nombres=data.nombres,
+                    apellidos=data.apellidos,
+                    correo=data.correo,
+                    telefono=data.telefono,
+                    tipo_documento=tipo_doc,
+                    numero_documento=data.numero_documento,
+                    numero_folios=data.numero_folios,
+                    asunto=data.asunto,
+                    observaciones=data.observaciones,
+                    fecha_registro=datetime.now(),
+                    creado_por_id=creado_por_id,
+                )
+            except TipoDocumento.DoesNotExist:
+                raise NotFoundError(
+                    resource="Tipo de documento",
+                    detail=f"Tipo de documento con ID '{data.tipo_documento_id}' no encontrado.",
+                )
         return expediente
 
     def _obtener_expediente_por_id(self, expediente_id: int) -> Expediente | None:

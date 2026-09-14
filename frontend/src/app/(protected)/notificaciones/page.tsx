@@ -2,195 +2,61 @@
  * Centro de Notificaciones — bandeja individualizada del usuario.
  * Ruta: /notificaciones
  *
- * Muestra listado paginado de notificaciones con badges de estado.
- * Usa useNotificaciones(), useMarkVista() y useDescartarNotificacion().
+ * MVP profesional: tabs de filtro, summary cards, paginación.
+ * Usa useNotificacionSummary(), useNotificaciones(), useMarkVista(),
+ * useDescartarNotificacion() y componentes Task 4.
  */
 "use client";
 
-import { Bell, BellOff, CheckCheck, ExternalLink } from "lucide-react";
+import { Bell } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  ESTADO_NOTIFICACION,
-  type EstadoNotificacionIndividual,
-} from "@/shared/constants/tramite.tokens";
-import {
-  useNotificaciones,
-  useMarkVista,
-  useDescartarNotificacion,
-} from "@/features/notificaciones/hooks/useNotificaciones";
-import type { NotificationItem } from "@/features/notificaciones/schemas/notificacion.schema";
+import { useState } from "react";
 import { toast } from "sonner";
+import { Pagination } from "@/components/genericPagination/Pagination";
+import { Button } from "@/components/ui/button";
 import { PageWrapper } from "@/components-app/page";
+import {
+  NotificationCard,
+  NotificationEmptyState,
+  type NotificationFilterTab,
+  NotificationSummaryCards,
+  NotificationTabs,
+} from "@/features/notificaciones/components";
+import {
+  useMarkVista,
+  useNotificaciones,
+  useNotificacionSummary,
+} from "@/features/notificaciones/hooks/useNotificaciones";
+import type { NotificationListItem } from "@/features/notificaciones/schemas/notificacion.schema";
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Constants ─────────────────────────────────────────────────────────────────
 
-function formatDate(iso: string | null | undefined): string {
-  if (!iso) return "—";
-  try {
-    return new Date(iso).toLocaleDateString("es-PE", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  } catch {
-    return "—";
-  }
-}
+const PAGE_SIZE_OPTIONS = [5, 10, 20];
 
-// ── Skeleton ───────────────────────────────────────────────────────────────────
+// ── Skeleton ─────────────────────────────────────────────────────────────────
 
 function ListSkeleton() {
   return (
-    <div className="app-page">
-      <div className="app-page-header ">
-        <Skeleton className="h-10 w-64" />
-      </div>
-      <div className="space-y-4">
-        {[1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-32 w-full" />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ── Empty State ───────────────────────────────────────────────────────────────
-
-function EmptyState() {
-  return (
-    <PageWrapper
-      title="Centro de Notificaciones"
-      description="Avisos y eventos de tus solicitudes"
-      icon={<Bell className="h-6 w-6 text-primary" />}
-    >
-      <div className="app-card flex flex-col items-center justify-center py-16 gap-4 text-center">
-        <div className="p-4 bg-muted rounded-full">
-          <BellOff className="h-8 w-8 text-muted-foreground" />
-        </div>
-        <div>
-          <h3 className="font-semibold text-lg">Sin notificaciones</h3>
-          <p className="text-sm text-muted-foreground mt-1">
-            No tienes notificaciones pendientes
-          </p>
-        </div>
-      </div>
-    </PageWrapper>
-  );
-}
-
-// ── Notification Card ─────────────────────────────────────────────────────────
-
-interface NotificationCardProps {
-  item: NotificationItem;
-  onMarcarVista: (id: string) => void;
-  onDescartar: (id: string) => void;
-  onNavigate: (item: NotificationItem) => void;
-  isMarkingVista: boolean;
-  isDiscarding: boolean;
-}
-
-function NotificationCard({
-  item,
-  onMarcarVista,
-  onDescartar,
-  onNavigate,
-  isMarkingVista,
-  isDiscarding,
-}: NotificationCardProps) {
-  const estadoToken =
-    ESTADO_NOTIFICACION[item.estado_individual as EstadoNotificacionIndividual];
-
-  const canMarkVista =
-    item.estado_individual === "NO_VISTA" || item.estado_individual === "VISTA";
-  const canDiscard = item.estado_individual !== "DESCARTADA";
-
-  return (
-    <div className="app-card p-4 space-y-3">
-      {/* Header row */}
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="font-medium text-sm truncate">{item.titulo}</h3>
-            <Badge className={estadoToken.badgeClass}>{estadoToken.label}</Badge>
+    <div className="space-y-4">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="app-card p-4 space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 space-y-2">
+              <div className="h-4 w-48 rounded-md bg-muted animate-pulse" />
+              <div className="h-3 w-32 rounded-md bg-muted animate-pulse" />
+            </div>
+            <div className="h-3 w-20 rounded-md bg-muted animate-pulse" />
           </div>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {item.tipo_evento}
-          </p>
+          <div className="flex gap-4">
+            <div className="h-3 w-24 rounded-md bg-muted animate-pulse" />
+            <div className="h-3 w-20 rounded-md bg-muted animate-pulse" />
+          </div>
+          <div className="flex gap-2 pt-1 border-t">
+            <div className="h-7 w-28 rounded-md bg-muted animate-pulse" />
+            <div className="h-7 w-24 rounded-md bg-muted animate-pulse" />
+          </div>
         </div>
-        <span className="text-xs text-muted-foreground shrink-0">
-          {formatDate(item.fecha_evento)}
-        </span>
-      </div>
-
-      {/* Context info */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-        <span className="bg-muted px-2 py-0.5 rounded-md">{item.area_nombre}</span>
-        {item.solicitud_id_publico && (
-          <span className="font-mono">{item.solicitud_id_publico}</span>
-        )}
-        {item.periodo_ciclo != null && (
-          <span>Ciclo {item.periodo_ciclo}</span>
-        )}
-        {item.periodo_activo ? (
-          <span className="success-text">Período activo</span>
-        ) : (
-          <span className="text-muted-foreground">Período cerrado</span>
-        )}
-        {item.participo ? (
-          <span className="text-primary font-medium">Participas</span>
-        ) : (
-          <span className="text-muted-foreground">No participas</span>
-        )}
-      </div>
-
-      {/* Resumen de solicitud */}
-      {item.solicitud_asunto && (
-        <p className="text-xs text-muted-foreground line-clamp-2">
-          {item.solicitud_asunto}
-        </p>
-      )}
-
-      {/* Actions */}
-      <div className="flex items-center gap-2 pt-1 border-t">
-        {canMarkVista && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="gap-1.5 h-8 text-xs"
-            onClick={() => onMarcarVista(item.id)}
-            disabled={isMarkingVista || isDiscarding}
-          >
-            <CheckCheck className="h-3.5 w-3.5" />
-            Marcar vista
-          </Button>
-        )}
-        {canDiscard && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="gap-1.5 h-8 text-xs text-muted-foreground hover:text-foreground"
-            onClick={() => onDescartar(item.id)}
-            disabled={isMarkingVista || isDiscarding}
-          >
-            <BellOff className="h-3.5 w-3.5" />
-            Descartar
-          </Button>
-        )}
-        {item.solicitud_id_publico && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="gap-1.5 h-8 text-xs ml-auto"
-            onClick={() => onNavigate(item)}
-          >
-            <ExternalLink className="h-3.5 w-3.5" />
-            Abrir solicitud
-          </Button>
-        )}
-      </div>
+      ))}
     </div>
   );
 }
@@ -200,21 +66,61 @@ function NotificationCard({
 export default function NotificacionesPage() {
   const router = useRouter();
 
-  const {
-    items,
-    total,
-    page,
+  // ── Tab filter state ──────────────────────────────────────────────────────
+  // PENDIENTE maps to VISTA backend state (notifications that have been viewed
+  // but not yet acted upon — considered "pending" from the user's perspective).
+  const [activeTab, setActiveTab] = useState<NotificationFilterTab>("TODAS");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(PAGE_SIZE_OPTIONS[0]);
+
+  // ── Data hooks ────────────────────────────────────────────────────────────
+  const { data: summary, isLoading: isSummaryLoading } =
+    useNotificacionSummary();
+
+  const { items, total, isLoading, isError, refetch } = useNotificaciones({
+    estado: undefined,
+    initialPage: 1,
     pageSize,
-    totalPages,
-    isLoading,
-    isError,
-    onPageChange,
-    refetch,
-  } = useNotificaciones();
+  });
 
   const { mutateAsync: markVista, isPending: isMarkingVista } = useMarkVista();
-  const { mutateAsync: discard, isPending: isDiscarding } = useDescartarNotificacion();
 
+  // ── Client-side filter ────────────────────────────────────────────────────
+  // Backend returns all items; filter by tab client-side.
+  // PENDIENTE tab → VISTA backend state (viewed but pending user action).
+  const filteredItems = (() => {
+    if (activeTab === "TODAS") return items;
+    if (activeTab === "PENDIENTE") {
+      return items.filter((item) => item.estado_individual === "VISTA");
+    }
+    return items.filter((item) => item.estado_individual === activeTab);
+  })();
+
+  // ── Client-side pagination over filtered items ──────────────────────────────
+  const totalFiltered = filteredItems.length;
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedItems = filteredItems.slice(
+    (safePage - 1) * pageSize,
+    safePage * pageSize,
+  );
+
+  // Reset to page 1 when tab changes.
+  const handleTabChange = (tab: NotificationFilterTab) => {
+    setActiveTab(tab);
+    setCurrentPage(1);
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size);
+    setCurrentPage(1);
+  };
+
+  // ── Actions ───────────────────────────────────────────────────────────────
   const handleMarcarVista = async (id: string) => {
     try {
       await markVista(id);
@@ -224,25 +130,25 @@ export default function NotificacionesPage() {
     }
   };
 
-  const handleDescartar = async (id: string) => {
-    try {
-      await discard(id);
-      toast.success("Notificación descartada");
-    } catch {
-      toast.error("No se pudo descartar la notificación");
-    }
+  const handleNavigate = (item: NotificationListItem) => {
+    // Always navigate to notification detail; vista/abrir are handled there.
+    router.push(`/notificaciones/${item.id}`);
   };
 
-  const handleNavigate = (item: NotificationItem) => {
-    if (item.solicitud_id_publico) {
-      // Navigate to the related solicitud — the id is the solicitud uuid, not id_publico
-      // We need to use the solicitud_id if available for navigation
-      router.push(`/notificaciones/${item.id}`);
-    }
-  };
+  // ── Loading ───────────────────────────────────────────────────────────────
+  if (isLoading || isSummaryLoading) {
+    return (
+      <PageWrapper
+        title="Centro de Notificaciones"
+        description="Cargando notificaciones…"
+        icon={<Bell className="h-6 w-6 text-primary" />}
+      >
+        <ListSkeleton />
+      </PageWrapper>
+    );
+  }
 
-  if (isLoading) return <ListSkeleton />;
-
+  // ── Error ─────────────────────────────────────────────────────────────────
   if (isError) {
     return (
       <PageWrapper
@@ -268,59 +174,69 @@ export default function NotificacionesPage() {
     );
   }
 
-  if (!isLoading && items.length === 0) return <EmptyState />;
+  // ── Empty state (no notifications at all) ─────────────────────────────────
+  if (total === 0) {
+    return (
+      <PageWrapper
+        title="Centro de Notificaciones"
+        description="Avisos y eventos de tus solicitudes"
+        icon={<Bell className="h-6 w-6 text-primary" />}
+      >
+        <NotificationEmptyState activeFilter="TODAS" />
+      </PageWrapper>
+    );
+  }
+
+  // ── Description ────────────────────────────────────────────────────────────
+  const description =
+    totalFiltered > 0
+      ? `${totalFiltered} notificación${totalFiltered !== 1 ? "es" : ""}${
+          activeTab !== "TODAS" ? ` — página ${safePage} de ${totalPages}` : ""
+        }`
+      : "Avisos y eventos de tus solicitudes";
 
   return (
     <PageWrapper
       title="Centro de Notificaciones"
-      description={
-        total > 0
-          ? `${total} notificación${total !== 1 ? "es" : ""} — página ${page} de ${totalPages}`
-          : "Avisos y eventos de tus solicitudes"
-      }
+      description={description}
       icon={<Bell className="h-6 w-6 text-primary" />}
     >
+      {/* Summary strip */}
+      <NotificationSummaryCards
+        summary={summary ?? undefined}
+        isLoading={isSummaryLoading}
+      />
+
+      {/* Filter tabs */}
+      <NotificationTabs value={activeTab} onChange={handleTabChange} />
 
       {/* Notification list */}
-      <div className="space-y-4">
-        {items.map((item) => (
-          <NotificationCard
-            key={item.id}
-            item={item}
-            onMarcarVista={handleMarcarVista}
-            onDescartar={handleDescartar}
-            onNavigate={handleNavigate}
-            isMarkingVista={isMarkingVista}
-            isDiscarding={isDiscarding}
-          />
-        ))}
-      </div>
+      {paginatedItems.length === 0 ? (
+        <NotificationEmptyState activeFilter={activeTab} />
+      ) : (
+        <div className="space-y-4">
+          {paginatedItems.map((item) => (
+            <NotificationCard
+              key={item.id}
+              item={item}
+              onMarcarVista={handleMarcarVista}
+              onNavigate={handleNavigate}
+              isMarkingVista={isMarkingVista}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex justify-center mt-6">
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onPageChange(page - 1)}
-              disabled={page <= 1}
-            >
-              Anterior
-            </Button>
-            <span className="text-sm text-muted-foreground">
-              Página {page} de {totalPages}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onPageChange(page + 1)}
-              disabled={page >= totalPages}
-            >
-              Siguiente
-            </Button>
-          </div>
-        </div>
+      {totalFiltered > 0 && totalPages > 1 && (
+        <Pagination
+          currentPage={safePage}
+          totalPages={totalPages}
+          onPageChange={handlePageChange}
+          onPageSizeChange={handlePageSizeChange}
+          totalItems={totalFiltered}
+          pageSize={pageSize}
+        />
       )}
     </PageWrapper>
   );

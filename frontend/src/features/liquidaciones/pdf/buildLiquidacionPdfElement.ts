@@ -86,7 +86,8 @@ export function getMotorByTipo(tipo: string): PdfMotor {
 
 export function getPdfTitleByTipo(tipo: string): string {
   const TITLES: Record<string, string> = {
-    edificacion: "LIQUIDACION DE DERECHOS POR CALIFICACION DE PROYECTOS DE INGENIERIA",
+    edificacion:
+      "LIQUIDACION DE DERECHOS POR CALIFICACION DE PROYECTOS DE INGENIERIA",
     "impacto-vial": "LIQUIDACION DE DERECHOS POR IMPACTO VIAL",
     taludes: "LIQUIDACION DE DERECHOS POR TALUDES",
     "habilitacion-urbana": "LIQUIDACION DE DERECHOS POR HABILITACION URBANA",

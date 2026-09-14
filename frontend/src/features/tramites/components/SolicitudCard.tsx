@@ -4,7 +4,14 @@
  */
 "use client";
 
-import { Briefcase, Calendar, Eye, Mail, Paperclip, Printer } from "lucide-react";
+import {
+  Briefcase,
+  Calendar,
+  Eye,
+  Mail,
+  Paperclip,
+  Printer,
+} from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -29,6 +36,16 @@ import { PrintPreviewModal } from "./PrintPreviewModal";
 import { SolicitudPrintPreview } from "./SolicitudPrintPreview";
 import { buildSolicitudPrintHTML } from "./printExpediente";
 
+/** Safe accessor for tipo_documento which may be a string or {id,nombre,descripcion} object. */
+function getTipoDocumentoLabel(td: unknown): string {
+  if (!td) return "—";
+  if (typeof td === "object" && "nombre" in (td as object)) {
+    return (td as { nombre: string }).nombre;
+  }
+  if (typeof td === "string") return td;
+  return "—";
+}
+
 interface SolicitudCardProps {
   item: SolicitudItem;
   onClick?: () => void;
@@ -50,7 +67,8 @@ export function SolicitudCard({ item, onClick: _onClick }: SolicitudCardProps) {
   };
 
   const estadoToken = ESTADO_SOLICITUD[item.estado as EstadoSolicitud];
-  const prioridadToken = PRIORIDAD_SOLICITUD[item.prioridad as PrioridadSolicitud];
+  const prioridadToken =
+    PRIORIDAD_SOLICITUD[item.prioridad as PrioridadSolicitud];
 
   // Areas activas principales (tipo PRINCIPAL)
   const areasPrincipales = item.areas_activas.filter(
@@ -62,11 +80,15 @@ export function SolicitudCard({ item, onClick: _onClick }: SolicitudCardProps) {
 
   const nombreCompleto =
     item.expediente.razon_social ||
-    [item.expediente.nombres, item.expediente.apellidos].filter(Boolean).join(" ") ||
+    [item.expediente.nombres, item.expediente.apellidos]
+      .filter(Boolean)
+      .join(" ") ||
     "—";
 
   const fechaLimite = item.fecha_limite ? new Date(item.fecha_limite) : null;
-  const vencida = fechaLimite ? fechaLimite < new Date() && item.estado !== "FINALIZADA" : false;
+  const vencida = fechaLimite
+    ? fechaLimite < new Date() && item.estado !== "FINALIZADA"
+    : false;
 
   return (
     <>
@@ -78,15 +100,21 @@ export function SolicitudCard({ item, onClick: _onClick }: SolicitudCardProps) {
                 {item.expediente.id_publico}
               </span>
               <p className="font-mono text-[10px] font-bold uppercase text-muted-foreground">
-                {item.expediente.tipo_documento}
+                {getTipoDocumentoLabel(item.expediente.tipo_documento)}
               </p>
             </div>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <p className="truncate text-base font-black uppercase text-foreground" title={nombreCompleto}>
+                <p
+                  className="truncate text-base font-black uppercase text-foreground"
+                  title={nombreCompleto}
+                >
                   {nombreCompleto}
                 </p>
-                <Badge className={prioridadToken.badgeClass} variant="secondary">
+                <Badge
+                  className={prioridadToken.badgeClass}
+                  variant="secondary"
+                >
                   {prioridadToken.label}
                 </Badge>
               </div>
@@ -104,7 +132,9 @@ export function SolicitudCard({ item, onClick: _onClick }: SolicitudCardProps) {
               <div className="space-y-1 text-[10px] font-semibold text-muted-foreground md:text-right">
                 <p className="flex items-center gap-1.5 md:justify-end">
                   <Mail className="h-3 w-3" />
-                  <span className="max-w-56 truncate">{item.expediente.correo || "Sin correo"}</span>
+                  <span className="max-w-56 truncate">
+                    {item.expediente.correo || "Sin correo"}
+                  </span>
                 </p>
                 <p className="flex items-center gap-1.5 md:justify-end">
                   <Paperclip className="h-3 w-3" />
@@ -146,7 +176,9 @@ export function SolicitudCard({ item, onClick: _onClick }: SolicitudCardProps) {
                 <Paperclip className="h-3 w-3" />
                 Principal
               </span>
-              <span className="text-muted-foreground">Folios: {item.expediente.numero_folios}</span>
+              <span className="text-muted-foreground">
+                Folios: {item.expediente.numero_folios}
+              </span>
             </div>
           </div>
 
@@ -182,12 +214,17 @@ export function SolicitudCard({ item, onClick: _onClick }: SolicitudCardProps) {
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {areasPrincipales.length > 0 ? (
                   areasPrincipales.map((area) => (
-                    <span key={area.area_id} className="rounded-md border border-primary/20 bg-primary/5 px-2 py-1 text-xs font-bold text-primary">
+                    <span
+                      key={area.area_id}
+                      className="rounded-md border border-primary/20 bg-primary/5 px-2 py-1 text-xs font-bold text-primary"
+                    >
                       {area.area_nombre}
                     </span>
                   ))
                 ) : (
-                  <span className="text-xs text-muted-foreground">Sin área principal</span>
+                  <span className="text-xs text-muted-foreground">
+                    Sin área principal
+                  </span>
                 )}
               </div>
               {areasAdjuntas.length > 0 && (
@@ -197,7 +234,10 @@ export function SolicitudCard({ item, onClick: _onClick }: SolicitudCardProps) {
                   </p>
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {areasAdjuntas.map((area) => (
-                      <span key={area.area_id} className="rounded-md border border-border bg-muted/40 px-2 py-1 text-xs font-semibold text-muted-foreground">
+                      <span
+                        key={area.area_id}
+                        className="rounded-md border border-border bg-muted/40 px-2 py-1 text-xs font-semibold text-muted-foreground"
+                      >
                         {area.area_nombre}
                       </span>
                     ))}
@@ -213,24 +253,36 @@ export function SolicitudCard({ item, onClick: _onClick }: SolicitudCardProps) {
                 </p>
                 <p className="mt-1 font-mono text-xs font-black text-foreground">
                   {item.fecha_inicio_gestion
-                    ? new Date(item.fecha_inicio_gestion).toLocaleString("es-PE", {
-                        day: "2-digit",
-                        month: "2-digit",
-                        year: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })
+                    ? new Date(item.fecha_inicio_gestion).toLocaleString(
+                        "es-PE",
+                        {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        },
+                      )
                     : "Sin inicio"}
                 </p>
               </div>
-              <div className={cn(
-                "rounded-lg border bg-background px-3 py-2.5",
-                vencida ? "border-destructive/35 bg-destructive/5" : "border-border/70",
-              )}>
+              <div
+                className={cn(
+                  "rounded-lg border bg-background px-3 py-2.5",
+                  vencida
+                    ? "border-destructive/35 bg-destructive/5"
+                    : "border-border/70",
+                )}
+              >
                 <p className="text-[10px] font-black uppercase tracking-wide text-muted-foreground">
                   Límite solicitud
                 </p>
-                <p className={cn("mt-1 font-mono text-xs font-black", vencida ? "text-destructive" : "text-foreground")}>
+                <p
+                  className={cn(
+                    "mt-1 font-mono text-xs font-black",
+                    vencida ? "text-destructive" : "text-foreground",
+                  )}
+                >
                   {fechaLimite
                     ? fechaLimite.toLocaleString("es-PE", {
                         day: "2-digit",
@@ -277,7 +329,11 @@ export function SolicitudCard({ item, onClick: _onClick }: SolicitudCardProps) {
                       </p>
                       <p>
                         <span className="font-semibold">Prioridad:</span>{" "}
-                        {PRIORIDAD_SOLICITUD[item.prioridad as PrioridadSolicitud].label}
+                        {
+                          PRIORIDAD_SOLICITUD[
+                            item.prioridad as PrioridadSolicitud
+                          ].label
+                        }
                       </p>
                     </div>
                   </div>

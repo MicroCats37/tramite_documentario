@@ -48,7 +48,9 @@ function usePreselectEspecialidades(open: boolean): {
   setSelectedEspecialidad: (id: string) => void;
   tarifaUnicaId: string | null;
 } {
-  const [selectedEspecialidad, setSelectedEspecialidad] = useState<string | null>(null);
+  const [selectedEspecialidad, setSelectedEspecialidad] = useState<
+    string | null
+  >(null);
   const [tarifaUnicaId, setTarifaUnicaId] = useState<string | null>(null);
 
   const { data } = useTarifasVigentesPorcentaje("edificaciones");
@@ -60,10 +62,7 @@ function usePreselectEspecialidades(open: boolean): {
         setTarifaUnicaId(data.tarifas[0].id);
       }
       // Pre-select the FIRST especialidad (radio, una sola)
-      if (
-        data.especialidades_disponibles.length > 0 &&
-        !selectedEspecialidad
-      ) {
+      if (data.especialidades_disponibles.length > 0 && !selectedEspecialidad) {
         setSelectedEspecialidad(data.especialidades_disponibles[0].id);
       }
     }
@@ -163,7 +162,11 @@ function EspecialidadesNuevaRevisionSelector({
         <Label>
           Especialidad a aplicar <span className="text-destructive">*</span>
         </Label>
-        <div className="flex flex-row flex-wrap gap-2" role="radiogroup" aria-label="Especialidades">
+        <div
+          className="flex flex-row flex-wrap gap-2"
+          role="radiogroup"
+          aria-label="Especialidades"
+        >
           {especialidades.map((esp) => {
             const isSelected = selectedEspecialidad === esp.id;
             return (
@@ -184,9 +187,13 @@ function EspecialidadesNuevaRevisionSelector({
                     isSelected ? "border-primary" : "border-border",
                   ].join(" ")}
                 >
-                  {isSelected && <span className="h-2 w-2 rounded-full bg-primary" />}
+                  {isSelected && (
+                    <span className="h-2 w-2 rounded-full bg-primary" />
+                  )}
                 </span>
-                <span className="text-sm font-medium truncate">{esp.nombre}</span>
+                <span className="text-sm font-medium truncate">
+                  {esp.nombre}
+                </span>
                 <span className="text-xs text-muted-foreground shrink-0">
                   ({esp.codigo})
                 </span>
@@ -215,11 +222,8 @@ export function NuevaRevisionEdificacionesFormModal({
   const crearMutation = useCrearNuevaRevisionEdificaciones();
   const [contacto, setContacto] = useState<ContactoInline | null>(null);
   const [contactoModalOpen, setContactoModalOpen] = useState(false);
-  const {
-    selectedEspecialidad,
-    setSelectedEspecialidad,
-    tarifaUnicaId,
-  } = usePreselectEspecialidades(open);
+  const { selectedEspecialidad, setSelectedEspecialidad, tarifaUnicaId } =
+    usePreselectEspecialidades(open);
 
   // Prellenar contacto desde la previa cuando se abre
   useEffect(() => {
@@ -272,7 +276,9 @@ export function NuevaRevisionEdificacionesFormModal({
     observacion: previa?.liquidacion_general.observacion ?? "",
     retencion: previa?.liquidacion_general.retencion ?? false,
     tarifa_unica_id: tarifaUnicaId ?? "",
-    especialidades_seleccionadas: selectedEspecialidad ? [selectedEspecialidad] : [],
+    especialidades_seleccionadas: selectedEspecialidad
+      ? [selectedEspecialidad]
+      : [],
   };
 
   const handleSelectEspecialidad = useCallback((id: string) => {
@@ -541,7 +547,9 @@ export function NuevaRevisionEdificacionesFormModal({
                 <CotizacionNuevaRevisionSmartField
                   valorDeclarado={valorDeclaradoFijo}
                   tarifaId={tarifaUnicaId}
-                  especialidadesIds={selectedEspecialidad ? [selectedEspecialidad] : []}
+                  especialidadesIds={
+                    selectedEspecialidad ? [selectedEspecialidad] : []
+                  }
                 />
 
                 {/* Contacto — prellenado desde la previa */}

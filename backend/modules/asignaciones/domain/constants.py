@@ -2,6 +2,7 @@
 
 from django.db import models
 
+# ── Asignaciones-only constants ────────────────────────────────────────────────
 
 class TipoParticipacion(models.TextChoices):
     """Tipo de participación del área en una solicitud."""
@@ -59,6 +60,7 @@ class OrigenEstadoPeriodo(models.TextChoices):
     CIERRE = "CIERRE", "Cierre"
     CAMBIO_PARTICIPACION = "CAMBIO_PARTICIPACION", "Cambio de Participación"
     ASIGNACION_ERRONEA = "ASIGNACION_ERRONEA", "Asignación Errónea"
+    FINALIZACION_SOLICITUD = "FINALIZACION_SOLICITUD", "Finalización de Solicitud"
 
 
 class TipoDerivacion(models.TextChoices):
@@ -87,21 +89,14 @@ class EstadoRespuesta(models.TextChoices):
     RECTIFICADA = "RECTIFICADA", "Rectificada"
 
 
-class TipoNotificacion(models.TextChoices):
-    """Tipo de notificación al área."""
-
-    NUEVA_ASIGNACION = "NUEVA_ASIGNACION", "Nueva Asignación"
-    DEVOLUCION = "DEVOLUCION", "Devolución"
-    COMENTARIO = "COMENTARIO", "Comentario"
-    RESPUESTA = "RESPUESTA", "Respuesta"
-    RECORDATORIO = "RECORDATORIO", "Recordatorio"
-    URGENTE = "URGENTE", "Urgente"
-
-
-class EstadoNotificacion(models.TextChoices):
-    """Estado de la notificación."""
-
-    PENDIENTE = "PENDIENTE", "Pendiente"
-    ENVIADA = "ENVIADA", "Enviada"
-    LEIDA = "LEIDA", "Leída"
-    DESCARTADA = "DESCARTADA", "Descartada"
+__all__ = [
+    # Asignaciones-only
+    "TipoParticipacion",
+    "EstadoPeriodo",
+    "TipoCierre",
+    "EstadoPeriodoOperativo",
+    "OrigenEstadoPeriodo",
+    "TipoDerivacion",
+    "TipoRespuesta",
+    "EstadoRespuesta",
+]

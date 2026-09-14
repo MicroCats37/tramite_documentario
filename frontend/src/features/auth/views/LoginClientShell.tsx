@@ -1,6 +1,14 @@
 "use client";
 
-import { Eye, EyeOff, IdCard, KeyRound, Loader2, Mail, User } from "lucide-react";
+import {
+  Eye,
+  EyeOff,
+  IdCard,
+  KeyRound,
+  Loader2,
+  Mail,
+  User,
+} from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -465,10 +473,10 @@ function AuthCard({ children, className = "" }: AuthCardProps) {
       className={cn(
         "w-full bg-card/95 backdrop-blur-sm rounded-[2rem]",
         "shadow-2xl shadow-black/20",
-        "border border-primary/[0.06]",          /* brand-tinted border */
+        "border border-primary/[0.06]" /* brand-tinted border */,
         "p-6 sm:p-8 md:p-10",
         "transition-all duration-500",
-        "ring-1 ring-inset ring-primary/5",      /* subtle primary glow ring */
+        "ring-1 ring-inset ring-primary/5" /* subtle primary glow ring */,
         className,
       )}
     >
@@ -501,9 +509,15 @@ export function LoginClientShell() {
             {/* Logo with glass ring glow */}
             <div className="relative flex h-20 w-20 items-center justify-center rounded-2xl shadow-2xl">
               {/* Outer glow ring */}
-              <div className="absolute inset-0 rounded-2xl bg-white/10 backdrop-blur-md shadow-2xl" aria-hidden="true" />
+              <div
+                className="absolute inset-0 rounded-2xl bg-white/10 backdrop-blur-md shadow-2xl"
+                aria-hidden="true"
+              />
               {/* Inner ring accent */}
-              <div className="absolute inset-[3px] rounded-[14px] bg-white/5 backdrop-blur-sm border border-white/10" aria-hidden="true" />
+              <div
+                className="absolute inset-[3px] rounded-[14px] bg-white/5 backdrop-blur-sm border border-white/10"
+                aria-hidden="true"
+              />
               {/* Logo image */}
               <Image
                 src="/images/logo.png"
@@ -530,18 +544,26 @@ export function LoginClientShell() {
           {/* Floating decorative accent circles — decorative only */}
           <div className="relative w-full max-w-sm" aria-hidden="true">
             {/* Top-right floating dot */}
-            <div className="absolute -top-4 right-8 h-3 w-3 rounded-full bg-white/10 animate-cip-float" style={{ animationDelay: "0s" }} />
+            <div
+              className="absolute -top-4 right-8 h-3 w-3 rounded-full bg-white/10 animate-cip-float"
+              style={{ animationDelay: "0s" }}
+            />
             {/* Left mid dot */}
             <div className="absolute top-1/3 -left-6 h-2 w-2 rounded-full bg-white/8" />
             {/* Right accent orb */}
             <div className="absolute -top-8 right-16 h-6 w-6 rounded-full bg-accent/20 backdrop-blur-sm shadow-xl shadow-accent/10" />
             {/* Bottom-left floating dot */}
-            <div className="absolute -bottom-2 left-12 h-4 w-4 rounded-full bg-white/8 animate-cip-float" style={{ animationDelay: "2s" }} />
+            <div
+              className="absolute -bottom-2 left-12 h-4 w-4 rounded-full bg-white/8 animate-cip-float"
+              style={{ animationDelay: "2s" }}
+            />
 
             {/* Main headline — large and bold */}
             <div className="text-center space-y-3">
               <h1 className="text-5xl lg:text-6xl font-black text-white tracking-tight leading-none">
-                Trámite<br />Documentario
+                Trámite
+                <br />
+                Documentario
               </h1>
               <div className="flex items-center justify-center gap-2">
                 <div className="h-px w-8 bg-gradient-to-r from-transparent to-accent/60" />
@@ -551,26 +573,45 @@ export function LoginClientShell() {
                 <div className="h-px w-8 bg-gradient-to-l from-transparent to-accent/60" />
               </div>
               <p className="text-white/60 text-sm font-medium leading-relaxed max-w-xs mx-auto pt-1">
-                Gestión documental integral para el Colegio de Ingenieros del Perú
+                Gestión documental integral para el Colegio de Ingenieros del
+                Perú
               </p>
             </div>
 
             {/* Feature highlights — compact pill row */}
             <div className="flex flex-wrap justify-center gap-2 pt-6">
               <div className="flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-white/80 backdrop-blur-sm">
-                <svg className="h-3 w-3 text-accent flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <svg
+                  className="h-3 w-3 text-accent flex-shrink-0"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                >
                   <polyline points="20,6 9,17 4,12" />
                 </svg>
                 Expedientes
               </div>
               <div className="flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-white/80 backdrop-blur-sm">
-                <svg className="h-3 w-3 text-accent flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <svg
+                  className="h-3 w-3 text-accent flex-shrink-0"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                >
                   <polyline points="20,6 9,17 4,12" />
                 </svg>
                 Trámites
               </div>
               <div className="flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-white/80 backdrop-blur-sm">
-                <svg className="h-3 w-3 text-accent flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <svg
+                  className="h-3 w-3 text-accent flex-shrink-0"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                >
                   <polyline points="20,6 9,17 4,12" />
                 </svg>
                 Solicitudes
@@ -645,7 +686,9 @@ export function LoginClientShell() {
                   )}
                 >
                   <User className="h-4 w-4" aria-hidden="true" />
-                  <span className="text-xs uppercase tracking-wider font-semibold">Usuario</span>
+                  <span className="text-xs uppercase tracking-wider font-semibold">
+                    Usuario
+                  </span>
                 </button>
 
                 {/* DNI Tab */}
@@ -660,7 +703,9 @@ export function LoginClientShell() {
                   )}
                 >
                   <IdCard className="h-4 w-4" aria-hidden="true" />
-                  <span className="text-xs uppercase tracking-wider font-semibold">DNI</span>
+                  <span className="text-xs uppercase tracking-wider font-semibold">
+                    DNI
+                  </span>
                 </button>
 
                 {/* Email Tab */}
@@ -675,14 +720,18 @@ export function LoginClientShell() {
                   )}
                 >
                   <Mail className="h-4 w-4" aria-hidden="true" />
-                  <span className="text-xs uppercase tracking-wider font-semibold">Email</span>
+                  <span className="text-xs uppercase tracking-wider font-semibold">
+                    Email
+                  </span>
                 </button>
               </div>
             </div>
 
             {/* Tab Content */}
             <div className="animate-in fade-in slide-in-from-right-4 duration-200">
-              {activeTab === "username" && <UsernameLoginForm isLoading={false} />}
+              {activeTab === "username" && (
+                <UsernameLoginForm isLoading={false} />
+              )}
               {activeTab === "dni" && <DniLoginForm isLoading={false} />}
               {activeTab === "email" && <EmailLoginForm isLoading={false} />}
             </div>

@@ -26,7 +26,9 @@ export const LiquidacionDetalleItemSchema = z.object({
     VisitasDatosOutSchema,
   ]),
 });
-export type LiquidacionDetalleItem = z.infer<typeof LiquidacionDetalleItemSchema>;
+export type LiquidacionDetalleItem = z.infer<
+  typeof LiquidacionDetalleItemSchema
+>;
 
 // ── Wrappers por tipo ─────────────────────────────────────────────────────────
 

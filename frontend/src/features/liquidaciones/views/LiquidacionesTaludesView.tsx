@@ -40,7 +40,6 @@ export function LiquidacionesTaludesView() {
 
   const activeFilterCount = Object.values(filtros).filter(Boolean).length;
 
-
   return (
     <div className="page-section">
       <div className="space-y-6">
@@ -78,7 +77,9 @@ export function LiquidacionesTaludesView() {
         {/* Filtros activos */}
         {activeFilterCount > 0 && (
           <div className="flex flex-wrap items-center gap-2 p-3 bg-muted/20 rounded-xl border border-border/60">
-            <span className="text-xs font-semibold text-muted-foreground">Filtros activos:</span>
+            <span className="text-xs font-semibold text-muted-foreground">
+              Filtros activos:
+            </span>
             {filtros.propietario && (
               <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 border border-primary/20 px-2.5 py-1 text-xs font-medium">
                 Propietario: {filtros.propietario}
@@ -138,21 +139,31 @@ export function LiquidacionesTaludesView() {
           {isLoading ? (
             <div className="flex flex-col gap-4">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="bg-card rounded-xl border shadow-sm h-48 animate-pulse" />
+                <div
+                  key={i}
+                  className="bg-card rounded-xl border shadow-sm h-48 animate-pulse"
+                />
               ))}
             </div>
           ) : isError ? (
-            <div className="flex items-center justify-center p-8 text-destructive">Error al cargar las liquidaciones</div>
+            <div className="flex items-center justify-center p-8 text-destructive">
+              Error al cargar las liquidaciones
+            </div>
           ) : items.length === 0 ? (
             <div className="flex flex-col items-center justify-center p-12 text-center border border-dashed border-border rounded-xl">
               <KIND_ICON className="h-10 w-10 text-muted-foreground mb-4" />
-              <p className="text-muted-foreground">No hay liquidaciones registradas</p>
+              <p className="text-muted-foreground">
+                No hay liquidaciones registradas
+              </p>
             </div>
           ) : (
             <>
               <div className="flex flex-col gap-4">
                 {items.map((item) => (
-                  <LiquidacionTaludesCard key={item.liquidacion_general.id} item={item} />
+                  <LiquidacionTaludesCard
+                    key={item.liquidacion_general.id}
+                    item={item}
+                  />
                 ))}
               </div>
               {/* Pagination */}

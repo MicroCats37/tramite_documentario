@@ -23,9 +23,16 @@
  *   FINALIZADA   → NEUTRAL (normal/closed)
  *   ANULADA      → ROJO (critical)
  */
-export type EstadoSolicitud = "REGISTRADA" | "EN_GESTION" | "FINALIZADA" | "ANULADA";
+export type EstadoSolicitud =
+  | "REGISTRADA"
+  | "EN_GESTION"
+  | "FINALIZADA"
+  | "ANULADA";
 
-export const ESTADO_SOLICITUD: Record<EstadoSolicitud, { label: string; badgeClass: string }> = {
+export const ESTADO_SOLICITUD: Record<
+  EstadoSolicitud,
+  { label: string; badgeClass: string }
+> = {
   REGISTRADA: {
     label: "Registrada",
     badgeClass: "badge-amber",
@@ -58,7 +65,10 @@ export const ESTADO_SOLICITUD: Record<EstadoSolicitud, { label: string; badgeCla
  */
 export type PrioridadSolicitud = "BAJA" | "MEDIA" | "ALTA" | "URGENTE";
 
-export const PRIORIDAD_SOLICITUD: Record<PrioridadSolicitud, { label: string; badgeClass: string }> = {
+export const PRIORIDAD_SOLICITUD: Record<
+  PrioridadSolicitud,
+  { label: string; badgeClass: string }
+> = {
   BAJA: {
     label: "Baja",
     badgeClass: "badge-neutral",
@@ -86,7 +96,10 @@ export const PRIORIDAD_SOLICITUD: Record<PrioridadSolicitud, { label: string; ba
  */
 export type TipoPersona = "NATURAL" | "JURIDICA" | "COLEGIADO";
 
-export const TIPO_PERSONA: Record<TipoPersona, { label: string; badgeClass: string }> = {
+export const TIPO_PERSONA: Record<
+  TipoPersona,
+  { label: string; badgeClass: string }
+> = {
   NATURAL: {
     label: "Persona Natural",
     badgeClass: "badge-neutral",
@@ -112,7 +125,10 @@ export const TIPO_PERSONA: Record<TipoPersona, { label: string; badgeClass: stri
  */
 export type TipoArchivo = "PRINCIPAL" | "ANEXO";
 
-export const TIPO_ARCHIVO: Record<TipoArchivo, { label: string; badgeClass: string }> = {
+export const TIPO_ARCHIVO: Record<
+  TipoArchivo,
+  { label: string; badgeClass: string }
+> = {
   PRINCIPAL: {
     label: "Principal",
     badgeClass: "badge-red",
@@ -134,7 +150,10 @@ export const TIPO_ARCHIVO: Record<TipoArchivo, { label: string; badgeClass: stri
  */
 export type TipoParticipacion = "PRINCIPAL" | "ADJUNTA";
 
-export const TIPO_PARTICIPACION: Record<TipoParticipacion, { label: string; badgeClass: string }> = {
+export const TIPO_PARTICIPACION: Record<
+  TipoParticipacion,
+  { label: string; badgeClass: string }
+> = {
   PRINCIPAL: {
     label: "Principal",
     badgeClass: "badge-red",
@@ -148,18 +167,26 @@ export const TIPO_PARTICIPACION: Record<TipoParticipacion, { label: string; badg
 // ── Estado Periodo ───────────────────────────────────────────────────────────
 
 /**
- * Backend: ABIERTO | CERRADO
+ * Backend: PENDIENTE | EN_GESTION | CERRADO
  *
  * Color mapping:
- *   ABIERTO  → AMARILLO (warning/open)
- *   CERRADO  → NEUTRAL (normal/closed)
+ *   PENDIENTE  → AMARILLO (warning/pending)
+ *   EN_GESTION → ROJO (critical/in-progress)
+ *   CERRADO    → NEUTRAL (normal/closed)
  */
-export type EstadoPeriodo = "ABIERTO" | "CERRADO";
+export type EstadoPeriodo = "PENDIENTE" | "EN_GESTION" | "CERRADO";
 
-export const ESTADO_PERIODO: Record<EstadoPeriodo, { label: string; badgeClass: string }> = {
-  ABIERTO: {
-    label: "Abierto",
+export const ESTADO_PERIODO: Record<
+  EstadoPeriodo,
+  { label: string; badgeClass: string }
+> = {
+  PENDIENTE: {
+    label: "Pendiente",
     badgeClass: "badge-amber",
+  },
+  EN_GESTION: {
+    label: "En Gestión",
+    badgeClass: "badge-red",
   },
   CERRADO: {
     label: "Cerrado",

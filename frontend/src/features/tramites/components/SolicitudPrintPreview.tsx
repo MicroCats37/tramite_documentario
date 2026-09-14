@@ -6,7 +6,14 @@
  */
 "use client";
 
-import { Briefcase, Calendar, FileText, MapPin, Timer, User } from "lucide-react";
+import {
+  Briefcase,
+  Calendar,
+  FileText,
+  MapPin,
+  Timer,
+  User,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   ESTADO_SOLICITUD,
@@ -44,6 +51,16 @@ function SectionCard({
   );
 }
 
+/** Safe accessor for tipo_documento which may be a string or {id,nombre,descripcion} object. */
+function getTipoDocumentoLabel(td: unknown): string {
+  if (!td) return "—";
+  if (typeof td === "object" && "nombre" in (td as object)) {
+    return (td as { nombre: string }).nombre;
+  }
+  if (typeof td === "string") return td;
+  return "—";
+}
+
 function FieldRow({
   label,
   value,
@@ -70,7 +87,8 @@ function FieldRow({
 
 export function SolicitudPrintPreview({ item }: SolicitudPrintPreviewProps) {
   const estadoToken = ESTADO_SOLICITUD[item.estado as EstadoSolicitud];
-  const prioridadToken = PRIORIDAD_SOLICITUD[item.prioridad as PrioridadSolicitud];
+  const prioridadToken =
+    PRIORIDAD_SOLICITUD[item.prioridad as PrioridadSolicitud];
   const exp = item.expediente;
   const tipoPersonaToken = TIPO_PERSONA[exp.tipo_persona as TipoPersona];
 
@@ -89,12 +107,12 @@ export function SolicitudPrintPreview({ item }: SolicitudPrintPreviewProps) {
   );
 
   const fechaLimite = item.fecha_limite ? new Date(item.fecha_limite) : null;
-  const vencida =
-    fechaLimite ? fechaLimite < new Date() && item.estado !== "FINALIZADA" : false;
+  const vencida = fechaLimite
+    ? fechaLimite < new Date() && item.estado !== "FINALIZADA"
+    : false;
 
   return (
     <div className="space-y-4">
-
       {/* ── Modal header: icon left, big ID/title, doc type badge, registration line; right: persona/estado badges ── */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3">
@@ -107,7 +125,7 @@ export function SolicitudPrintPreview({ item }: SolicitudPrintPreviewProps) {
                 {exp.id_publico}
               </span>
               <Badge variant="outline" className="text-[10px] font-bold">
-                {exp.tipo_documento}
+                {getTipoDocumentoLabel(exp.tipo_documento)}
               </Badge>
             </div>
             <p className="mt-0.5 text-xs font-semibold text-foreground line-clamp-1">
@@ -141,7 +159,6 @@ export function SolicitudPrintPreview({ item }: SolicitudPrintPreviewProps) {
 
       {/* ── Two-column body ── */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.05fr_0.95fr]">
-
         {/* LEFT column */}
         <div className="space-y-4">
           {/* Solicitante */}
@@ -156,13 +173,24 @@ export function SolicitudPrintPreview({ item }: SolicitudPrintPreviewProps) {
           {/* Expediente */}
           <SectionCard title="Expediente" icon={FileText}>
             <FieldRow label="N.° Registro" value={exp.numero} mono />
-            <FieldRow label="Documento" value={`${exp.tipo_documento} ${exp.numero_documento || "—"}`} mono />
+            <FieldRow
+              label="Documento"
+              value={`${getTipoDocumentoLabel(exp.tipo_documento)} ${exp.numero_documento || "—"}`}
+              mono
+            />
             <FieldRow label="Folios" value={exp.numero_folios} />
-            <FieldRow label="Archivos" value={`${exp.archivos.length} archivo${exp.archivos.length !== 1 ? "s" : ""}`} />
+            <FieldRow
+              label="Archivos"
+              value={`${exp.archivos.length} archivo${exp.archivos.length !== 1 ? "s" : ""}`}
+            />
             {exp.observaciones && (
               <div className="pt-1 border-t border-border/60">
-                <p className="text-[10px] font-semibold text-muted-foreground mb-0.5">Observaciones</p>
-                <p className="text-xs text-foreground whitespace-pre-wrap">{exp.observaciones}</p>
+                <p className="text-[10px] font-semibold text-muted-foreground mb-0.5">
+                  Observaciones
+                </p>
+                <p className="text-xs text-foreground whitespace-pre-wrap">
+                  {exp.observaciones}
+                </p>
               </div>
             )}
           </SectionCard>
@@ -187,7 +215,13 @@ export function SolicitudPrintPreview({ item }: SolicitudPrintPreviewProps) {
               </div>
             )}
             {areasAdjuntas.length > 0 && (
-              <div className={areasPrincipales.length > 0 ? "pt-2 border-t border-border/60" : ""}>
+              <div
+                className={
+                  areasPrincipales.length > 0
+                    ? "pt-2 border-t border-border/60"
+                    : ""
+                }
+              >
                 <p className="text-[9px] font-black uppercase tracking-wide text-muted-foreground mb-1">
                   Áreas adjuntas
                 </p>
@@ -204,7 +238,9 @@ export function SolicitudPrintPreview({ item }: SolicitudPrintPreviewProps) {
               </div>
             )}
             {item.areas_activas.length === 0 && (
-              <span className="text-xs text-muted-foreground italic">Sin derivación</span>
+              <span className="text-xs text-muted-foreground italic">
+                Sin derivación
+              </span>
             )}
           </SectionCard>
         </div>
@@ -217,11 +253,14 @@ export function SolicitudPrintPreview({ item }: SolicitudPrintPreviewProps) {
               label="Fecha inicio"
               value={
                 item.fecha_inicio_gestion
-                  ? new Date(item.fecha_inicio_gestion).toLocaleDateString("es-PE", {
-                      day: "2-digit",
-                      month: "short",
-                      year: "numeric",
-                    })
+                  ? new Date(item.fecha_inicio_gestion).toLocaleDateString(
+                      "es-PE",
+                      {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                      },
+                    )
                   : "—"
               }
             />
@@ -248,7 +287,8 @@ export function SolicitudPrintPreview({ item }: SolicitudPrintPreviewProps) {
             <div className="flex flex-wrap gap-2">
               {item.conteo_pendiente > 0 && (
                 <span className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-800">
-                  {item.conteo_pendiente} pendiente{item.conteo_pendiente !== 1 ? "s" : ""}
+                  {item.conteo_pendiente} pendiente
+                  {item.conteo_pendiente !== 1 ? "s" : ""}
                 </span>
               )}
               {item.conteo_en_gestion > 0 && (

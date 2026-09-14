@@ -44,7 +44,9 @@ export const InputSelectArea: React.FC<InputComponentProps> = ({
   // Transformar las áreas al shape de SearchableSelectOption
   const options = areas.map((area) => ({
     value: area.id,
-    label: area.descripcion ? `${area.nombre} — ${area.descripcion}` : area.nombre,
+    label: area.descripcion
+      ? `${area.nombre} — ${area.descripcion}`
+      : area.nombre,
   }));
 
   return (

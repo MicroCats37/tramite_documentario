@@ -20,7 +20,13 @@ from modules.tramites.domain.models import (
     Expediente,
     Solicitud,
     SolicitudEstadoHistorial,
+    TipoDocumento,
 )
+
+
+def _td(nombre: str) -> TipoDocumento:
+    """Look up a TipoDocumento by nombre. Caches per name."""
+    return TipoDocumento.objects.get(nombre=nombre)
 from modules.asignaciones.domain.models import (
     SolicitudAsignacion,
     SolicitudAsignacionPeriodo,
@@ -198,7 +204,7 @@ def test_incorporar_area_a_solicitud_registrada_transiciona_a_en_gestion(
         apellidos="Perez",
         correo="juan@test.com",
         telefono="999888777",
-        tipo_documento="SOLICITUD",
+        tipo_documento=_td("SOLICITUD"),
         numero_documento="DOC-2026-F4-001",
         numero_folios=5,
         asunto="Trámite para incorporar área",
@@ -278,7 +284,7 @@ def test_incorporar_area_a_solicitud_en_gestion(
         apellidos="Lopez",
         correo="pedro@test.com",
         telefono="988877766",
-        tipo_documento="SOLICITUD",
+        tipo_documento=_td("SOLICITUD"),
         numero_documento="DOC-2026-F4-002",
         numero_folios=3,
         asunto="Trámite con área existente",
@@ -340,7 +346,7 @@ def test_incorporar_area_respuesta_incluye_asignaciones(
         apellidos="Garcia",
         correo="maria@test.com",
         telefono="977766655",
-        tipo_documento="SOLICITUD",
+        tipo_documento=_td("SOLICITUD"),
         numero_documento="DOC-2026-F4-003",
         numero_folios=4,
         asunto="Verificar respuesta",
@@ -396,7 +402,7 @@ def test_incorporar_area_ya_asignada_devuelve_409(
         apellidos="Martinez",
         correo="ana@test.com",
         telefono="966655544",
-        tipo_documento="SOLICITUD",
+        tipo_documento=_td("SOLICITUD"),
         numero_documento="DOC-2026-F4-004",
         numero_folios=2,
         asunto="Área duplicada",
@@ -465,7 +471,7 @@ def test_incorporar_area_no_existe_devuelve_404(usuario_operador):
         apellidos="Diaz",
         correo="luis@test.com",
         telefono="955544433",
-        tipo_documento="SOLICITUD",
+        tipo_documento=_td("SOLICITUD"),
         numero_documento="DOC-2026-F4-005",
         numero_folios=1,
         asunto="Área inexistente",
@@ -506,7 +512,7 @@ def test_incorporar_area_solicitud_finalizada_devuelve_409(usuario_operador, are
         apellidos="Ruiz",
         correo="elena@test.com",
         telefono="944433322",
-        tipo_documento="SOLICITUD",
+        tipo_documento=_td("SOLICITUD"),
         numero_documento="DOC-2026-F4-006",
         numero_folios=3,
         asunto="Solicitud finalizada",
@@ -555,7 +561,7 @@ def test_incorporar_area_solicitud_anulada_devuelve_409(usuario_operador, area_a
         apellidos="Soto",
         correo="roberto@test.com",
         telefono="933322211",
-        tipo_documento="SOLICITUD",
+        tipo_documento=_td("SOLICITUD"),
         numero_documento="DOC-2026-F4-007",
         numero_folios=2,
         asunto="Solicitud anulada",

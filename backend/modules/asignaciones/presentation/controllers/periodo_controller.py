@@ -231,20 +231,24 @@ class PeriodoController:
         """
         Cambia el tipo de participación de un período (PRINCIPAL ↔ ADJUNTA).
 
+        Cierra el período actual con tipo_cierre=CAMBIO_PARTICIPACION y crea
+        un nuevo período PENDIENTE con el nuevo tipo de participación.
+
         El flujo:
         1. Valida que el período existe.
         2. Valida que el nuevo tipo es PRINCIPAL o ADJUNTA.
         3. Valida que el período no está CERRADO.
         4. Valida que el nuevo tipo es diferente al actual.
-        5. Cambia tipo_participacion del período.
-        6. Registra el cambio en SolicitudAsignacionPeriodoEstadoHistorial
-           con origen=CAMBIO_PARTICIPACION.
-        7. Retorna la solicitud actualizada con todas sus asignaciones.
+        5. Cierra el período actual (estado=CERRADO, tipo_cierre=CAMBIO_PARTICIPACION).
+        6. Crea un nuevo período PENDIENTE con el nuevo tipo de participación.
+        7. Registra dos histiales: cierre del anterior y creación del nuevo.
+        8. Retorna la solicitud actualizada con todas sus asignaciones.
         """
         periodo = await self.periodo_orchestrator.cambiar_participacion(
             periodo_id=periodo_id,
             usuario_id=request.auth.id,
             nuevo_tipo=payload.tipo_participacion,
+            motivo=payload.motivo,
         )
 
         presenter_sync = sync_to_async(

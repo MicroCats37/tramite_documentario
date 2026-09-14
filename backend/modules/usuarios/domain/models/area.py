@@ -30,6 +30,13 @@ class Area(BaseModel):
         verbose_name="¿Está Activo?",
     )
 
+    tiempo_respuesta = models.DurationField(
+        null=True,
+        blank=True,
+        verbose_name="Tiempo de Respuesta",
+        help_text="Duración máxima para atender un trámite (ej. 72 horas = timedelta(hours=72))",
+    )
+
     class Meta:
         verbose_name = "Área"
         verbose_name_plural = "Áreas"

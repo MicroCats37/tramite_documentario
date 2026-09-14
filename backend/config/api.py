@@ -12,13 +12,23 @@ from modules.usuarios.presentation.controllers.auth_controller import AuthLoginC
 from modules.usuarios.presentation.controllers.auth_me_controller import AuthMeController
 from modules.usuarios.presentation.controllers.ingeniero_habilitado_controller import IngenieroHabilitadoController
 from modules.usuarios.presentation.controllers.area_controller import AreaController
+from modules.usuarios.presentation.controllers.usuario_mencionable_controller import (
+    UsuarioMencionableController,
+)
 from modules.tramites.presentation.controllers.expediente_controller import ExpedienteController
 from modules.tramites.presentation.controllers.solicitud_controller import SolicitudController
-from modules.asignaciones.presentation.controllers.notificacion_controller import NotificacionController
+from modules.tramites.presentation.controllers.tipo_documento_controller import TipoDocumentoController
+from modules.notificaciones.presentation.controllers.notificacion_controller import NotificacionController
 from modules.asignaciones.presentation.controllers.periodo_controller import PeriodoController
 from modules.asignaciones.presentation.controllers.participacion_usuario_controller import ParticipacionUsuarioController
 from modules.asignaciones.presentation.controllers.respuesta_controller import RespuestaController
 from modules.consultas.presentation.controllers.consulta_controller import ConsultaController
+from modules.conversaciones.presentation.controllers.conversacion_controller import (
+    ConversacionController,
+)
+from modules.conversaciones.presentation.controllers.solicitud_comentario_controller import (
+    SolicitudComentarioController,
+)
 
 import os
 
@@ -71,6 +81,7 @@ api.register_controllers(AuthMeController)
 
 # ── Usuarios Controllers ─
 api.register_controllers(AreaController)
+api.register_controllers(UsuarioMencionableController)
 
 # ── Ingeniero Habilitado Controllers ─
 api.register_controllers(IngenieroHabilitadoController)
@@ -78,6 +89,7 @@ api.register_controllers(IngenieroHabilitadoController)
 # ── Tramites Controllers ─
 api.register_controllers(ExpedienteController)
 api.register_controllers(SolicitudController)
+api.register_controllers(TipoDocumentoController)
 
 # ── Asignaciones Controllers ─
 api.register_controllers(NotificacionController)
@@ -87,6 +99,10 @@ api.register_controllers(RespuestaController)
 
 # ── Consultas Controllers ─
 api.register_controllers(ConsultaController)
+
+# ── Conversaciones Controllers ─
+api.register_controllers(ConversacionController)
+api.register_controllers(SolicitudComentarioController)
 
 # ── Exception handlers globales ────────────────────────────────
 register_exception_handlers(api)

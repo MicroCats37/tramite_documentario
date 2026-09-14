@@ -7,8 +7,20 @@
 import { ReceiptJapaneseYen } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { PageHeader } from "@/components-app/pages/PageHeader";
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, Map, AlertTriangle, Car, Mountain, ClipboardCheck } from "lucide-react";
+import {
+  Card,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Building2,
+  Map,
+  AlertTriangle,
+  Car,
+  Mountain,
+  ClipboardCheck,
+} from "lucide-react";
 import Link from "next/link";
 
 const KIND_ICON: LucideIcon = ReceiptJapaneseYen;

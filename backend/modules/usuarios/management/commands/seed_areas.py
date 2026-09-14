@@ -12,6 +12,7 @@ Uso:
 """
 
 import json
+from datetime import timedelta
 from pathlib import Path
 from typing import Optional
 
@@ -19,6 +20,9 @@ from django.db import transaction
 from django.core.management.base import BaseCommand
 
 from modules.usuarios.domain.models.area import Area
+
+# Default response time for areas (72 hours)
+DEFAULT_TIEMPO_RESPUESTA = timedelta(hours=72)
 
 
 class Command(BaseCommand):
@@ -132,11 +136,23 @@ class Command(BaseCommand):
             nombre: str = item["nombre"]
             descripcion: Optional[str] = item.get("descripcion") or None
 
-            defaults: dict[str, Optional[str]] = {"descripcion": descripcion}
+            # Parse tiempo_respuesta from JSON: accepts integer hours (e.g. 72)
+            # or null/omitted (defaults to 72 hours)
+            tiempo_respuesta_hours = item.get("tiempo_respuesta")
+            if tiempo_respuesta_hours is not None:
+                tiempo_respuesta = timedelta(hours=int(tiempo_respuesta_hours))
+            else:
+                tiempo_respuesta = DEFAULT_TIEMPO_RESPUESTA
+
+            defaults: dict[str, object] = {
+                "descripcion": descripcion,
+                "tiempo_respuesta": tiempo_respuesta,
+            }
 
             if dry_run:
                 self.stdout.write(
-                    f"[DRY] Área: {nombre} | descripcion: {descripcion or '(vacía)'}"
+                    f"[DRY] Área: {nombre} | descripcion: {descripcion or '(vacía)'} "
+                    f"| tiempo_respuesta: {tiempo_respuesta}"
                 )
                 continue
 
@@ -150,12 +166,19 @@ class Command(BaseCommand):
                     if not area.activo:
                         area.activo = True
                         area.descripcion = descripcion or area.descripcion
-                        area.save(update_fields=["activo", "descripcion", "updated_at"])
+                        area.tiempo_respuesta = tiempo_respuesta
+                        area.save(update_fields=["activo", "descripcion", "tiempo_respuesta", "updated_at"])
                         reactivados += 1
-                    elif area.descripcion != descripcion:
-                        # Sincronizar descripción si cambió
-                        area.descripcion = descripcion
-                        area.save(update_fields=["descripcion", "updated_at"])
+                    else:
+                        needs_update = False
+                        if area.descripcion != descripcion:
+                            area.descripcion = descripcion
+                            needs_update = True
+                        if area.tiempo_respuesta != tiempo_respuesta:
+                            area.tiempo_respuesta = tiempo_respuesta
+                            needs_update = True
+                        if needs_update:
+                            area.save(update_fields=["descripcion", "tiempo_respuesta", "updated_at"])
                 else:
                     creados += 1
 

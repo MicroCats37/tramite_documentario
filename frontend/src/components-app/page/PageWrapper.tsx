@@ -70,7 +70,10 @@ export function PageWrapper({
           {breadcrumbs.map((item, idx) => {
             const isLast = idx === breadcrumbs.length - 1;
             return (
-              <span key={`${item.label}-${idx}`} className="inline-flex items-center gap-1.5">
+              <span
+                key={`${item.label}-${idx}`}
+                className="inline-flex items-center gap-1.5"
+              >
                 {item.href && !isLast ? (
                   <Link
                     href={item.href}
@@ -81,9 +84,7 @@ export function PageWrapper({
                 ) : (
                   <span
                     aria-current={isLast ? "page" : undefined}
-                    className={cn(
-                      isLast && "font-semibold text-foreground",
-                    )}
+                    className={cn(isLast && "font-semibold text-foreground")}
                   >
                     {item.label}
                   </span>
@@ -112,23 +113,23 @@ export function PageWrapper({
               <ArrowLeft className="h-4 w-4" />
             </Button>
           )}
-          {icon && (
-            <div className="page-header-icon">
-              {icon}
-            </div>
-          )}
+          {icon && <div className="page-header-icon">{icon}</div>}
           <div className="min-w-0">
             <p className="page-header-eyebrow">Trámite Documentario</p>
             <h1 className="app-page-title">{title}</h1>
             {description && (
-              <p className="text-sm font-medium text-muted-foreground">{description}</p>
+              <p className="text-sm font-medium text-muted-foreground">
+                {description}
+              </p>
             )}
           </div>
         </div>
 
         {/* Right side: actions */}
         {actions && (
-          <div className="relative z-10 flex items-center gap-2 shrink-0">{actions}</div>
+          <div className="relative z-10 flex items-center gap-2 shrink-0">
+            {actions}
+          </div>
         )}
       </div>
 

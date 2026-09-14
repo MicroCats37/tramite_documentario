@@ -18,10 +18,11 @@ interface UseInspectoresProps {
 const BASE_URL = "/inspectores";
 
 export function useInspectores(props: UseInspectoresProps = {}) {
-  const { page, pageSize, onPageChange, onPageSizeChange, paginationParams } = usePagination({
-    initialPage: props.page ?? 1,
-    initialPageSize: props.pageSize ?? 10,
-  });
+  const { page, pageSize, onPageChange, onPageSizeChange, paginationParams } =
+    usePagination({
+      initialPage: props.page ?? 1,
+      initialPageSize: props.pageSize ?? 10,
+    });
 
   const query = useApiQuery({
     queryKey: ["inspectores", page, pageSize],

@@ -20,6 +20,16 @@ function formatDate(value: string | null | undefined): string {
   });
 }
 
+/** Safe accessor for tipo_documento which may be a string or {id,nombre,descripcion} object. */
+function getTipoDocumentoLabel(td: unknown): string {
+  if (!td) return "—";
+  if (typeof td === "object" && "nombre" in (td as object)) {
+    return (td as { nombre: string }).nombre;
+  }
+  if (typeof td === "string") return td;
+  return "—";
+}
+
 function personaLabel(exp: ExpedienteItem): string {
   if (exp.razon_social) return exp.razon_social;
   const fullName = [exp.nombres, exp.apellidos].filter(Boolean).join(" ");
@@ -33,12 +43,18 @@ function identityLabel(exp: ExpedienteItem): string {
 // ── Expediente HTML builder ───────────────────────────────────────────────────
 
 function buildArchivoSummary(archivos: ExpedienteItem["archivos"]): string {
-  if (!archivos.length) return "<span class=\"value\">Sin archivos</span>";
+  if (!archivos.length) return '<span class="value">Sin archivos</span>';
   const principal = archivos.filter((a) => a.tipo_archivo === "PRINCIPAL");
   const anexos = archivos.filter((a) => a.tipo_archivo === "ANEXO");
   const parts: string[] = [];
-  if (principal.length) parts.push(`<span class=\"badge\">${principal.length} principal${principal.length !== 1 ? "es" : ""}</span>`);
-  if (anexos.length) parts.push(`<span class=\"badge\">${anexos.length} anexo${anexos.length !== 1 ? "s" : ""}</span>`);
+  if (principal.length)
+    parts.push(
+      `<span class=\"badge\">${principal.length} principal${principal.length !== 1 ? "es" : ""}</span>`,
+    );
+  if (anexos.length)
+    parts.push(
+      `<span class=\"badge\">${anexos.length} anexo${anexos.length !== 1 ? "s" : ""}</span>`,
+    );
   return parts.join(" ");
 }
 
@@ -71,7 +87,7 @@ export function buildExpedientePrintHTML(expediente: ExpedienteItem): string {
         <div class="field"><div class="label">Tipo de persona</div><div class="value">${escapeHtml(expediente.tipo_persona)}</div></div>
         <div class="field"><div class="label">Identificación</div><div class="value" style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace">${escapeHtml(identityLabel(expediente))}</div></div>
         <div class="field full"><div class="label">Persona o entidad</div><div class="value">${escapeHtml(personaLabel(expediente))}</div></div>
-        <div class="field"><div class="label">Documento</div><div class="value">${escapeHtml(expediente.tipo_documento)} ${escapeHtml(expediente.numero_documento || "-")}</div></div>
+        <div class="field"><div class="label">Documento</div><div class="value">${escapeHtml(getTipoDocumentoLabel(expediente.tipo_documento))} ${escapeHtml(expediente.numero_documento || "-")}</div></div>
         <div class="field"><div class="label">Folios</div><div class="value">${escapeHtml(expediente.numero_folios)}</div></div>
         <div class="field"><div class="label">Correo</div><div class="value">${escapeHtml(expediente.correo || "-")}</div></div>
         <div class="field"><div class="label">Teléfono</div><div class="value">${escapeHtml(expediente.telefono || "-")}</div></div>
@@ -110,12 +126,15 @@ export function buildSolicitudPrintHTML(solicitud: SolicitudItem): string {
   const areasHTML = allAreas.length
     ? `<div class="areas-section">
         <div class="areas-title">Derivado a</div>
-        ${allAreas.map((a) => {
-          const tipo = a.tipo_participacion === "PRINCIPAL"
-            ? `<span class="area-badge">${escapeHtml(a.area_nombre)}</span>`
-            : `<span class="area-section-badge" style="color:#746a70;border-color:#d4c0c4">${escapeHtml(a.area_nombre)} (Adjunta)</span>`;
-          return tipo;
-        }).join("")}
+        ${allAreas
+          .map((a) => {
+            const tipo =
+              a.tipo_participacion === "PRINCIPAL"
+                ? `<span class="area-badge">${escapeHtml(a.area_nombre)}</span>`
+                : `<span class="area-section-badge" style="color:#746a70;border-color:#d4c0c4">${escapeHtml(a.area_nombre)} (Adjunta)</span>`;
+            return tipo;
+          })
+          .join("")}
        </div>`
     : `<div class="areas-section"><div class="areas-title">Derivado a</div><span class="value">Sin derivación</span></div>`;
 
@@ -145,7 +164,7 @@ export function buildSolicitudPrintHTML(solicitud: SolicitudItem): string {
         <div class="field"><div class="label">Tipo de persona</div><div class="value">${escapeHtml(exp.tipo_persona)}</div></div>
         <div class="field"><div class="label">Identificación</div><div class="value" style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace">${escapeHtml(identityLabel(exp))}</div></div>
         <div class="field full"><div class="label">Persona o entidad</div><div class="value">${escapeHtml(personaLabel(exp))}</div></div>
-        <div class="field"><div class="label">Documento</div><div class="value">${escapeHtml(exp.tipo_documento)} ${escapeHtml(exp.numero_documento || "-")}</div></div>
+        <div class="field"><div class="label">Documento</div><div class="value">${escapeHtml(getTipoDocumentoLabel(exp.tipo_documento))} ${escapeHtml(exp.numero_documento || "-")}</div></div>
         <div class="field"><div class="label">Folios</div><div class="value">${escapeHtml(exp.numero_folios)}</div></div>
         <div class="field"><div class="label">Correo</div><div class="value">${escapeHtml(exp.correo || "-")}</div></div>
         <div class="field"><div class="label">Teléfono</div><div class="value">${escapeHtml(exp.telefono || "-")}</div></div>
@@ -156,12 +175,16 @@ export function buildSolicitudPrintHTML(solicitud: SolicitudItem): string {
 
       <div class="badges">
         <span class="badge">Registro: ${escapeHtml(formatDate(solicitud.fecha_registro))}</span>
-        ${solicitud.fecha_inicio_gestion
-          ? `<span class="badge">Inicio gestión: ${escapeHtml(formatDate(solicitud.fecha_inicio_gestion))}</span>`
-          : ""}
-        ${solicitud.fecha_limite
-          ? `<span class="badge">Fecha límite: ${escapeHtml(formatDate(solicitud.fecha_limite))}</span>`
-          : ""}
+        ${
+          solicitud.fecha_inicio_gestion
+            ? `<span class="badge">Inicio gestión: ${escapeHtml(formatDate(solicitud.fecha_inicio_gestion))}</span>`
+            : ""
+        }
+        ${
+          solicitud.fecha_limite
+            ? `<span class="badge">Fecha límite: ${escapeHtml(formatDate(solicitud.fecha_limite))}</span>`
+            : ""
+        }
         <span class="badge">Pendiente: ${escapeHtml(solicitud.conteo_pendiente)}</span>
         <span class="badge">En gestión: ${escapeHtml(solicitud.conteo_en_gestion)}</span>
         <span class="badge">Archivos: ${escapeHtml(exp.archivos.length)}</span>

@@ -24,7 +24,7 @@ def make_expediente_payload(
     apellidos: str = "Perez",
     correo: str = "juan.perez@example.com",
     telefono: str = "999888777",
-    tipo_documento: str = "SOLICITUD",
+    tipo_documento_id: uuid.UUID,
     numero_documento: str = "DOC-2026-001",
     numero_folios: int = 5,
     asunto: str = "Solicitud de trámite de prueba",
@@ -52,7 +52,7 @@ def make_expediente_payload(
         apellidos: Required for NATURAL
         correo: Email de contacto
         telefono: Teléfono de contacto
-        tipo_documento: OFICIO, CARTA, SOLICITUD, MEMORANDO, INFORME, EXPEDIENTE, RECIBO, CERTIFICADO, OTRO
+        tipo_documento_id: UUID of the TipoDocumento catalog entry
         numero_documento: Número del documento presentado
         numero_folios: Cantidad de folios
         asunto: Descripción del trámite
@@ -86,7 +86,7 @@ def make_expediente_payload(
         "apellidos": apellidos,
         "correo": correo,
         "telefono": telefono,
-        "tipo_documento": tipo_documento,
+        "tipo_documento_id": str(tipo_documento_id),
         "numero_documento": numero_documento,
         "numero_folios": numero_folios,
         "asunto": asunto,
@@ -120,7 +120,7 @@ def make_payload_expediente_natural(
     apellidos: str = "Perez",
     correo: str = "juan.perez@example.com",
     telefono: str = "999888777",
-    tipo_documento: str = "SOLICITUD",
+    tipo_documento_id: uuid.UUID,
     numero_documento: str = "DOC-2026-001",
     numero_folios: int = 5,
     asunto: str = "Solicitud de trámite de prueba",
@@ -143,7 +143,7 @@ def make_payload_expediente_natural(
         apellidos=apellidos,
         correo=correo,
         telefono=telefono,
-        tipo_documento=tipo_documento,
+        tipo_documento_id=tipo_documento_id,
         numero_documento=numero_documento,
         numero_folios=numero_folios,
         asunto=asunto,
@@ -158,7 +158,7 @@ def make_payload_expediente_juridica(
     razon_social: str = "Empresa Test SAC",
     correo: str = "empresa@test.com",
     telefono: str = "012345678",
-    tipo_documento: str = "OFICIO",
+    tipo_documento_id: uuid.UUID,
     numero_documento: str = "OFICIO-2026-001",
     numero_folios: int = 10,
     asunto: str = "Oficio de empresa",
@@ -181,10 +181,23 @@ def make_payload_expediente_juridica(
         apellidos=None,
         correo=correo,
         telefono=telefono,
-        tipo_documento=tipo_documento,
+        tipo_documento_id=tipo_documento_id,
         numero_documento=numero_documento,
         numero_folios=numero_folios,
         asunto=asunto,
         observaciones=observaciones,
         archivos=archivos,
     )
+
+
+def make_finalizar_solicitud_payload(
+    *,
+    tipo_respuesta: str = "INFORME",
+    contenido: str = "Se emite la respuesta formal de cierre.",
+) -> dict:
+    """Build the payload emitted by the finalizar solicitud frontend form."""
+    return {
+        "tipo_respuesta": tipo_respuesta,
+        "contenido": contenido,
+        "archivos": [],
+    }

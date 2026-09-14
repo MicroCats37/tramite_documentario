@@ -12,19 +12,6 @@ export type TipoPersona = (typeof TIPO_PERSONA)[number];
 export const TIPO_PARTICIPACION = ["PRINCIPAL", "ADJUNTA"] as const;
 export type TipoParticipacion = (typeof TIPO_PARTICIPACION)[number];
 
-export const TIPO_DOCUMENTO = [
-  "OFICIO",
-  "CARTA",
-  "SOLICITUD",
-  "MEMORANDO",
-  "INFORME",
-  "EXPEDIENTE",
-  "RECIBO",
-  "CERTIFICADO",
-  "OTRO",
-] as const;
-export type TipoDocumento = (typeof TIPO_DOCUMENTO)[number];
-
 export const TIPO_ARCHIVO_ENUM = ["PRINCIPAL", "ANEXO"] as const;
 export type TipoArchivoEnum = (typeof TIPO_ARCHIVO_ENUM)[number];
 
@@ -136,9 +123,7 @@ export const CrearSolicitudSchema = z.object({
     .optional()
     .or(z.literal("").transform(() => null)),
 
-  tipo_documento: z.enum(TIPO_DOCUMENTO, {
-    message: "Selecciona un tipo de documento",
-  }),
+  tipo_documento_id: z.string().uuid({ message: "Selecciona un tipo de documento" }).nullable().optional(),
 
   numero_documento: z
     .string()
@@ -170,14 +155,12 @@ export const CrearSolicitudSchema = z.object({
 
   // ── Áreas (siempre visible — InputAreaDistribution) ────────────────────────
   areas_distribucion: z
-      .array(
-        z.object({
-          area_id: z
-            .string()
-            .uuid({ message: "Selecciona un área válida" }),
-          tipo_participacion: z.enum(TIPO_PARTICIPACION, {
-            message: "Selecciona un tipo de participación",
-          }),
+    .array(
+      z.object({
+        area_id: z.string().uuid({ message: "Selecciona un área válida" }),
+        tipo_participacion: z.enum(TIPO_PARTICIPACION, {
+          message: "Selecciona un tipo de participación",
+        }),
         observacion: z
           .string()
           .max(255, "La observación no puede exceder 255 caracteres")
@@ -222,6 +205,7 @@ export const CREAR_SOLICITUD_DEFAULT: Partial<CrearSolicitudData> = {
   razon_social: null,
   correo: null,
   telefono: null,
+  tipo_documento_id: null,
   numero_documento: null,
   observaciones: null,
   observacion: null,

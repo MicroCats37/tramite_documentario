@@ -21,6 +21,7 @@ from modules.tramites.domain.models import (
     Expediente,
     Solicitud,
     SolicitudEstadoHistorial,
+    TipoDocumento,
 )
 from modules.asignaciones.domain.models import (
     SolicitudAsignacion,
@@ -83,6 +84,8 @@ def _crear_solicitud_con_periodo_pendiente(usuario, area):
     """
     ahora = datetime.now()
 
+    tipo_doc_solicitud = TipoDocumento.objects.get(nombre="SOLICITUD")
+
     expediente = Expediente.objects.create(
         numero=100,
         tipo_persona="NATURAL",
@@ -91,7 +94,7 @@ def _crear_solicitud_con_periodo_pendiente(usuario, area):
         apellidos="User",
         correo="test@example.com",
         telefono="900900900",
-        tipo_documento="SOLICITUD",
+        tipo_documento=tipo_doc_solicitud,
         numero_documento="DOC-2026-F42-001",
         numero_folios=2,
         asunto="Trámite para iniciar gestión",
@@ -1294,27 +1297,29 @@ def test_cambiar_participacion_principal_a_adjunta(
     GIVEN: a SolicitudAsignacionPeriodo in EN_GESTION with tipo_participacion=PRINCIPAL
     WHEN:  POST /periodos/{id}/cambiar-participacion is called with tipo_participacion=ADJUNTA
     THEN:  response status is 200
-            AND periodo.tipo_participacion == ADJUNTA
-            AND a SolicitudAsignacionPeriodoEstadoHistorial record exists
-            with origen=CAMBIO_PARTICIPACION
+            AND the old periodo is CERRADO with tipo_cierre=CAMBIO_PARTICIPACION
+            AND a new periodo exists on the same asignacion in PENDIENTE state
+            AND the new periodo has tipo_participacion=ADJUNTA
+            AND old periodo historial shows old_state -> CERRADO with origen=CAMBIO_PARTICIPACION
+            AND new periodo historial shows None -> PENDIENTE with origen=CAMBIO_PARTICIPACION
             AND response includes the parent solicitud data
     """
-    _, _, periodo = _crear_solicitud_con_periodo_pendiente(
+    _, asignacion, old_periodo = _crear_solicitud_con_periodo_pendiente(
         usuario_operador, area_gestion
     )
 
     # First take the periodo so it's in EN_GESTION
     client = _make_auth_client(usuario_operador)
-    tomar_resp = client.post(f"/periodos/{periodo.id}/tomar")
+    tomar_resp = client.post(f"/periodos/{old_periodo.id}/tomar")
     assert tomar_resp.status_code == 200
 
-    # Verify initial state
-    periodo.refresh_from_db()
-    assert periodo.tipo_participacion == TipoParticipacion.PRINCIPAL
+    old_periodo.refresh_from_db()
+    assert old_periodo.tipo_participacion == TipoParticipacion.PRINCIPAL
+    assert old_periodo.estado == EstadoPeriodo.EN_GESTION
 
     # Now change participation
     response = client.post(
-        f"/periodos/{periodo.id}/cambiar-participacion",
+        f"/periodos/{old_periodo.id}/cambiar-participacion",
         json={"tipo_participacion": "ADJUNTA"},
     )
 
@@ -1323,22 +1328,46 @@ def test_cambiar_participacion_principal_a_adjunta(
     )
 
     data = response.json()["data"]
-    assert data["id"] == str(periodo.asignacion.solicitud.id)
+    assert data["id"] == str(asignacion.solicitud.id)
 
-    # Verify DB state
-    periodo.refresh_from_db()
-    assert periodo.tipo_participacion == TipoParticipacion.ADJUNTA
+    # Verify old periodo is CERRADO
+    old_periodo.refresh_from_db()
+    assert old_periodo.estado == EstadoPeriodo.CERRADO
+    assert old_periodo.tipo_cierre == TipoCierre.CAMBIO_PARTICIPACION
 
-    # Verify historial
-    ultimo = (
-        SolicitudAsignacionPeriodoEstadoHistorial.objects
-        .filter(periodo=periodo)
-        .order_by("-fecha_cambio")
-        .first()
+    # Verify a new periodo was created on the same asignacion
+    periodos = list(
+        SolicitudAsignacionPeriodo.objects
+        .filter(asignacion=asignacion)
+        .order_by("numero_ciclo")
     )
-    assert ultimo is not None
-    assert ultimo.origen == OrigenEstadoPeriodo.CAMBIO_PARTICIPACION
-    assert ultimo.estado_nuevo == EstadoPeriodoOperativo.EN_GESTION
+    assert len(periodos) == 2, f"Expected 2 periodos, got {len(periodos)}"
+
+    new_periodo = periodos[1]  # newest by numero_ciclo
+    assert new_periodo.estado == EstadoPeriodo.PENDIENTE
+    assert new_periodo.tipo_participacion == TipoParticipacion.ADJUNTA
+
+    # Verify old periodo historial: EN_GESTION -> CERRADO, origen=CAMBIO_PARTICIPACION
+    old_historial = list(
+        SolicitudAsignacionPeriodoEstadoHistorial.objects
+        .filter(periodo=old_periodo)
+        .order_by("fecha_cambio")
+    )
+    assert len(old_historial) >= 2
+    assert old_historial[-1].estado_anterior == EstadoPeriodoOperativo.EN_GESTION
+    assert old_historial[-1].estado_nuevo == EstadoPeriodoOperativo.CERRADO
+    assert old_historial[-1].origen == OrigenEstadoPeriodo.CAMBIO_PARTICIPACION
+
+    # Verify new periodo historial: None -> PENDIENTE, origen=CAMBIO_PARTICIPACION
+    new_historial = list(
+        SolicitudAsignacionPeriodoEstadoHistorial.objects
+        .filter(periodo=new_periodo)
+        .order_by("fecha_cambio")
+    )
+    assert len(new_historial) == 1
+    assert new_historial[0].estado_anterior is None
+    assert new_historial[0].estado_nuevo == EstadoPeriodoOperativo.PENDIENTE
+    assert new_historial[0].origen == OrigenEstadoPeriodo.CAMBIO_PARTICIPACION
 
 
 @pytest.mark.django_db
@@ -1349,23 +1378,24 @@ def test_cambiar_participacion_adjunta_a_principal(
     GIVEN: a SolicitudAsignacionPeriodo in EN_GESTION with tipo_participacion=ADJUNTA
     WHEN:  POST /periodos/{id}/cambiar-participacion is called with tipo_participacion=PRINCIPAL
     THEN:  response status is 200
-            AND periodo.tipo_participacion == PRINCIPAL
-            AND historial record has origen=CAMBIO_PARTICIPACION
+            AND old periodo is CERRADO with tipo_cierre=CAMBIO_PARTICIPACION
+            AND new periodo is PENDIENTE with tipo_participacion=PRINCIPAL
+            AND histiales show close and creation records with origen=CAMBIO_PARTICIPACION
     """
-    _, _, periodo = _crear_solicitud_con_periodo_pendiente(
+    _, asignacion, old_periodo = _crear_solicitud_con_periodo_pendiente(
         usuario_operador, area_gestion
     )
 
     # Set tipo_participacion to ADJUNTA
-    periodo.tipo_participacion = TipoParticipacion.ADJUNTA
-    periodo.save()
+    old_periodo.tipo_participacion = TipoParticipacion.ADJUNTA
+    old_periodo.save()
 
     # Take so it's in EN_GESTION
     client = _make_auth_client(usuario_operador)
-    client.post(f"/periodos/{periodo.id}/tomar")
+    client.post(f"/periodos/{old_periodo.id}/tomar")
 
     response = client.post(
-        f"/periodos/{periodo.id}/cambiar-participacion",
+        f"/periodos/{old_periodo.id}/cambiar-participacion",
         json={"tipo_participacion": "PRINCIPAL"},
     )
 
@@ -1373,16 +1403,32 @@ def test_cambiar_participacion_adjunta_a_principal(
         f"Expected 200, got {response.status_code}: {response.content}"
     )
 
-    periodo.refresh_from_db()
-    assert periodo.tipo_participacion == TipoParticipacion.PRINCIPAL
+    # Verify old periodo is CERRADO
+    old_periodo.refresh_from_db()
+    assert old_periodo.estado == EstadoPeriodo.CERRADO
+    assert old_periodo.tipo_cierre == TipoCierre.CAMBIO_PARTICIPACION
 
-    ultimo = (
-        SolicitudAsignacionPeriodoEstadoHistorial.objects
-        .filter(periodo=periodo)
-        .order_by("-fecha_cambio")
-        .first()
+    # Verify new periodo was created
+    periodos = list(
+        SolicitudAsignacionPeriodo.objects
+        .filter(asignacion=asignacion)
+        .order_by("numero_ciclo")
     )
-    assert ultimo.origen == OrigenEstadoPeriodo.CAMBIO_PARTICIPACION
+    assert len(periodos) == 2
+    new_periodo = periodos[1]
+    assert new_periodo.estado == EstadoPeriodo.PENDIENTE
+    assert new_periodo.tipo_participacion == TipoParticipacion.PRINCIPAL
+
+    # Verify new periodo historial
+    new_historial = list(
+        SolicitudAsignacionPeriodoEstadoHistorial.objects
+        .filter(periodo=new_periodo)
+        .order_by("fecha_cambio")
+    )
+    assert len(new_historial) == 1
+    assert new_historial[0].estado_anterior is None
+    assert new_historial[0].estado_nuevo == EstadoPeriodoOperativo.PENDIENTE
+    assert new_historial[0].origen == OrigenEstadoPeriodo.CAMBIO_PARTICIPACION
 
 
 @pytest.mark.django_db
@@ -1393,19 +1439,23 @@ def test_cambiar_participacion_pendiente_tambien_permite(
     GIVEN: a SolicitudAsignacionPeriodo in PENDIENTE with tipo_participacion=PRINCIPAL
     WHEN:  POST /periodos/{id}/cambiar-participacion is called with tipo_participacion=ADJUNTA
     THEN:  response status is 200
-            AND periodo.tipo_participacion == ADJUNTA
+            AND old periodo is CERRADO with tipo_cierre=CAMBIO_PARTICIPACION
+            AND new periodo is PENDIENTE with tipo_participacion=ADJUNTA
+            AND old periodo historial shows PENDIENTE -> CERRADO with origen=CAMBIO_PARTICIPACION
+            AND new periodo historial shows None -> PENDIENTE with origen=CAMBIO_PARTICIPACION
     """
-    _, _, periodo = _crear_solicitud_con_periodo_pendiente(
+    _, asignacion, old_periodo = _crear_solicitud_con_periodo_pendiente(
         usuario_operador, area_gestion
     )
 
     # Periodo is in PENDIENTE state
-    periodo.refresh_from_db()
-    assert periodo.estado == EstadoPeriodo.PENDIENTE
+    old_periodo.refresh_from_db()
+    assert old_periodo.estado == EstadoPeriodo.PENDIENTE
+    assert old_periodo.tipo_participacion == TipoParticipacion.PRINCIPAL
 
     client = _make_auth_client(usuario_operador)
     response = client.post(
-        f"/periodos/{periodo.id}/cambiar-participacion",
+        f"/periodos/{old_periodo.id}/cambiar-participacion",
         json={"tipo_participacion": "ADJUNTA"},
     )
 
@@ -1413,8 +1463,42 @@ def test_cambiar_participacion_pendiente_tambien_permite(
         f"Expected 200, got {response.status_code}: {response.content}"
     )
 
-    periodo.refresh_from_db()
-    assert periodo.tipo_participacion == TipoParticipacion.ADJUNTA
+    # Verify old periodo is CERRADO
+    old_periodo.refresh_from_db()
+    assert old_periodo.estado == EstadoPeriodo.CERRADO
+    assert old_periodo.tipo_cierre == TipoCierre.CAMBIO_PARTICIPACION
+
+    # Verify new periodo was created
+    periodos = list(
+        SolicitudAsignacionPeriodo.objects
+        .filter(asignacion=asignacion)
+        .order_by("numero_ciclo")
+    )
+    assert len(periodos) == 2
+    new_periodo = periodos[1]
+    assert new_periodo.estado == EstadoPeriodo.PENDIENTE
+    assert new_periodo.tipo_participacion == TipoParticipacion.ADJUNTA
+
+    # Verify old periodo historial: PENDIENTE -> CERRADO
+    old_historial = list(
+        SolicitudAsignacionPeriodoEstadoHistorial.objects
+        .filter(periodo=old_periodo)
+        .order_by("fecha_cambio")
+    )
+    assert old_historial[-1].estado_anterior == EstadoPeriodoOperativo.PENDIENTE
+    assert old_historial[-1].estado_nuevo == EstadoPeriodoOperativo.CERRADO
+    assert old_historial[-1].origen == OrigenEstadoPeriodo.CAMBIO_PARTICIPACION
+
+    # Verify new periodo historial: None -> PENDIENTE
+    new_historial = list(
+        SolicitudAsignacionPeriodoEstadoHistorial.objects
+        .filter(periodo=new_periodo)
+        .order_by("fecha_cambio")
+    )
+    assert len(new_historial) == 1
+    assert new_historial[0].estado_anterior is None
+    assert new_historial[0].estado_nuevo == EstadoPeriodoOperativo.PENDIENTE
+    assert new_historial[0].origen == OrigenEstadoPeriodo.CAMBIO_PARTICIPACION
 
 
 @pytest.mark.django_db
@@ -1425,6 +1509,7 @@ def test_cambiar_participacion_respuesta_incluye_solicitud(
     GIVEN: a SolicitudAsignacionPeriodo in EN_GESTION
     WHEN:  POST /periodos/{id}/cambiar-participacion is called
     THEN:  response includes solicitud data with expediente and asignaciones
+            (returns the new periodo's parent solicitud)
     """
     _, _, periodo = _crear_solicitud_con_periodo_pendiente(
         usuario_operador, area_gestion
@@ -1446,7 +1531,42 @@ def test_cambiar_participacion_respuesta_incluye_solicitud(
     data = response.json()["data"]
     assert "expediente" in data
     assert "asignaciones" in data
+    # The asignaciones now includes 2 periodos (old CERRADO + new PENDIENTE)
     assert len(data["asignaciones"]) == 1
+
+
+@pytest.mark.django_db
+def test_cambiar_participacion_con_motivo_registra_motivo_cierre(
+    usuario_operador, area_gestion
+):
+    """
+    GIVEN: a SolicitudAsignacionPeriodo in EN_GESTION
+    WHEN:  POST /periodos/{id}/cambiar-participacion is called with motivo
+    THEN:  response status is 200
+            AND old periodo.motivo_cierre == the provided motivo
+            AND old periodo tipo_cierre == CAMBIO_PARTICIPACION
+    """
+    _, _, old_periodo = _crear_solicitud_con_periodo_pendiente(
+        usuario_operador, area_gestion
+    )
+
+    client = _make_auth_client(usuario_operador)
+    client.post(f"/periodos/{old_periodo.id}/tomar")
+
+    motivo_payload = "Cambio solicitado por el área usuaria"
+    response = client.post(
+        f"/periodos/{old_periodo.id}/cambiar-participacion",
+        json={"tipo_participacion": "ADJUNTA", "motivo": motivo_payload},
+    )
+
+    assert response.status_code == 200, (
+        f"Expected 200, got {response.status_code}: {response.content}"
+    )
+
+    old_periodo.refresh_from_db()
+    assert old_periodo.estado == EstadoPeriodo.CERRADO
+    assert old_periodo.tipo_cierre == TipoCierre.CAMBIO_PARTICIPACION
+    assert old_periodo.motivo_cierre == motivo_payload
 
 
 # ── Task 4.8: Error paths ───────────────────────────────────────────────────────

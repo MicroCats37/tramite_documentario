@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
-import { getUserSession } from "@/lib/auth";
 import { ProtectedSidebar } from "@/components-app/sidebar/ProtectedSidebar";
 import { Topbar } from "@/components-app/topbar/Topbar";
+import { getUserSession } from "@/lib/auth";
 
 /**
  * Protected layout - wraps all authenticated routes with sidebar.
@@ -28,9 +28,7 @@ export default async function ProtectedLayout({
       {/* Main content area - takes remaining space */}
       <main className="relative flex flex-1 flex-col min-w-0 overflow-hidden bg-background">
         <Topbar />
-        <div className="flex-1 overflow-auto">
-          {children}
-        </div>
+        <div className="flex-1 overflow-auto">{children}</div>
       </main>
     </div>
   );

@@ -11,6 +11,7 @@
 
 import { FileText, Plus, Search } from "lucide-react";
 import { useState } from "react";
+import { Pagination } from "@/components/genericPagination/Pagination";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -20,21 +21,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Pagination } from "@/components/genericPagination/Pagination";
 import { PageWrapper } from "@/components-app/page";
-import {
-  ESTADO_SOLICITUD,
-  PRIORIDAD_SOLICITUD,
-  type EstadoSolicitud,
-  type PrioridadSolicitud,
-} from "@/shared/constants/tramite.tokens";
+import { SolicitudFormModal } from "@/features/tramites/components/forms/SolicitudFormModal";
 import {
   SolicitudCard,
   SolicitudCardSkeleton,
 } from "@/features/tramites/components/SolicitudCard";
-import { SolicitudFormModal } from "@/features/tramites/components/forms/SolicitudFormModal";
 import { useSolicitudes } from "@/features/tramites/hooks/useTramites";
 import { useDebounce } from "@/hooks";
+import {
+  ESTADO_SOLICITUD,
+  type EstadoSolicitud,
+  PRIORIDAD_SOLICITUD,
+  type PrioridadSolicitud,
+} from "@/shared/constants/tramite.tokens";
 
 export default function SolicitudesPage() {
   const [search, setSearch] = useState("");
@@ -82,7 +82,6 @@ export default function SolicitudesPage() {
           </div>
 
           <div className="flex flex-wrap items-center justify-end gap-3">
-
             {/* Estado select */}
             <Select
               value={estado}
@@ -165,7 +164,8 @@ export default function SolicitudesPage() {
               )}
               {prioridad && (
                 <span className="bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-full">
-                  Prioridad: {PRIORIDAD_SOLICITUD[prioridad as PrioridadSolicitud].label}
+                  Prioridad:{" "}
+                  {PRIORIDAD_SOLICITUD[prioridad as PrioridadSolicitud].label}
                 </span>
               )}
             </div>

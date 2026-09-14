@@ -2,6 +2,11 @@
 
 from django.db import models
 
+# Re-export TipoRespuesta from asignaciones for convenience in tramites
+from modules.asignaciones.domain.constants import TipoRespuesta as _TipoRespuesta
+
+TipoRespuesta = _TipoRespuesta
+
 
 class TipoPersona(models.TextChoices):
     """Tipo de persona que presenta el trámite."""
@@ -61,6 +66,3 @@ class TipoArchivo(models.TextChoices):
 
     PRINCIPAL = "PRINCIPAL", "Principal"
     ANEXO = "ANEXO", "Anexo"
-
-
-

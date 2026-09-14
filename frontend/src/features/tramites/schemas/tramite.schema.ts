@@ -16,6 +16,21 @@ export const PaginacionSchema = z.object({
 
 export type PaginacionData = z.infer<typeof PaginacionSchema>;
 
+// ── TipoDocumento Schema (backend output contract) ─────────────────────────────────
+
+/**
+ * TipoDocumentoSchema — tipo de documento como se presenta en respuestas GET.
+ * Backend: TipoDocumentoOut = { id: uuid, nombre: str, descripcion: str }
+ * Used as nested object in ExpedienteItemSchema / ExpedienteDetailSchema.
+ */
+export const TipoDocumentoSchema = z.object({
+  id: z.string().uuid(),
+  nombre: z.string(),
+  descripcion: z.string(),
+});
+
+export type TipoDocumento = z.infer<typeof TipoDocumentoSchema>;
+
 // ── Expediente Schemas ─────────────────────────────────────────────────────────
 
 /**
@@ -35,6 +50,10 @@ export type ExpedienteArchivo = z.infer<typeof ExpedienteArchivoSchema>;
  * ExpedienteBaseSchema — shared root fields for Expediente create and item schemas.
  * Derived from ExpedienteItemSchema.pick(...) to ensure consistency.
  * Uses z.coerce.number() for numero to handle backend string serialization.
+ *
+ * NOTE: tipo_documento is an object { id, nombre, descripcion } matching
+ * backend TipoDocumentoOut, NOT a plain string. The create payload uses
+ * tipo_documento_id (UUID) instead.
  */
 const ExpedienteBaseSchema = z.object({
   tipo_persona: z.enum(["NATURAL", "JURIDICA", "COLEGIADO"]),
@@ -46,7 +65,7 @@ const ExpedienteBaseSchema = z.object({
   apellidos: z.string().nullable(),
   correo: z.string().nullable(),
   telefono: z.string().nullable(),
-  tipo_documento: z.string(),
+  tipo_documento: TipoDocumentoSchema,
   numero_documento: z.string().nullable(),
   numero_folios: z.number().int().min(0),
   asunto: z.string(),
@@ -108,7 +127,7 @@ export const AreaActivaSchema = z.object({
   area_id: z.string().uuid(),
   area_nombre: z.string(),
   tipo_participacion: z.enum(["PRINCIPAL", "ADJUNTA"]),
-  estado_periodo: z.enum(["PENDIENTE", "EN_GESTION"]),
+  estado_periodo: z.enum(["PENDIENTE", "EN_GESTION", "CERRADO"]),
 });
 
 export type AreaActiva = z.infer<typeof AreaActivaSchema>;
@@ -134,6 +153,22 @@ export const SolicitudItemSchema = z.object({
 });
 
 export type SolicitudItem = z.infer<typeof SolicitudItemSchema>;
+
+// ── Conversacion Summary (from SolicitudDetail backend) ─────────────────────────
+
+/**
+ * ConversacionSummarySchema — resumen de conversación vinculada a una solicitud.
+ * Backend: ConversacionSummaryOut
+ * Matches: backend/modules/tramites/presentation/schemas/solicitud_list_out.py::ConversacionSummaryOut
+ */
+export const ConversacionSummarySchema = z.object({
+  id: z.string().uuid(),
+  titulo: z.string().nullable().optional(),
+  estado: z.string(),
+  fecha_inicio: z.string().datetime(),
+});
+
+export type ConversacionSummary = z.infer<typeof ConversacionSummarySchema>;
 
 // ── Detail Schemas (para páginas de detalle) ────────────────────────────────────
 
@@ -234,6 +269,7 @@ export const SolicitudDetailSchema = z.object({
   expediente: ExpedienteDetailSchema,
   historial_global: z.array(HistorialEstadoGlobalSchema).default([]),
   asignaciones: z.array(AsignacionDetalleSchema).default([]),
+  conversacion: ConversacionSummarySchema.nullable().optional(),
 });
 
 export type SolicitudDetail = z.infer<typeof SolicitudDetailSchema>;
@@ -276,17 +312,7 @@ export const ExpedienteCreateSchema = z.object({
   apellidos: z.string().max(150).nullable(),
   correo: z.string().email().nullable(),
   telefono: z.string().max(20).nullable(),
-  tipo_documento: z.enum([
-    "OFICIO",
-    "CARTA",
-    "SOLICITUD",
-    "MEMORANDO",
-    "INFORME",
-    "EXPEDIENTE",
-    "RECIBO",
-    "CERTIFICADO",
-    "OTRO",
-  ]),
+  tipo_documento_id: z.string().uuid({ message: "Selecciona un tipo de documento" }).nullable().optional(),
   numero_documento: z.string().max(50).nullable(),
   numero_folios: z.number().int().min(0),
   asunto: z.string().min(1),

@@ -107,12 +107,19 @@ class CambiarParticipacionIn(BaseSchema):
     Se usa en POST /periodos/{periodo_id}/cambiar-participacion.
 
     El nuevo tipo de participación es obligatorio y debe ser PRINCIPAL o ADJUNTA.
+    El motivo es opcional y se registra en el cierre del período actual.
     """
 
     tipo_participacion: str = Field(
         ...,
         max_length=20,
         description="Nuevo tipo de participación: PRINCIPAL o ADJUNTA.",
+    )
+
+    motivo: str | None = Field(
+        default=None,
+        max_length=500,
+        description="Motivo opcional del cambio de participación.",
     )
 
 

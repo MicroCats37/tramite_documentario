@@ -20,4 +20,4 @@ uv run python manage.py collectstatic --noinput
 
 echo "Starting server..."
 # Use gosu to run gunicorn as non-root appuser for security
-exec gosu appuser uv run gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 2
+exec gosu appuser uv run gunicorn config.wsgi:application --bind 0.0.0.0:${BACKEND_INTERNAL_PORT:-8000} --workers 2

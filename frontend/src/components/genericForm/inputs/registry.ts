@@ -14,6 +14,7 @@ import { InputPassword } from "./InputPassword";
 import { InputRadio } from "./InputRadio";
 import { InputSearchableSelect } from "./InputSearchableSelect";
 import { InputSelectArea } from "./InputSelectArea";
+import { InputSelectTipoDocumento } from "./InputSelectTipoDocumento";
 import { InputSelect } from "./InputSelect";
 // Inputs básicos
 import { InputText } from "./InputText";
@@ -40,6 +41,7 @@ export const inputRegistry: Record<string, InputComponent> = {
   // Selección
   select: InputSelect,
   "select-area": InputSelectArea,
+  "select-tipo-documento": InputSelectTipoDocumento,
   "searchable-select": InputSearchableSelect,
   radio: InputRadio,
   checkbox: InputCheckbox,

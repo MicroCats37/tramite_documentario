@@ -119,7 +119,9 @@ export function PrintPreviewModal({
     `;
 
     iframeDoc.open();
-    iframeDoc.write(`<!doctype html><html lang="es"><head><meta charset="utf-8" /><title>${title}</title>${styles}</head><body>${htmlContent}</body></html>`);
+    iframeDoc.write(
+      `<!doctype html><html lang="es"><head><meta charset="utf-8" /><title>${title}</title>${styles}</head><body>${htmlContent}</body></html>`,
+    );
     iframeDoc.close();
 
     iframe.contentWindow?.focus();
@@ -131,7 +133,9 @@ export function PrintPreviewModal({
         document.body.removeChild(iframe);
       }
     };
-    iframe.contentWindow?.addEventListener("afterprint", cleanup, { once: true });
+    iframe.contentWindow?.addEventListener("afterprint", cleanup, {
+      once: true,
+    });
     setTimeout(cleanup, 5000);
   };
 
@@ -162,16 +166,10 @@ export function PrintPreviewModal({
         </ScrollArea>
 
         <div className="shrink-0 px-5 py-3 border-t border-border flex justify-end gap-2">
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-          >
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cerrar
           </Button>
-          <Button
-            variant="default"
-            onClick={handlePrint}
-          >
+          <Button variant="default" onClick={handlePrint}>
             <Printer className="size-4" />
             Imprimir
           </Button>

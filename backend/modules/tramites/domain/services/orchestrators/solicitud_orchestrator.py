@@ -178,7 +178,7 @@ class SolicitudOrchestrator:
         try:
             return (
                 Solicitud.objects
-                .select_related("expediente", "creado_por")
+                .select_related("expediente", "creado_por", "expediente__tipo_documento")
                 .prefetch_related(
                     "expediente__archivos",
                     "expediente__antecedentes_vinculados__antecedente",
@@ -187,6 +187,7 @@ class SolicitudOrchestrator:
                     "asignaciones__periodos__respuestas",
                     "asignaciones__periodos__historial_estados",
                     "historial_estados__cambiado_por",
+                    "conversacionpuente__conversacion",
                 )
                 .get(id=solicitud_id)
             )
@@ -300,3 +301,68 @@ class SolicitudOrchestrator:
             observacion=observacion,
             usuario_id=usuario_id,
         )
+
+    def obtener_trazabilidad_sync(self, solicitud_id: UUID) -> Solicitud | None:
+        """
+        Carga el grafo completo de trazabilidad para una solicitud.
+
+        Carga todas las asignaciones con sus períodos ordenados por ciclo,
+        participantes, respuestas y historiales de estado.
+
+        Args:
+            solicitud_id: UUID de la solicitud
+
+        Returns:
+            Solicitud con el grafo completo eager-loaded, o None si no existe
+        """
+        try:
+            from django.db.models import Prefetch
+
+            from modules.asignaciones.domain.models import (
+                SolicitudAsignacionPeriodo,
+                SolicitudAsignacionUsuario,
+                SolicitudAsignacionRespuesta,
+                SolicitudAsignacionPeriodoEstadoHistorial,
+            )
+
+            # Prefetch para periodos con ordenamiento por numero_ciclo
+            periodos_prefetch = Prefetch(
+                "asignaciones__periodos",
+                queryset=SolicitudAsignacionPeriodo.objects.select_related(
+                    "iniciado_por",
+                    "finalizado_por",
+                ).prefetch_related(
+                    Prefetch(
+                        "usuarios",
+                        queryset=SolicitudAsignacionUsuario.objects.select_related(
+                            "usuario",
+                            "asignado_por",
+                            "retirado_por",
+                        ),
+                    ),
+                    Prefetch(
+                        "respuestas",
+                        queryset=SolicitudAsignacionRespuesta.objects.select_related(
+                            "emitido_por",
+                        ),
+                    ),
+                    Prefetch(
+                        "historial_estados",
+                        queryset=SolicitudAsignacionPeriodoEstadoHistorial.objects.select_related(
+                            "cambiado_por",
+                        ).order_by("fecha_cambio"),
+                    ),
+                ).order_by("numero_ciclo"),
+            )
+
+            return (
+                Solicitud.objects
+                .select_related("expediente")
+                .prefetch_related(
+                    "historial_estados__cambiado_por",
+                    periodos_prefetch,
+                )
+                .get(id=solicitud_id)
+            )
+        except Solicitud.DoesNotExist:
+            return None

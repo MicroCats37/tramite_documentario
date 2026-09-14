@@ -37,7 +37,12 @@ export function useCrearNuevaRevisionEdificaciones() {
     () => ({
       ...mutation,
       mutate: (payload: NuevaRevisionEdificacionesFormData) => {
-        const { tarifa_unica_id, especialidades_seleccionadas, liquidacion_previa_id, ...rest } = payload;
+        const {
+          tarifa_unica_id,
+          especialidades_seleccionadas,
+          liquidacion_previa_id,
+          ...rest
+        } = payload;
         mutation.mutate({
           liquidacion_previa_id,
           liquidacion_general: {
@@ -55,7 +60,12 @@ export function useCrearNuevaRevisionEdificaciones() {
         });
       },
       mutateAsync: async (payload: NuevaRevisionEdificacionesFormData) => {
-        const { tarifa_unica_id, especialidades_seleccionadas, liquidacion_previa_id, ...rest } = payload;
+        const {
+          tarifa_unica_id,
+          especialidades_seleccionadas,
+          liquidacion_previa_id,
+          ...rest
+        } = payload;
         return mutation.mutateAsync({
           liquidacion_previa_id,
           liquidacion_general: {

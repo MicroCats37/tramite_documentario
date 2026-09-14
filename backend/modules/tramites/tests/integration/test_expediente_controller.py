@@ -39,6 +39,7 @@ def test_crear_expediente_single_file(
     ExpedienteController,
     usuario_creador,
     pdf_file,
+    tipo_documento_solicitud,
 ):
     """
     GIVEN: a valid ExpedienteCreateIn payload with one principal file
@@ -55,7 +56,7 @@ def test_crear_expediente_single_file(
         apellidos="Perez",
         correo="juan.perez@example.com",
         telefono="999888777",
-        tipo_documento="SOLICITUD",
+        tipo_documento_id=tipo_documento_solicitud.id,
         numero_documento="SOL-2026-001",
         numero_folios=5,
         asunto="Solicitud de trámite de prueba",
@@ -120,6 +121,7 @@ def test_crear_expediente_multiple_files(
     ExpedienteController,
     usuario_creador,
     multiple_pdf_files,
+    tipo_documento_oficio,
 ):
     """
     GIVEN: a valid ExpedienteCreateIn payload with multiple files (principal + anexo)
@@ -138,7 +140,7 @@ def test_crear_expediente_multiple_files(
         apellidos="Garcia",
         correo="maria.garcia@example.com",
         telefono="988776655",
-        tipo_documento="OFICIO",
+        tipo_documento_id=tipo_documento_oficio.id,
         numero_documento="OFICIO-2026-002",
         numero_folios=8,
         asunto="Solicitud con múltiples archivos",
@@ -198,6 +200,7 @@ def test_crear_expediente_juridica(
     ExpedienteController,
     usuario_creador,
     pdf_file,
+    tipo_documento_oficio,
 ):
     """
     GIVEN: a valid ExpedienteCreateIn payload for persona jurídica (company)
@@ -214,7 +217,7 @@ def test_crear_expediente_juridica(
         apellidos=None,
         correo="empresa@test.com",
         telefono="012345678",
-        tipo_documento="OFICIO",
+        tipo_documento_id=tipo_documento_oficio.id,
         numero_documento="OFICIO-J-2026-001",
         numero_folios=12,
         asunto="Solicitud de empresa -Trámite de habilitación",
@@ -261,6 +264,7 @@ def test_crear_expediente_response_structure(
     ExpedienteController,
     usuario_creador,
     pdf_file,
+    tipo_documento_solicitud,
 ):
     """
     GIVEN: a valid ExpedienteCreateIn payload
@@ -275,7 +279,7 @@ def test_crear_expediente_response_structure(
         apellidos="Lopez",
         correo="ana.lopez@example.com",
         telefono="123456789",
-        tipo_documento="SOLICITUD",
+        tipo_documento_id=tipo_documento_solicitud.id,
         numero_documento="SOL-2026-003",
         numero_folios=3,
         asunto="Test de respuesta",

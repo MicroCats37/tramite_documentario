@@ -11,7 +11,7 @@ from ninja import Field
 from django.core.files.uploadedfile import UploadedFile
 
 from core.types import BaseSchema
-from modules.tramites.domain.constants import TipoPersona, TipoDocumento, TipoArchivo
+from modules.tramites.domain.constants import TipoPersona, TipoArchivo
 
 
 class ExpedienteArchivoCreateIn(BaseSchema):
@@ -104,7 +104,7 @@ class ExpedienteCreateIn(BaseSchema):
     )
 
     # ── Datos del documento ────────────────────────────────────────────────────
-    tipo_documento: TipoDocumento = Field(..., description="Tipo de documento presentado")
+    tipo_documento_id: uuid.UUID = Field(..., description="UUID del tipo de documento presentado")
     numero_documento: Optional[str] = Field(
         None,
         max_length=50,

@@ -11,10 +11,10 @@ class VigenciaQuerySet(models.QuerySet):
         Args:
             fecha: Optional date to check against. Defaults to today.
         """
-        from datetime import date
+        from django.utils import timezone
 
         if fecha is None:
-            fecha = date.today()
+            fecha = timezone.localdate()
 
         return self.filter(
             models.Q(periodo_fin__isnull=True)

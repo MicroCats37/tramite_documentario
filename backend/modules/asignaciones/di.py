@@ -15,6 +15,9 @@ from modules.asignaciones.domain.services.core.periodo_estado_historial_service 
 from modules.asignaciones.domain.services.flujos.periodo_flujo import (
     PeriodoOperacionesFlujo,
 )
+from modules.conversaciones.domain.services.core.mensajeria_service import (
+    MensajeriaCoreService,
+)
 from modules.asignaciones.domain.services.orchestrators.periodo_orchestrator import (
     PeriodoOrchestrator,
 )
@@ -23,12 +26,6 @@ from modules.asignaciones.domain.services.flujos.participacion_usuario_flujo imp
 )
 from modules.asignaciones.domain.services.orchestrators.participacion_usuario_orchestrator import (
     ParticipacionUsuarioOrchestrator,
-)
-from modules.asignaciones.domain.services.flujos.notificacion_flujo import (
-    NotificacionFlujo,
-)
-from modules.asignaciones.domain.services.orchestrators.notificacion_orchestrator import (
-    NotificacionOrchestrator,
 )
 
 
@@ -44,6 +41,8 @@ class AsignacionesModule(Module):
     - ParticipacionUsuarioFlujo (flujo de operaciones de participación de usuario)
     - ParticipacionUsuarioOrchestrator (fachada de operaciones de participación de usuario)
 
+    NotificacionFlujo y NotificacionOrchestrator se migraron a módulos.notificaciones.
+
     Todos los servicios son de ámbito singleton.
     """
 
@@ -52,6 +51,11 @@ class AsignacionesModule(Module):
         binder.bind(
             PeriodoEstadoHistorialCoreService,
             to=PeriodoEstadoHistorialCoreService,
+            scope=singleton,
+        )
+        binder.bind(
+            MensajeriaCoreService,
+            to=MensajeriaCoreService,
             scope=singleton,
         )
         binder.bind(
@@ -72,15 +76,5 @@ class AsignacionesModule(Module):
         binder.bind(
             ParticipacionUsuarioOrchestrator,
             to=ParticipacionUsuarioOrchestrator,
-            scope=singleton,
-        )
-        binder.bind(
-            NotificacionFlujo,
-            to=NotificacionFlujo,
-            scope=singleton,
-        )
-        binder.bind(
-            NotificacionOrchestrator,
-            to=NotificacionOrchestrator,
             scope=singleton,
         )

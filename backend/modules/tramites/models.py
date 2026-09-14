@@ -6,6 +6,7 @@ from .domain.models import (
     ExpedienteAntecedente,
     Solicitud,
     SolicitudEstadoHistorial,
+    SolicitudRespuesta,
 )
 
 __all__ = [
@@ -14,4 +15,5 @@ __all__ = [
     "ExpedienteAntecedente",
     "Solicitud",
     "SolicitudEstadoHistorial",
+    "SolicitudRespuesta",
 ]

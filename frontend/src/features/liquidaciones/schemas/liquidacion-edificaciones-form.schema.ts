@@ -3,7 +3,11 @@
  * General fields (proyecto, trámite, contacto) vienen del base compartido.
  */
 import { z } from "zod";
-import { generalFormSchema, proyectoFormSchema, contactoInlineSchema } from "./liquidacion-form-base.schema";
+import {
+  generalFormSchema,
+  proyectoFormSchema,
+  contactoInlineSchema,
+} from "./liquidacion-form-base.schema";
 
 export const edificacionesFormSchema = z.object({
   ...proyectoFormSchema.shape,

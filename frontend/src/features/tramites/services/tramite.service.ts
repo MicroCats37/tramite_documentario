@@ -9,6 +9,10 @@ import type {
   SolicitudDetailResponse,
   SolicitudListResponse,
 } from "../schemas/tramite.schema";
+import type {
+  SolicitudTrazabilidad,
+  SolicitudTrazabilidadResponse,
+} from "../schemas/trazabilidad.schema";
 
 /**
  * Tramite service - consumes Django REST API via Axios.
@@ -66,6 +70,27 @@ export async function getExpedienteDetail(
   );
   if (!response.data.data) {
     throw new Error(response.data.error?.message ?? "Expediente no encontrado");
+  }
+  return response.data.data;
+}
+
+// ── Solicitud trazabilidad ────────────────────────────────────────────────────
+
+/**
+ * Fetches the complete operative traceability graph for a Solicitud.
+ * Returns: nested hierarchy (areas → etapas → participants/responses/history)
+ * plus a derived chronological timeline.
+ */
+export async function getSolicitudTrazabilidad(
+  id: string,
+): Promise<SolicitudTrazabilidad> {
+  const response = await api.get<SolicitudTrazabilidadResponse>(
+    `/solicitudes/${id}/trazabilidad`,
+  );
+  if (response.data.data === null) {
+    throw new Error(
+      response.data.error?.message ?? "Trazabilidad no encontrada",
+    );
   }
   return response.data.data;
 }

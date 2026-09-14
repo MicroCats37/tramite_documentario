@@ -68,7 +68,7 @@ class ExpedienteOrchestrator:
 
             qs = (
                 Expediente.objects
-                .select_related("creado_por")
+                .select_related("creado_por", "tipo_documento")
                 .prefetch_related("archivos")
                 .order_by("-fecha_registro", "-numero")
             )
@@ -109,7 +109,7 @@ class ExpedienteOrchestrator:
             try:
                 return (
                     Expediente.objects
-                    .select_related("creado_por", "solicitud")
+                    .select_related("creado_por", "solicitud", "tipo_documento")
                     .prefetch_related("archivos", "antecedentes_vinculados__antecedente")
                     .get(id=expediente_id)
                 )

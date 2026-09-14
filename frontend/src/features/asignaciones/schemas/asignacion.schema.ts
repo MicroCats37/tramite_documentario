@@ -34,6 +34,20 @@ export const AsignacionResponseSchema = z.object({
 
 export type AsignacionResponse = z.infer<typeof AsignacionResponseSchema>;
 
+// ── Incorporar Area Payload ──────────────────────────────────────────────────
+
+/**
+ * Payload for POST /api/solicitudes/{id}/areas
+ * Backend: IncorporarAreaIn
+ */
+export const IncorporarAreaSchema = z.object({
+  area_id: z.string().uuid({ message: "Selecciona un área" }),
+  tipo_participacion: z.enum(["PRINCIPAL", "ADJUNTA"]).default("PRINCIPAL"),
+  observacion: z.string().nullable().optional(),
+});
+
+export type IncorporarAreaData = z.infer<typeof IncorporarAreaSchema>;
+
 // ── Bandeja / Periodo Schemas ────────────────────────────────────────────────
 
 /**
@@ -45,7 +59,9 @@ const PeriodoSolicitudSummarySchema = z.object({
   asunto: z.string(),
 });
 
-export type PeriodoSolicitudSummary = z.infer<typeof PeriodoSolicitudSummarySchema>;
+export type PeriodoSolicitudSummary = z.infer<
+  typeof PeriodoSolicitudSummarySchema
+>;
 
 /**
  * PeriodoItemSchema — fields for the bandeja (inbox) view.
@@ -93,3 +109,45 @@ export const BandejaResponseSchema = z.object({
 });
 
 export type BandejaResponse = z.infer<typeof BandejaResponseSchema>;
+
+// ── Periodo Operation Schemas ─────────────────────────────────────────────────
+
+/**
+ * Payload for POST /api/periodos/{id}/iniciar-gestion
+ * Backend: IniciarGestionIn (empty body)
+ */
+export const IniciarGestionPeriodoSchema = z.object({});
+export type IniciarGestionPeriodoData = z.infer<typeof IniciarGestionPeriodoSchema>;
+
+/**
+ * Payload for POST /api/periodos/{id}/finalizar
+ * Backend: FinalizarPeriodoIn
+ */
+export const FinalizarPeriodoSchema = z.object({
+  tipo_cierre: z.enum(["NORMAL", "ERROR"], {
+    message: "Selecciona el tipo de cierre",
+  }),
+  motivo_cierre: z.string().min(1, "El motivo de cierre es requerido"),
+});
+export type FinalizarPeriodoData = z.infer<typeof FinalizarPeriodoSchema>;
+
+/**
+ * Payload for POST /api/periodos/{id}/marcar-asignacion-erronea
+ * Backend: MarcarAsignacionErroneaIn
+ */
+export const MarcarAsignacionErroneaSchema = z.object({
+  motivo: z.string().min(1, "El motivo es requerido"),
+});
+export type MarcarAsignacionErroneaData = z.infer<typeof MarcarAsignacionErroneaSchema>;
+
+/**
+ * Payload for POST /api/periodos/{id}/cambiar-participacion
+ * Backend: CambiarParticipacionIn
+ */
+export const CambiarParticipacionSchema = z.object({
+  tipo_participacion: z.enum(["PRINCIPAL", "ADJUNTA"], {
+    message: "Selecciona el tipo de participación",
+  }),
+  motivo: z.string().optional(),
+});
+export type CambiarParticipacionData = z.infer<typeof CambiarParticipacionSchema>;

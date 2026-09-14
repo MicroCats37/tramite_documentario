@@ -7,14 +7,24 @@
 
 "use client";
 
-import { FileIcon, FileText, ImageIcon, Paperclip, Upload, X } from "lucide-react";
+import {
+  FileIcon,
+  FileText,
+  ImageIcon,
+  Paperclip,
+  Upload,
+  X,
+} from "lucide-react";
 import type React from "react";
 import { useRef } from "react";
 import { useController } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { notify } from "@/errors";
-import { TIPO_ARCHIVO, type TipoArchivo } from "@/shared/constants/tramite.tokens";
+import {
+  TIPO_ARCHIVO,
+  type TipoArchivo,
+} from "@/shared/constants/tramite.tokens";
 import type { InputComponentProps } from "./types";
 
 // ── Tipos internos ─────────────────────────────────────────────────────────────
@@ -69,9 +79,10 @@ function buildInitialValue(value: unknown): ArchivoItem[] {
     const obj = value as Record<string, unknown>;
     const principal = Array.isArray(obj.principal) ? obj.principal : [];
     const anexo = Array.isArray(obj.anexo) ? obj.anexo : [];
-    return [...(principal as ArchivoItem[]), ...(anexo as ArchivoItem[])].filter(
-      (item): item is ArchivoItem => item != null && item.id != null,
-    );
+    return [
+      ...(principal as ArchivoItem[]),
+      ...(anexo as ArchivoItem[]),
+    ].filter((item): item is ArchivoItem => item != null && item.id != null);
   }
   return [];
 }
@@ -185,8 +196,12 @@ export const InputFileCollection: React.FC<InputFileCollectionProps> = ({
   const anexoFiles = files.filter((f) => f.tipo_archivo === "ANEXO");
 
   // Dentro de anexos: imágenes vs documentos
-  const imagenFiles = anexoFiles.filter((f) => f.file.type.startsWith("image/"));
-  const documentoFiles = anexoFiles.filter((f) => !f.file.type.startsWith("image/"));
+  const imagenFiles = anexoFiles.filter((f) =>
+    f.file.type.startsWith("image/"),
+  );
+  const documentoFiles = anexoFiles.filter(
+    (f) => !f.file.type.startsWith("image/"),
+  );
 
   const showTipoSelector = fileKind === "all";
   const acceptValue = allowedTypes || "*/*";
@@ -216,7 +231,9 @@ export const InputFileCollection: React.FC<InputFileCollectionProps> = ({
     };
 
     // Reemplazar principal existente o agregar
-    const withoutPrincipal = files.filter((f) => f.tipo_archivo !== "PRINCIPAL");
+    const withoutPrincipal = files.filter(
+      (f) => f.tipo_archivo !== "PRINCIPAL",
+    );
     onChange([...withoutPrincipal, newFile]);
 
     if (principalInputRef.current) principalInputRef.current.value = "";
@@ -263,9 +280,7 @@ export const InputFileCollection: React.FC<InputFileCollectionProps> = ({
   };
 
   const handleDescripcionChange = (id: string, descripcion: string) => {
-    onChange(
-      files.map((f) => (f.id === id ? { ...f, descripcion } : f)),
-    );
+    onChange(files.map((f) => (f.id === id ? { ...f, descripcion } : f)));
   };
 
   return (
@@ -305,7 +320,9 @@ export const InputFileCollection: React.FC<InputFileCollectionProps> = ({
                 "flex flex-col items-center justify-center rounded-lg border p-4 cursor-pointer hover:border-ring transition-colors",
                 error ? "border-destructive/50" : "border-border",
               )}
-              onClick={() => document.getElementById(`${internalId}-principal`)?.click()}
+              onClick={() =>
+                document.getElementById(`${internalId}-principal`)?.click()
+              }
             >
               <Upload className="w-5 h-5 text-muted-foreground mb-2" />
               <p className="text-sm text-muted-foreground text-center">
@@ -343,7 +360,9 @@ export const InputFileCollection: React.FC<InputFileCollectionProps> = ({
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => document.getElementById(`${internalId}-anexos`)?.click()}
+                onClick={() =>
+                  document.getElementById(`${internalId}-anexos`)?.click()
+                }
                 className="gap-2"
               >
                 <Upload className="w-3.5 h-3.5" />
@@ -366,7 +385,9 @@ export const InputFileCollection: React.FC<InputFileCollectionProps> = ({
           {anexoFiles.length === 0 && canAddMore && (
             <div
               className="flex flex-col items-center justify-center rounded-lg border border-dashed p-4 cursor-pointer hover:border-ring transition-colors"
-              onClick={() => document.getElementById(`${internalId}-anexos`)?.click()}
+              onClick={() =>
+                document.getElementById(`${internalId}-anexos`)?.click()
+              }
             >
               <Upload className="w-5 h-5 text-muted-foreground mb-2" />
               <p className="text-sm text-muted-foreground text-center">

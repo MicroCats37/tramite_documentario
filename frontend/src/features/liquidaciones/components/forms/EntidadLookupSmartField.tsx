@@ -295,38 +295,38 @@ export function EntidadLookupField({
         </div>
 
         <div className="space-y-3 min-w-0">
-        {/* ── Razón Social / Nombre Completo (auto-fill desde búsqueda) ─────── */}
-        <div className="space-y-2 min-w-0">
-          <Label
-            htmlFor="entidad-razon"
-            className="text-primary font-semibold text-sm"
-          >
-            {lookupState.tipo_documento === "RUC"
-              ? "Razón Social"
-              : "Nombre Completo"}
-          </Label>
-          <input
-            id="entidad-razon"
-            type="text"
-            value={razonSocialCtrl.field.value || ""}
-            onChange={razonSocialCtrl.field.onChange}
-            onBlur={razonSocialCtrl.field.onBlur}
-            ref={razonSocialCtrl.field.ref}
-            name={razonSocialCtrl.field.name}
-            placeholder={
-              lookupState.tipo_documento === "RUC"
-                ? "Nombre de la empresa"
-                : "Nombres y apellidos"
-            }
-            className="flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-          />
-          {razonSocialCtrl.fieldState.error && (
-            <p className="text-sm text-destructive font-medium">
-              {razonSocialCtrl.fieldState.error.message}
-            </p>
-          )}
-        </div>
-        {razonSocialSideSlot}
+          {/* ── Razón Social / Nombre Completo (auto-fill desde búsqueda) ─────── */}
+          <div className="space-y-2 min-w-0">
+            <Label
+              htmlFor="entidad-razon"
+              className="text-primary font-semibold text-sm"
+            >
+              {lookupState.tipo_documento === "RUC"
+                ? "Razón Social"
+                : "Nombre Completo"}
+            </Label>
+            <input
+              id="entidad-razon"
+              type="text"
+              value={razonSocialCtrl.field.value || ""}
+              onChange={razonSocialCtrl.field.onChange}
+              onBlur={razonSocialCtrl.field.onBlur}
+              ref={razonSocialCtrl.field.ref}
+              name={razonSocialCtrl.field.name}
+              placeholder={
+                lookupState.tipo_documento === "RUC"
+                  ? "Nombre de la empresa"
+                  : "Nombres y apellidos"
+              }
+              className="flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            />
+            {razonSocialCtrl.fieldState.error && (
+              <p className="text-sm text-destructive font-medium">
+                {razonSocialCtrl.fieldState.error.message}
+              </p>
+            )}
+          </div>
+          {razonSocialSideSlot}
         </div>
       </div>
     </div>

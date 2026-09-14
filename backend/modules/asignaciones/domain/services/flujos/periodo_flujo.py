@@ -12,7 +12,7 @@ from datetime import datetime
 from uuid import UUID
 
 from asgiref.sync import sync_to_async
-from django.db import transaction
+from django.db import models, transaction
 from django.utils import timezone
 from injector import inject
 from ninja.errors import HttpError
@@ -34,6 +34,9 @@ from modules.asignaciones.domain.constants import (
 from modules.asignaciones.domain.services.core.periodo_estado_historial_service import (
     PeriodoEstadoHistorialCoreService,
 )
+from modules.conversaciones.domain.services.core.mensajeria_service import (
+    MensajeriaCoreService,
+)
 
 
 class PeriodoOperacionesFlujo:
@@ -52,8 +55,121 @@ class PeriodoOperacionesFlujo:
     def __init__(
         self,
         periodo_estado_historial_service: PeriodoEstadoHistorialCoreService,
+        mensajeria_service: MensajeriaCoreService,
     ):
         self.periodo_estado_historial_service = periodo_estado_historial_service
+        self.mensajeria_service = mensajeria_service
+
+    # ── Private helpers ────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _formatear_mensaje_periodo_sistema(
+        operacion: str,
+        area_nombre: str,
+        numero_ciclo: int,
+        actor_nombre: str,
+    ) -> str:
+        """
+        Construye el texto contextual para mensajes de sistema de operaciones de período.
+
+        Args:
+            operacion: Nombre de la operación (e.g. "tomó", "inició la gestión",
+                       "cerró", "marcó como asignación errónea").
+            area_nombre: Nombre del área.
+            numero_ciclo: Número de ciclo del período.
+            actor_nombre: Nombre completo del usuario que ejecuta la acción.
+
+        Returns:
+            Texto del mensaje de sistema.
+        """
+        return (
+            f"El usuario {actor_nombre} {operacion} el período {numero_ciclo} "
+            f"del área {area_nombre}."
+        )
+
+    @staticmethod
+    def _formatear_mensaje_cambio_participacion(
+        area_nombre: str,
+        numero_ciclo: int,
+        nuevo_tipo: str,
+        actor_nombre: str,
+    ) -> str:
+        """
+        Construye el texto para el mensaje de cambio de participación.
+
+        Indica el cierre del ciclo anterior y la apertura del nuevo.
+        """
+        return (
+            f"El usuario {actor_nombre} cambió la participación del período "
+            f"{numero_ciclo} del área {area_nombre} a {nuevo_tipo}."
+        )
+
+    def _crear_mensaje_periodo_sistema_if_present(
+        self,
+        periodo: SolicitudAsignacionPeriodo,
+        ahora: datetime,
+        usuario,
+        operacion: str,
+    ) -> None:
+        """
+        Crea un mensaje de sistema en la conversación vinculada a la solicitud.
+
+        Si la solicitud no tiene puente de conversación, no hace nada
+        (el mensaje es opcional para auditoría).
+        """
+        try:
+            puente = periodo.asignacion.solicitud.conversacionpuente
+            conversacion = puente.conversacion
+            actor_nombre = (
+                f"{usuario.nombres} {usuario.apellidos}".strip() or usuario.username
+            )
+            contenido = self._formatear_mensaje_periodo_sistema(
+                operacion=operacion,
+                area_nombre=periodo.asignacion.area.nombre,
+                numero_ciclo=periodo.numero_ciclo,
+                actor_nombre=actor_nombre,
+            )
+            self.mensajeria_service.crear_mensaje_sistema(
+                conversacion_id=conversacion.id,
+                contenido=contenido,
+                fecha_envio=ahora,
+            )
+        except Exception:
+            # Silently skip if no conversation bridge exists
+            # (audit message is best-effort)
+            pass
+
+    def _crear_mensaje_cambio_participacion_if_present(
+        self,
+        periodo: SolicitudAsignacionPeriodo,
+        ahora: datetime,
+        usuario,
+        nuevo_tipo: str,
+    ) -> None:
+        """
+        Crea un mensaje de sistema para cambio de participación.
+
+        Si la solicitud no tiene puente de conversación, no hace nada.
+        """
+        try:
+            puente = periodo.asignacion.solicitud.conversacionpuente
+            conversacion = puente.conversacion
+            actor_nombre = (
+                f"{usuario.nombres} {usuario.apellidos}".strip() or usuario.username
+            )
+            contenido = self._formatear_mensaje_cambio_participacion(
+                area_nombre=periodo.asignacion.area.nombre,
+                numero_ciclo=periodo.numero_ciclo,
+                nuevo_tipo=nuevo_tipo,
+                actor_nombre=actor_nombre,
+            )
+            self.mensajeria_service.crear_mensaje_sistema(
+                conversacion_id=conversacion.id,
+                contenido=contenido,
+                fecha_envio=ahora,
+            )
+        except Exception:
+            pass
 
     async def _proceso_iniciar_gestion(
         self,
@@ -137,7 +253,12 @@ class PeriodoOperacionesFlujo:
             origen=OrigenEstadoPeriodo.AUTOASIGNACION,
         )
 
-        # 6. Retornar el período con relaciones precargadas
+        # 6. Crear mensaje de sistema en la conversación
+        self._crear_mensaje_periodo_sistema_if_present(
+            periodo, ahora, usuario, "inició la gestión",
+        )
+
+        # 7. Retornar el período con relaciones precargadas
         # Re-fetch con las relaciones necesarias para el presenter
         return (
             SolicitudAsignacionPeriodo.objects
@@ -259,7 +380,12 @@ class PeriodoOperacionesFlujo:
             origen=OrigenEstadoPeriodo.AUTOASIGNACION,
         )
 
-        # 8. Retornar el período con relaciones precargadas
+        # 8. Crear mensaje de sistema en la conversación
+        self._crear_mensaje_periodo_sistema_if_present(
+            periodo, ahora, usuario, "tomó",
+        )
+
+        # 9. Retornar el período con relaciones precargadas
         return (
             SolicitudAsignacionPeriodo.objects
             .select_related(
@@ -500,7 +626,12 @@ class PeriodoOperacionesFlujo:
             origen=OrigenEstadoPeriodo.CIERRE,
         )
 
-        # 6. Retornar el período con relaciones precargadas
+        # 6. Crear mensaje de sistema en la conversación
+        self._crear_mensaje_periodo_sistema_if_present(
+            periodo, ahora, usuario, "cerró",
+        )
+
+        # 7. Retornar el período con relaciones precargadas
         return (
             SolicitudAsignacionPeriodo.objects
             .select_related(
@@ -617,7 +748,12 @@ class PeriodoOperacionesFlujo:
             origen=OrigenEstadoPeriodo.ASIGNACION_ERRONEA,
         )
 
-        # 6. Retornar el período con relaciones precargadas
+        # 6. Crear mensaje de sistema en la conversación
+        self._crear_mensaje_periodo_sistema_if_present(
+            periodo, ahora, usuario, "marcó como asignación errónea",
+        )
+
+        # 7. Retornar el período con relaciones precargadas
         return (
             SolicitudAsignacionPeriodo.objects
             .select_related(
@@ -637,27 +773,32 @@ class PeriodoOperacionesFlujo:
         periodo_id: UUID,
         usuario_id: int,
         nuevo_tipo: str,
+        motivo: str | None = None,
     ):
         """
         Cambia el tipo de participación de un período (PRINCIPAL ↔ ADJUNTA).
+
+        Cierra el período actual con tipo_cierre=CAMBIO_PARTICIPACION y crea
+        un nuevo período PENDIENTE con el nuevo tipo de participación.
 
         1. Obtiene el período con lock (select_for_update).
         2. Valida que el período existe.
         3. Valida que el nuevo tipo es PRINCIPAL o ADJUNTA.
         4. Valida que el período no esté CERRADO.
         5. Valida que el nuevo tipo sea diferente al actual (no es un no-op).
-        6. Cambia tipo_participacion del período.
-        7. Registra el cambio en SolicitudAsignacionPeriodoEstadoHistorial
-           con origen=CAMBIO_PARTICIPACION.
-        8. Retorna el período actualizado con su asignación y solicitud cargadas.
+        6. Cierra el período actual (estado=CERRADO, tipo_cierre=CAMBIO_PARTICIPACION).
+        7. Crea un nuevo período PENDIENTE con el nuevo tipo de participación.
+        8. Registra dos histiales: cierre del anterior y creación del nuevo.
+        9. Retorna la solicitud con los períodos actualizados.
 
         Args:
             periodo_id: UUID del SolicitudAsignacionPeriodo.
             usuario_id: ID del usuario que ejecuta el cambio.
             nuevo_tipo: Nuevo tipo de participación (PRINCIPAL o ADJUNTA).
+            motivo: Motivo opcional del cambio de participación.
 
         Returns:
-            Instancia de SolicitudAsignacionPeriodo con relaciones precargadas.
+            Instancia de SolicitudAsignacionPeriodo (nuevo período) con relaciones precargadas.
 
         Raises:
             HttpError: 404 si el período no existe.
@@ -669,6 +810,7 @@ class PeriodoOperacionesFlujo:
             periodo_id=periodo_id,
             usuario_id=usuario_id,
             nuevo_tipo=nuevo_tipo,
+            motivo=motivo,
         )
 
     @transaction.atomic()
@@ -677,9 +819,11 @@ class PeriodoOperacionesFlujo:
         periodo_id: UUID,
         usuario_id: int,
         nuevo_tipo: str,
+        motivo: str | None = None,
     ):
         """
         Versión síncrona con @transaction.atomic para cambiar participación.
+        Cierra el período actual y crea uno nuevo con el tipo de participación solicitado.
         """
         from modules.usuarios.domain.models import Usuario
 
@@ -724,28 +868,69 @@ class PeriodoOperacionesFlujo:
             raise HttpError(404, f"Usuario '{usuario_id}' no encontrado")
 
         tipo_anterior = periodo.tipo_participacion
+        estado_anterior_operativo = (
+            EstadoPeriodoOperativo.EN_GESTION
+            if periodo.estado == EstadoPeriodo.EN_GESTION
+            else EstadoPeriodoOperativo.PENDIENTE
+        )
+        motivo_display = motivo or f"Cambio de participación: {tipo_anterior} → {nuevo_tipo}"
 
-        # 5. Cambiar el tipo de participación
-        periodo.tipo_participacion = nuevo_tipo
+        # 5. Cerrar el período actual
+        periodo.estado = EstadoPeriodo.CERRADO
+        periodo.fecha_fin = ahora
+        periodo.finalizado_por = usuario
+        periodo.tipo_cierre = TipoCierre.CAMBIO_PARTICIPACION
+        if motivo:
+            periodo.motivo_cierre = motivo
         periodo.save()
 
-        # 6. Registrar historial — NO cambia el estado operativo,
-        # solo registra el evento de cambio de participación
+        # 6. Registrar historial de cierre del período anterior
         self.periodo_estado_historial_service.registrar_transicion(
             periodo=periodo,
-            estado_anterior=EstadoPeriodoOperativo.EN_GESTION
-            if periodo.estado == EstadoPeriodo.EN_GESTION
-            else EstadoPeriodoOperativo.PENDIENTE,
-            estado_nuevo=EstadoPeriodoOperativo.EN_GESTION
-            if periodo.estado == EstadoPeriodo.EN_GESTION
-            else EstadoPeriodoOperativo.PENDIENTE,
+            estado_anterior=estado_anterior_operativo,
+            estado_nuevo=EstadoPeriodoOperativo.CERRADO,
             fecha_cambio=ahora,
             cambiado_por=usuario,
-            motivo=f"Cambio de participación: {tipo_anterior} → {nuevo_tipo}",
+            motivo=motivo_display,
             origen=OrigenEstadoPeriodo.CAMBIO_PARTICIPACION,
         )
 
-        # 7. Retornar el período con relaciones precargadas
+        # 7. Calcular el siguiente numero_ciclo
+        max_ciclo = (
+            SolicitudAsignacionPeriodo.objects
+            .filter(asignacion=periodo.asignacion)
+            .aggregate(models.Max("numero_ciclo"))["numero_ciclo__max"]
+            or 0
+        )
+        nuevo_numero_ciclo = max_ciclo + 1
+
+        # 8. Crear el nuevo período PENDIENTE
+        nuevo_periodo = SolicitudAsignacionPeriodo.objects.create(
+            asignacion=periodo.asignacion,
+            numero_ciclo=nuevo_numero_ciclo,
+            tipo_participacion=nuevo_tipo,
+            estado=EstadoPeriodo.PENDIENTE,
+            fecha_inicio=ahora,
+            iniciado_por=usuario,
+        )
+
+        # 9. Registrar historial de creación del nuevo período
+        self.periodo_estado_historial_service.registrar_transicion(
+            periodo=nuevo_periodo,
+            estado_anterior=None,
+            estado_nuevo=EstadoPeriodoOperativo.PENDIENTE,
+            fecha_cambio=ahora,
+            cambiado_por=usuario,
+            motivo=motivo_display,
+            origen=OrigenEstadoPeriodo.CAMBIO_PARTICIPACION,
+        )
+
+        # 10. Crear mensaje de sistema para cambio de participación
+        self._crear_mensaje_cambio_participacion_if_present(
+            periodo, ahora, usuario, nuevo_tipo,
+        )
+
+        # 11. Retornar el nuevo período con relaciones precargadas
         return (
             SolicitudAsignacionPeriodo.objects
             .select_related(
@@ -757,7 +942,7 @@ class PeriodoOperacionesFlujo:
                 "asignacion__solicitud__asignaciones__periodos",
                 "usuarios__usuario",
             )
-            .get(id=periodo_id)
+            .get(id=nuevo_periodo.id)
         )
 
     async def _proceso_crear_respuesta_borrador(

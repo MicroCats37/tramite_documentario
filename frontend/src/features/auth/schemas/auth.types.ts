@@ -17,12 +17,37 @@ export interface LoginTokens {
 }
 
 /**
+ * User basic data (datos) returned from login and /auth/me/ endpoint.
+ */
+export interface UserDatos {
+  id: string;
+  username: string;
+  dni: string | null;
+  email: string | null;
+  nombres: string | null;
+  apellidos: string | null;
+  is_staff: boolean;
+  is_superuser: boolean;
+}
+
+/**
+ * Area assigned to the user (vigente/active).
+ */
+export interface AreaAsignada {
+  id: string;
+  area_id: string;
+  area_nombre: string;
+  cargo_id: string;
+  cargo_nombre: string;
+}
+
+/**
  * User info returned from login and /auth/me/ endpoint.
+ * Nested structure with datos and areas_asignadas_vigentes.
  */
 export interface MeResponse {
-  id: number;
-  nombres: string;
-  apellidos: string;
+  datos: UserDatos;
+  areas_asignadas_vigentes: AreaAsignada[];
 }
 
 /**

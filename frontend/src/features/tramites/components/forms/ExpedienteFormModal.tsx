@@ -33,7 +33,10 @@ import { cn } from "@/lib/utils";
 import { GenericModal } from "@/components/genericModal/GenericModal";
 import { GenericForm } from "@/components/genericForm/GenericForm";
 import { InputFileCollection } from "@/components/genericForm/inputs/InputFileCollection";
-import type { FormField, SectionWrapperProps } from "@/components/genericForm/GenericInput";
+import type {
+  FormField,
+  SectionWrapperProps,
+} from "@/components/genericForm/GenericInput";
 import { FormSectionHeader } from "@/components-app/forms/FormSectionHeader";
 import { PrintPreviewModal } from "@/features/tramites/components/PrintPreviewModal";
 import { ExpedientePrintPreview } from "@/features/tramites/components/ExpedientePrintPreview";
@@ -51,17 +54,6 @@ interface ExpedienteFormModalProps {
 // ── Enums y regex (alineados con crearSolicitud.schema) ────────────────────────
 
 const TIPO_PERSONA = ["NATURAL", "JURIDICA", "COLEGIADO"] as const;
-const TIPO_DOCUMENTO = [
-  "OFICIO",
-  "CARTA",
-  "SOLICITUD",
-  "MEMORANDO",
-  "INFORME",
-  "EXPEDIENTE",
-  "RECIBO",
-  "CERTIFICADO",
-  "OTRO",
-] as const;
 
 const DNI_REGEX = /^\d{8}$/;
 const RUC_REGEX = /^\d{11}$/;
@@ -122,15 +114,15 @@ const ExpedienteFormSchema = z.object({
     .or(z.literal("").transform(() => null)),
   telefono: z
     .string()
-    .regex(TELEFONO_REGEX, { message: "El teléfono debe tener entre 6 y 12 dígitos" })
+    .regex(TELEFONO_REGEX, {
+      message: "El teléfono debe tener entre 6 y 12 dígitos",
+    })
     .max(12)
     .nullable()
     .optional()
     .or(z.literal("").transform(() => null)),
 
-  tipo_documento: z.enum(TIPO_DOCUMENTO, {
-    message: "Selecciona un tipo de documento",
-  }),
+  tipo_documento_id: z.string().uuid({ message: "Selecciona un tipo de documento" }).nullable().optional(),
   numero_documento: z.string().max(50).nullable().optional(),
   numero_folios: z
     .number({ message: "Los folios deben ser un número" })
@@ -163,6 +155,7 @@ const EXPEDIENTE_FORM_DEFAULT: Partial<ExpedienteFormData> = {
   apellidos: null,
   correo: null,
   telefono: null,
+  tipo_documento_id: null,
   numero_documento: null,
   asunto: "",
   observaciones: null,
@@ -175,10 +168,6 @@ const TIPO_PERSONA_OPTIONS = [
   { label: "Persona Jurídica", value: "JURIDICA" },
   { label: "Colegiado", value: "COLEGIADO" },
 ] as const;
-
-const TIPO_DOCUMENTO_OPTIONS: { label: string; value: string }[] = TIPO_DOCUMENTO.map(
-  (d) => ({ label: d, value: d }),
-);
 
 // ── Field names para los Smart Fields de documento ───────────────────────────
 
@@ -206,12 +195,18 @@ const TOTAL_STEPS = STEPS.length;
 
 // ── Card wrapper (patrón liquidaciones) ─────────────────────────────────────
 
-const SectionCard: React.FC<SectionWrapperProps> = ({ children, title, icon: Icon }) => (
+const SectionCard: React.FC<SectionWrapperProps> = ({
+  children,
+  title,
+  icon: Icon,
+}) => (
   <div className="rounded-xl border border-border/50 bg-card p-4 space-y-4">
     {title && (
       <div className="flex items-center gap-2 border-b border-border/40 pb-2">
         {Icon && <Icon className="h-4 w-4 text-primary" />}
-        <h3 className="text-sm font-semibold uppercase tracking-wide">{title}</h3>
+        <h3 className="text-sm font-semibold uppercase tracking-wide">
+          {title}
+        </h3>
       </div>
     )}
     <div className="grid grid-cols-1 gap-4">{children}</div>
@@ -271,10 +266,9 @@ const CONTACTO_FIELDS: FormField[] = [
 
 const DOCUMENTO_FIELDS: FormField[] = [
   {
-    name: "tipo_documento",
+    name: "tipo_documento_id",
     label: "Tipo de Documento",
-    type: "select",
-    options: TIPO_DOCUMENTO_OPTIONS,
+    type: "select-tipo-documento",
     required: true,
     containerClassName: "md:col-span-6",
   },
@@ -374,7 +368,7 @@ export function ExpedienteFormModal({
             "cip",
             "correo",
             "telefono",
-            "tipo_documento",
+            "tipo_documento_id",
             "numero_documento",
             "numero_folios",
             "asunto",
@@ -426,7 +420,7 @@ export function ExpedienteFormModal({
           apellidos: data.apellidos ?? null,
           correo: data.correo ?? null,
           telefono: data.telefono ?? null,
-          tipo_documento: data.tipo_documento,
+          tipo_documento_id: data.tipo_documento_id,
           numero_documento: data.numero_documento ?? null,
           numero_folios: data.numero_folios ?? 0,
           asunto: data.asunto,
@@ -440,7 +434,9 @@ export function ExpedienteFormModal({
         const envelope = (await crearExpediente.mutateAsync(
           payload as never,
         )) as unknown as { data?: ExpedienteDetail } | undefined;
-        const creado = envelope?.data ?? (envelope as unknown as ExpedienteDetail | undefined);
+        const creado =
+          envelope?.data ??
+          (envelope as unknown as ExpedienteDetail | undefined);
 
         notify.success("Expediente creado correctamente");
         formMethods.reset(EXPEDIENTE_FORM_DEFAULT);
@@ -463,201 +459,211 @@ export function ExpedienteFormModal({
   return (
     <>
       <GenericModal
-      open={open}
-      onOpenChange={handleClose}
-      preventClose={crearExpediente.isPending}
-    >
-      <GenericModal.Content
-        size="xl"
-        
+        open={open}
+        onOpenChange={handleClose}
+        preventClose={crearExpediente.isPending}
       >
-        {/* ── Header custom ──────────────────────────────────────────── */}
-        <div className="bg-gradient-to-r from-primary/5 via-primary/[0.02] to-transparent border-b border-border px-6 py-5 sm:px-8">
-          <div className="flex items-center gap-3 w-full">
-            <div className="p-2 sm:p-2.5 bg-primary/10 rounded-xl sm:rounded-2xl border border-primary/20 shadow-sm shrink-0">
-              <FilePlus className="h-5 w-5 text-primary" />
-            </div>
-            <div className="flex flex-col gap-0.5 min-w-0 flex-1">
-              <span className="hidden sm:block text-[10px] font-bold uppercase tracking-widest text-primary leading-none">
-                Mesa de Partes
-              </span>
-              <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground leading-tight">
-                Nuevo Expediente
-              </h2>
-              <p className="hidden sm:block max-w-prose text-pretty line-clamp-2 text-sm text-muted-foreground leading-relaxed">
-                Complete los datos del expediente y adjunte los archivos.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* ── Stepper Header ─────────────────────────────────────────── */}
-        <StepperProgress steps={STEPS as unknown as { id: string; title: string; icon: typeof FileText }[]} currentStep={currentStep} />
-
-        {/* ── Body: form por step ────────────────────────────────────── */}
-        <GenericModal.Body>
-          {currentStep === 0 && (
-            <GenericForm<ExpedienteFormData>
-              formId={`${formId}-step-0`}
-              formMethods={formMethods}
-              formSections={STEP_1_SECTIONS as Parameters<typeof GenericForm>[0]["formSections"]}
-              schema={ExpedienteFormSchema}
-              initialData={EXPEDIENTE_FORM_DEFAULT}
-              onSubmit={async () => {
-                /* submit real solo en el último paso */
-              }}
-              skipFooter
-            />
-          )}
-
-          {currentStep === 1 && (
-            <GenericForm<ExpedienteFormData>
-              formId={`${formId}-step-1`}
-              formMethods={formMethods}
-              fields={[
-                {
-                  name: "archivos",
-                  label: "Archivos Adjuntos",
-                  type: "custom",
-                  containerClassName: "md:col-span-12",
-                },
-              ]}
-              schema={ExpedienteFormSchema}
-              initialData={EXPEDIENTE_FORM_DEFAULT}
-              onSubmit={async () => {}}
-              skipFooter
-              customFields={{
-                archivos: () => (
-                  <InputFileCollection
-                    field={{
-                      name: "archivos",
-                      label: "Archivos Adjuntos",
-                      type: "file-collection",
-                    }}
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    control={formMethods.control as any}
-                    id={`${formId}-file-collection`}
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    register={formMethods.register as any}
-                    fileKind="all"
-                    maxFiles={20}
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    error={formMethods.formState.errors.archivos as any}
-                  />
-                ),
-              }}
-            />
-          )}
-
-          {currentStep === 2 && (
-            <GenericForm<ExpedienteFormData>
-              formId={`${formId}-step-2`}
-              formMethods={formMethods}
-              fields={[]}
-              schema={ExpedienteFormSchema}
-              initialData={EXPEDIENTE_FORM_DEFAULT}
-              onSubmit={handleSubmit}
-              isLoading={crearExpediente.isPending}
-              skipFooter
-            >
-              {() => <RevisionStep formMethods={formMethods} />}
-            </GenericForm>
-          )}
-        </GenericModal.Body>
-
-        {/* ── Footer: navegación del stepper ─────────────────────────── */}
-        <GenericModal.Footer className="px-6 py-4 sm:px-8 bg-muted/30 border-t border-border">
-          <div className="flex items-center justify-between gap-2 sm:gap-3">
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground hidden sm:inline">
-                Paso {currentStep + 1} de {TOTAL_STEPS}
-              </span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => handleClose(false)}
-                disabled={crearExpediente.isPending}
-                className="text-muted-foreground"
-              >
-                Cancelar
-              </Button>
-            </div>
-
-            <div className="flex items-center gap-2">
-              {!isFirstStep && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleBack}
-                  disabled={crearExpediente.isPending}
-                  className="gap-1"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  <span className="hidden sm:inline">Anterior</span>
-                </Button>
-              )}
-
-              {!isLastStep && (
-                <Button
-                  type="button"
-                  onClick={handleNext}
-                  disabled={crearExpediente.isPending}
-                  className="gap-1"
-                >
-                  <span>Siguiente</span>
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              )}
-
-              {isLastStep && (
-                <Button
-                  type="button"
-                  onClick={() => {
-                    void formMethods.handleSubmit(handleSubmit as never)();
-                  }}
-                  disabled={crearExpediente.isPending}
-                  className="gap-2 font-bold"
-                >
-                  {crearExpediente.isPending ? (
-                    "Creando..."
-                  ) : (
-                    <>
-                      <CheckCircle2 className="h-4 w-4" />
-                      Crear Expediente
-                    </>
-                  )}
-                </Button>
-              )}
+        <GenericModal.Content size="xl">
+          {/* ── Header custom ──────────────────────────────────────────── */}
+          <div className="bg-gradient-to-r from-primary/5 via-primary/[0.02] to-transparent border-b border-border px-6 py-5 sm:px-8">
+            <div className="flex items-center gap-3 w-full">
+              <div className="p-2 sm:p-2.5 bg-primary/10 rounded-xl sm:rounded-2xl border border-primary/20 shadow-sm shrink-0">
+                <FilePlus className="h-5 w-5 text-primary" />
+              </div>
+              <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                <span className="hidden sm:block text-[10px] font-bold uppercase tracking-widest text-primary leading-none">
+                  Mesa de Partes
+                </span>
+                <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground leading-tight">
+                  Nuevo Expediente
+                </h2>
+                <p className="hidden sm:block max-w-prose text-pretty line-clamp-2 text-sm text-muted-foreground leading-relaxed">
+                  Complete los datos del expediente y adjunte los archivos.
+                </p>
+              </div>
             </div>
           </div>
-        </GenericModal.Footer>
 
-        <GenericModal.CloseX />
-      </GenericModal.Content>
-    </GenericModal>
-
-    {/* ── Modal de impresión: se abre automáticamente al crear el expediente ── */}
-    {printItem && (
-      <PrintPreviewModal
-        open={printOpen}
-        onOpenChange={setPrintOpen}
-        title={`Expediente ${printItem.id_publico}`}
-        htmlContent={printHtml}
-        previewContent={
-          <ExpedientePrintPreview
-            item={
-              // El PrintPreviewModal espera ExpedienteItem; el detail
-              // comparte los campos base. Usamos un cast seguro.
-              printItem as never as Parameters<
-                typeof ExpedientePrintPreview
-              >[0]["item"]
+          {/* ── Stepper Header ─────────────────────────────────────────── */}
+          <StepperProgress
+            steps={
+              STEPS as unknown as {
+                id: string;
+                title: string;
+                icon: typeof FileText;
+              }[]
             }
+            currentStep={currentStep}
           />
-        }
-      />
-    )}
-  </>
+
+          {/* ── Body: form por step ────────────────────────────────────── */}
+          <GenericModal.Body>
+            {currentStep === 0 && (
+              <GenericForm<ExpedienteFormData>
+                formId={`${formId}-step-0`}
+                formMethods={formMethods}
+                formSections={
+                  STEP_1_SECTIONS as Parameters<
+                    typeof GenericForm
+                  >[0]["formSections"]
+                }
+                schema={ExpedienteFormSchema}
+                initialData={EXPEDIENTE_FORM_DEFAULT}
+                onSubmit={async () => {
+                  /* submit real solo en el último paso */
+                }}
+                skipFooter
+              />
+            )}
+
+            {currentStep === 1 && (
+              <GenericForm<ExpedienteFormData>
+                formId={`${formId}-step-1`}
+                formMethods={formMethods}
+                fields={[
+                  {
+                    name: "archivos",
+                    label: "Archivos Adjuntos",
+                    type: "custom",
+                    containerClassName: "md:col-span-12",
+                  },
+                ]}
+                schema={ExpedienteFormSchema}
+                initialData={EXPEDIENTE_FORM_DEFAULT}
+                onSubmit={async () => {}}
+                skipFooter
+                customFields={{
+                  archivos: () => (
+                    <InputFileCollection
+                      field={{
+                        name: "archivos",
+                        label: "Archivos Adjuntos",
+                        type: "file-collection",
+                      }}
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      control={formMethods.control as any}
+                      id={`${formId}-file-collection`}
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      register={formMethods.register as any}
+                      fileKind="all"
+                      maxFiles={20}
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      error={formMethods.formState.errors.archivos as any}
+                    />
+                  ),
+                }}
+              />
+            )}
+
+            {currentStep === 2 && (
+              <GenericForm<ExpedienteFormData>
+                formId={`${formId}-step-2`}
+                formMethods={formMethods}
+                fields={[]}
+                schema={ExpedienteFormSchema}
+                initialData={EXPEDIENTE_FORM_DEFAULT}
+                onSubmit={handleSubmit}
+                isLoading={crearExpediente.isPending}
+                skipFooter
+              >
+                {() => <RevisionStep formMethods={formMethods} />}
+              </GenericForm>
+            )}
+          </GenericModal.Body>
+
+          {/* ── Footer: navegación del stepper ─────────────────────────── */}
+          <GenericModal.Footer className="px-6 py-4 sm:px-8 bg-muted/30 border-t border-border">
+            <div className="flex items-center justify-between gap-2 sm:gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground hidden sm:inline">
+                  Paso {currentStep + 1} de {TOTAL_STEPS}
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleClose(false)}
+                  disabled={crearExpediente.isPending}
+                  className="text-muted-foreground"
+                >
+                  Cancelar
+                </Button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {!isFirstStep && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleBack}
+                    disabled={crearExpediente.isPending}
+                    className="gap-1"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    <span className="hidden sm:inline">Anterior</span>
+                  </Button>
+                )}
+
+                {!isLastStep && (
+                  <Button
+                    type="button"
+                    onClick={handleNext}
+                    disabled={crearExpediente.isPending}
+                    className="gap-1"
+                  >
+                    <span>Siguiente</span>
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                )}
+
+                {isLastStep && (
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      void formMethods.handleSubmit(handleSubmit as never)();
+                    }}
+                    disabled={crearExpediente.isPending}
+                    className="gap-2 font-bold"
+                  >
+                    {crearExpediente.isPending ? (
+                      "Creando..."
+                    ) : (
+                      <>
+                        <CheckCircle2 className="h-4 w-4" />
+                        Crear Expediente
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
+            </div>
+          </GenericModal.Footer>
+
+          <GenericModal.CloseX />
+        </GenericModal.Content>
+      </GenericModal>
+
+      {/* ── Modal de impresión: se abre automáticamente al crear el expediente ── */}
+      {printItem && (
+        <PrintPreviewModal
+          open={printOpen}
+          onOpenChange={setPrintOpen}
+          title={`Expediente ${printItem.id_publico}`}
+          htmlContent={printHtml}
+          previewContent={
+            <ExpedientePrintPreview
+              item={
+                // El PrintPreviewModal espera ExpedienteItem; el detail
+                // comparte los campos base. Usamos un cast seguro.
+                printItem as never as Parameters<
+                  typeof ExpedientePrintPreview
+                >[0]["item"]
+              }
+            />
+          }
+        />
+      )}
+    </>
   );
 }
 
@@ -688,7 +694,9 @@ function StepperProgress({ steps, currentStep }: StepperProgressProps) {
                   isCurrent &&
                     "bg-primary text-primary-foreground border-primary shadow-sm",
                   isCompleted && "bg-primary/10 text-primary border-primary/30",
-                  !isCurrent && !isCompleted && "bg-muted text-muted-foreground",
+                  !isCurrent &&
+                    !isCompleted &&
+                    "bg-muted text-muted-foreground",
                 )}
               >
                 <Icon className="h-3.5 w-3.5" />
@@ -732,7 +740,9 @@ function RevisionStep({ formMethods }: RevisionStepProps) {
 
       <div className="rounded-xl border border-border/50 bg-card p-4 space-y-3 text-sm">
         <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-          <span className="text-muted-foreground font-medium">Tipo de Persona:</span>
+          <span className="text-muted-foreground font-medium">
+            Tipo de Persona:
+          </span>
           <span>{data.tipo_persona ?? "—"}</span>
 
           <span className="text-muted-foreground font-medium">
@@ -746,11 +756,13 @@ function RevisionStep({ formMethods }: RevisionStepProps) {
             {data.dni ?? data.ruc ?? data.cip ?? "—"}
           </span>
 
-          <span className="text-muted-foreground font-medium">Nombres/Razón:</span>
+          <span className="text-muted-foreground font-medium">
+            Nombres/Razón:
+          </span>
           <span>
             {data.nombres
               ? `${data.nombres} ${data.apellidos ?? ""}`
-              : data.razon_social ?? "—"}
+              : (data.razon_social ?? "—")}
           </span>
 
           <span className="text-muted-foreground font-medium">Correo:</span>
@@ -759,10 +771,14 @@ function RevisionStep({ formMethods }: RevisionStepProps) {
           <span className="text-muted-foreground font-medium">Teléfono:</span>
           <span>{data.telefono ?? "—"}</span>
 
-          <span className="text-muted-foreground font-medium">Tipo de Documento:</span>
-          <span>{data.tipo_documento ?? "—"}</span>
+          <span className="text-muted-foreground font-medium">
+            Tipo de Documento:
+          </span>
+          <span>{data.tipo_documento_id ? "(ID configurado)" : "—"}</span>
 
-          <span className="text-muted-foreground font-medium">Número de Documento:</span>
+          <span className="text-muted-foreground font-medium">
+            Número de Documento:
+          </span>
           <span className="font-mono">{data.numero_documento ?? "—"}</span>
 
           <span className="text-muted-foreground font-medium">Folios:</span>
@@ -773,11 +789,16 @@ function RevisionStep({ formMethods }: RevisionStepProps) {
 
           <span className="text-muted-foreground font-medium">Archivos:</span>
           <span>
-            {(data.archivos ?? []).filter((a) => a.tipo_archivo === "PRINCIPAL")
-              .length}{" "}
+            {
+              (data.archivos ?? []).filter(
+                (a) => a.tipo_archivo === "PRINCIPAL",
+              ).length
+            }{" "}
             principal ·{" "}
-            {(data.archivos ?? []).filter((a) => a.tipo_archivo === "ANEXO")
-              .length}{" "}
+            {
+              (data.archivos ?? []).filter((a) => a.tipo_archivo === "ANEXO")
+                .length
+            }{" "}
             anexos
           </span>
         </div>
@@ -794,8 +815,9 @@ function RevisionStep({ formMethods }: RevisionStepProps) {
 
       <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm text-muted-foreground">
         <p>
-          Al hacer clic en <strong>&quot;Crear Expediente&quot;</strong>, se validarán
-          los datos y se creará el expediente con sus archivos adjuntos.
+          Al hacer clic en <strong>&quot;Crear Expediente&quot;</strong>, se
+          validarán los datos y se creará el expediente con sus archivos
+          adjuntos.
         </p>
       </div>
     </div>

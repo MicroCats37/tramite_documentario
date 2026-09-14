@@ -6,8 +6,17 @@ from datetime import datetime
 from pydantic import BaseModel
 
 
-class AuthUserResult(BaseModel):
-    """DTO de resultado interno con datos de usuario para generación de tokens."""
+class AreaAsignadaResult(BaseModel):
+    """DTO interno para un área asignada vigente."""
+    id: uuid.UUID
+    area_id: uuid.UUID
+    area_nombre: str
+    cargo_id: uuid.UUID
+    cargo_nombre: str
+
+
+class UserDatosResult(BaseModel):
+    """DTO interno con datos básicos del usuario (sin áreas)."""
     id: uuid.UUID
     username: str
     dni: str | None
@@ -16,6 +25,12 @@ class AuthUserResult(BaseModel):
     apellidos: str | None
     is_staff: bool
     is_superuser: bool
+
+
+class AuthUserResult(BaseModel):
+    """DTO de resultado interno con datos de usuario y áreas asignadas vigentes."""
+    datos: UserDatosResult
+    areas_asignadas_vigentes: list[AreaAsignadaResult]
 
 
 class LoginTokenResult(BaseModel):

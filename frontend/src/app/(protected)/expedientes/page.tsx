@@ -8,13 +8,16 @@
  */
 "use client";
 
-import { FolderSearch, Search, Plus } from "lucide-react";
+import { FolderSearch, Plus, Search } from "lucide-react";
 import { useState } from "react";
+import { Pagination } from "@/components/genericPagination/Pagination";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Pagination } from "@/components/genericPagination/Pagination";
 import { PageWrapper } from "@/components-app/page";
-import { ExpedienteCard, ExpedienteCardSkeleton } from "@/features/tramites/components/ExpedienteCard";
+import {
+  ExpedienteCard,
+  ExpedienteCardSkeleton,
+} from "@/features/tramites/components/ExpedienteCard";
 import { ExpedienteFormModal } from "@/features/tramites/components/forms/ExpedienteFormModal";
 import { useExpedientes } from "@/features/tramites/hooks/useTramites";
 import { useDebounce } from "@/hooks";

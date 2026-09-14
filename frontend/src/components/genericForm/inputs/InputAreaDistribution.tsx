@@ -21,7 +21,10 @@ import {
 } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { cn } from "@/lib/utils";
-import { TIPO_PARTICIPACION, type TipoParticipacion } from "@/shared/constants/tramite.tokens";
+import {
+  TIPO_PARTICIPACION,
+  type TipoParticipacion,
+} from "@/shared/constants/tramite.tokens";
 import { useAreas, type Area } from "@/features/tramites/hooks/useAreas";
 import type { InputComponentProps } from "./types";
 
@@ -70,10 +73,7 @@ const AreaCard: React.FC<AreaCardProps> = ({
       </div>
 
       <div className="flex-1 min-w-0">
-        <p
-          className="text-sm font-medium truncate"
-          title={areaNombre}
-        >
+        <p className="text-sm font-medium truncate" title={areaNombre}>
           {areaNombre}
         </p>
       </div>
@@ -81,7 +81,9 @@ const AreaCard: React.FC<AreaCardProps> = ({
       {/* Mini-select para cambiar tipo */}
       <Select
         value={item.tipo_participacion}
-        onValueChange={(val) => onTipoChange(item.area_id, val as TipoParticipacion)}
+        onValueChange={(val) =>
+          onTipoChange(item.area_id, val as TipoParticipacion)
+        }
       >
         <SelectTrigger
           className={cn(
@@ -93,12 +95,22 @@ const AreaCard: React.FC<AreaCardProps> = ({
         </SelectTrigger>
         <SelectContent position="item-aligned">
           <SelectItem value="PRINCIPAL">
-            <span className={cn("inline-flex items-center gap-1", TIPO_PARTICIPACION.PRINCIPAL.badgeClass)}>
+            <span
+              className={cn(
+                "inline-flex items-center gap-1",
+                TIPO_PARTICIPACION.PRINCIPAL.badgeClass,
+              )}
+            >
               Principal
             </span>
           </SelectItem>
           <SelectItem value="ADJUNTA">
-            <span className={cn("inline-flex items-center gap-1", TIPO_PARTICIPACION.ADJUNTA.badgeClass)}>
+            <span
+              className={cn(
+                "inline-flex items-center gap-1",
+                TIPO_PARTICIPACION.ADJUNTA.badgeClass,
+              )}
+            >
               Adjunta
             </span>
           </SelectItem>
@@ -176,9 +188,7 @@ export const InputAreaDistribution: React.FC<InputAreaDistributionProps> = ({
   const handleTipoChange = (areaId: string, tipo: TipoParticipacion) => {
     onChange(
       selectedItems.map((item) =>
-        item.area_id === areaId
-          ? { ...item, tipo_participacion: tipo }
-          : item,
+        item.area_id === areaId ? { ...item, tipo_participacion: tipo } : item,
       ),
     );
   };

@@ -32,9 +32,30 @@ from modules.tramites.presentation.schemas.solicitud_list_out import (
     SolicitudDetailOut,
     EstadoOperativoOut,
 )
+from modules.tramites.presentation.schemas.solicitud_respuesta_in import (
+    FinalizarSolicitudIn,
+)
+from modules.tramites.presentation.schemas.solicitud_respuesta_out import (
+    SolicitudRespuestaFinalizarOut,
+)
+from modules.tramites.presentation.schemas.solicitud_trazabilidad_out import (
+    SolicitudTrazabilidadOut,
+)
 from modules.tramites.presentation.presenters.solicitud_presenter import SolicitudPresenter
 from modules.tramites.presentation.presenters.solicitud_consulta_presenter import SolicitudConsultaPresenter
+from modules.tramites.presentation.presenters.solicitud_respuesta_presenter import (
+    SolicitudRespuestaPresenter,
+)
+from modules.tramites.presentation.presenters.solicitud_trazabilidad_presenter import (
+    SolicitudTrazabilidadPresenter,
+)
 from modules.tramites.domain.services.orchestrators.solicitud_orchestrator import SolicitudOrchestrator
+from modules.tramites.domain.services.orchestrators.solicitud_respuesta_orchestrator import (
+    SolicitudRespuestaOrchestrator,
+)
+from modules.notificaciones.domain.selectors.notificacion_selector import NotificacionSelector
+from modules.notificaciones.presentation.presenters.notificacion_presenter import NotificacionPresenter
+from modules.notificaciones.presentation.schemas.notificacion_schemas import NotificacionDetalleOut
 
 
 def _strip_pydantic(obj):
@@ -70,8 +91,13 @@ class SolicitudController:
     """
 
     @inject
-    def __init__(self, solicitud_orchestrator: SolicitudOrchestrator):
+    def __init__(
+        self,
+        solicitud_orchestrator: SolicitudOrchestrator,
+        respuesta_orchestrator: SolicitudRespuestaOrchestrator,
+    ):
         self.solicitud_orchestrator = solicitud_orchestrator
+        self.respuesta_orchestrator = respuesta_orchestrator
 
     @route.post("/crear", response={200: ApiResponse[SolicitudItemOut]})
     async def crear_solicitud(
@@ -251,7 +277,6 @@ class SolicitudController:
             total_pages=total_pages,
         ))
 
-    @route.get("/{solicitud_id}/", response={200: ApiResponse[SolicitudDetailOut]})
     @route.get("/{solicitud_id}", response={200: ApiResponse[SolicitudDetailOut]})
     async def obtener_solicitud(
         self,
@@ -312,6 +337,43 @@ class SolicitudController:
 
         return success_response(EstadoOperativoOut(**resultado))
 
+    @route.get("/notificaciones/{notificacion_id}", response={200: ApiResponse[NotificacionDetalleOut]})
+    async def obtener_notificacion_desde_solicitud(
+        self,
+        request,
+        notificacion_id: UUID,
+    ):
+        """
+        Obtiene el detalle de una notificación en contexto de solicitud.
+
+        Endpoint owned por el módulo tramites — listo para pantallas modulares futuras
+        que consuman notificaciones desde el contexto de una solicitud.
+
+        Usa el mismo selector y presenter que GET /notificaciones/{id}/detalle:
+        - NotificacionSelector.obtener_detalle() para cargar datos
+        - NotificacionPresenter.present_detail_solicitud() para transformar
+
+        Retorna NotificacionDetalleOut con expediente y período como objetos anidados.
+        """
+        from ninja.errors import HttpError
+
+        usuario_id = request.auth.id
+
+        notif = await sync_to_async(
+            NotificacionSelector.obtener_detalle,
+            thread_sensitive=True,
+        )(notificacion_id, usuario_id)
+
+        if notif is None:
+            raise HttpError(404, "Notificación no encontrada")
+
+        detail_out = await sync_to_async(
+            lambda: NotificacionPresenter.present_detail_solicitud(notif, usuario_id),
+            thread_sensitive=True,
+        )()
+
+        return success_response(detail_out)
+
     @route.post("/{solicitud_id}/areas", response={200: ApiResponse[SolicitudOut]})
     async def incorporar_area(
         self,
@@ -344,3 +406,133 @@ class SolicitudController:
             thread_sensitive=True,
         )
         return success_response(await presenter_sync(solicitud))
+
+    @route.post("/{solicitud_id}/finalizar", response={200: ApiResponse[SolicitudRespuestaFinalizarOut]})
+    async def finalizar_solicitud(
+        self,
+        request,
+        solicitud_id: UUID,
+        data: Form[DataForm],
+        files: File[list[UploadedFile]],
+    ):
+        """
+        Emite una respuesta formal a una Solicitud, opcionalmente cerrándola.
+
+        Utiliza el patrón dual payload (FormData + archivos):
+        - `data`: JSON string con los campos de la respuesta
+        - `files`: lista de archivos con nombre con formato "token___nombre_real.ext"
+
+        El flujo:
+        1. Valida que la Solicitud existe y no está FINALIZADA/ANULADA.
+        2. Infiere area/periodo del contexto del usuario autenticado.
+        3. Obtiene o crea la conversación vinculada.
+        4. Crea Mensaje(tipo=SISTEMA) con los archivos adjuntos.
+        5. Crea SolicitudRespuesta vinculada.
+        6. Si es_final=True: transiciona Solicitud a FINALIZADA y cierra conversación.
+        7. Emite notificación RESPUESTA_FINAL al área y al creador de la solicitud.
+
+        Returns:
+            SolicitudRespuestaFinalizarOut con la respuesta creada,
+            el estado de la solicitud, y la conversación.
+        """
+        from django.http import JsonResponse
+
+        from modules.tramites.presentation.schemas.solicitud_respuesta_in import (
+            FinalizarSolicitudIn,
+        )
+
+        payload = parse_form_json(data.data, files, FinalizarSolicitudIn)
+
+        # Construir archivos_data desde el payload hidratado por parse_form_json.
+        # Cada archivo en payload.archivos ya tiene el campo 'archivo' hidratado
+        # con el UploadedFile real (token reemplazado por el archivo).
+        archivos_data = None
+        if payload.archivos:
+            archivos_data = [
+                {
+                    "archivo": a.archivo,
+                    "nombre_original": a.nombre_original,
+                    "mime_type": a.mime_type,
+                    "tamano_bytes": a.tamano_bytes,
+                }
+                for a in payload.archivos
+            ]
+
+        # El endpoint /finalizar SEMANTICAMENTE siempre finaliza. No depende del
+        # flag es_final del payload (que el frontend nunca envía, defaults a False).
+        # Forzamos es_final=True para garantizar cierre de periodos, conversación
+        # y transición a FINALIZADA.
+        resultado = await self.respuesta_orchestrator.emitir_respuesta_final(
+            solicitud_id=solicitud_id,
+            usuario_id=request.auth.id,
+            tipo_respuesta=payload.tipo_respuesta,
+            contenido=payload.contenido,
+            es_final=True,
+            archivos_data=archivos_data,
+        )
+
+        # Obtener estado actual de la solicitud después de la operación
+        from modules.tramites.domain.models import Solicitud
+        from modules.tramites.domain.constants import EstadoSolicitud
+
+        solicitud_obj = await sync_to_async(
+            lambda: Solicitud.objects.get(id=solicitud_id),
+            thread_sensitive=True,
+        )()
+        solicitud_estado = solicitud_obj.estado
+        # Usar estado real de la DB, no payload.es_final (que siempre es False
+        # desde el frontend). Si la solicitud quedó FINALIZADA, usar fecha_cierre.
+        fecha_cierre = (
+            solicitud_obj.fecha_cierre
+            if solicitud_estado == EstadoSolicitud.FINALIZADA
+            else None
+        )
+
+        presenter_out = sync_to_async(
+            SolicitudRespuestaPresenter.present_finalizar,
+            thread_sensitive=True,
+        )
+        out = await presenter_out(
+            resultado=resultado,
+            solicitud_estado=solicitud_estado,
+            fecha_cierre=fecha_cierre,
+            conversacion_id=resultado.conversacion_id,
+        )
+
+        return success_response(out)
+
+    @route.get("/{solicitud_id}/trazabilidad", response={200: ApiResponse[SolicitudTrazabilidadOut]})
+    async def obtener_trazabilidad(
+        self,
+        request,
+        solicitud_id: UUID,
+    ):
+        """
+        Obtiene el grafo completo de trazabilidad operativa de una solicitud.
+
+        Incluye:
+        - Historial global de estados de la solicitud
+        - Todas las asignaciones con áreas y períodos ordenados por ciclo
+        - Participantes y respuestas por período
+        - Timeline cronológico derivado del grafo
+
+        No requiere que el usuario pertenezca al área — la trazabilidad
+        es visible para cualquier usuario con acceso a la solicitud.
+        """
+        from ninja.errors import HttpError
+
+        solicitud = await sync_to_async(
+            self.solicitud_orchestrator.obtener_trazabilidad_sync,
+            thread_sensitive=True,
+        )(solicitud_id)
+
+        if solicitud is None:
+            raise HttpError(404, "Solicitud no encontrada")
+
+        presenter_sync = sync_to_async(
+            SolicitudTrazabilidadPresenter.present_trazabilidad,
+            thread_sensitive=True,
+        )
+        trazabilidad_out = await presenter_sync(solicitud)
+
+        return success_response(trazabilidad_out)

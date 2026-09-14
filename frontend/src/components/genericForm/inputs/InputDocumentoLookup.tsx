@@ -133,11 +133,15 @@ export const InputDocumentoLookup: React.FC<InputDocumentoLookupProps> = ({
           setValue(fieldNames.nombres, parts[1], { shouldValidate: true });
         } else {
           // Si el formato no incluye la coma, va todo a razon_social
-          setValue(fieldNames.razon_social, razonSocial, { shouldValidate: true });
+          setValue(fieldNames.razon_social, razonSocial, {
+            shouldValidate: true,
+          });
         }
       } else {
         // Si el schema no tiene campos de nombre separados, va a razon_social
-        setValue(fieldNames.razon_social, razonSocial, { shouldValidate: true });
+        setValue(fieldNames.razon_social, razonSocial, {
+          shouldValidate: true,
+        });
       }
     }
   };
@@ -152,9 +156,7 @@ export const InputDocumentoLookup: React.FC<InputDocumentoLookupProps> = ({
     const expectedLen = isRUC ? 11 : 8;
     if (num.length !== expectedLen) {
       notify.error(
-        isRUC
-          ? "El RUC debe tener 11 dígitos"
-          : "El DNI debe tener 8 dígitos",
+        isRUC ? "El RUC debe tener 11 dígitos" : "El DNI debe tener 8 dígitos",
       );
       return;
     }
@@ -279,9 +281,7 @@ export const InputDocumentoLookup: React.FC<InputDocumentoLookupProps> = ({
 
       {/* Error message — rendered only if hideErrorMessage is false */}
       {!hideErrorMessage && error && (
-        <p className="text-sm text-destructive font-medium">
-          {error.message}
-        </p>
+        <p className="text-sm text-destructive font-medium">{error.message}</p>
       )}
     </div>
   );
