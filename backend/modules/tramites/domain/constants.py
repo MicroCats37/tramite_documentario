@@ -31,9 +31,18 @@ class TipoDocumento(models.TextChoices):
 
 
 class EstadoSolicitud(models.TextChoices):
-    """Estado global de la solicitud/trámite."""
+    """Estado global de la solicitud/trámite.
+
+    States:
+        REGISTRADA  - Created, no areas distributed yet.
+        EN_TRAMITE  - Areas distributed but no period actively managed yet.
+        EN_GESTION  - At least one period is in active management.
+        FINALIZADA  - Closed after formal response. Terminal.
+        ANULADA     - Cancelled. Terminal.
+    """
 
     REGISTRADA = "REGISTRADA", "Registrada"
+    EN_TRAMITE = "EN_TRAMITE", "En Trámite"
     EN_GESTION = "EN_GESTION", "En Gestión"
     FINALIZADA = "FINALIZADA", "Finalizada"
     ANULADA = "ANULADA", "Anulada"
@@ -43,10 +52,11 @@ class EstadoCambio(models.TextChoices):
     """Estados utilizados en el historial de cambios de estado de solicitud.
 
     Alineado con el catálogo objetivo de Solicitud.estado:
-    REGISTRADA, EN_GESTION, FINALIZADA, ANULADA.
+    REGISTRADA, EN_TRAMITE, EN_GESTION, FINALIZADA, ANULADA.
     """
 
     REGISTRADA = "REGISTRADA", "Registrada"
+    EN_TRAMITE = "EN_TRAMITE", "En Trámite"
     EN_GESTION = "EN_GESTION", "En Gestión"
     FINALIZADA = "FINALIZADA", "Finalizada"
     ANULADA = "ANULADA", "Anulada"

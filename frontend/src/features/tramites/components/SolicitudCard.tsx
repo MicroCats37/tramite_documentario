@@ -1,6 +1,8 @@
 /**
  * SolicitudCard — card component for Solicitud list display.
- * Shows key solicitud fields with token-based badges and clickable navigation.
+ * Shows key solicitud fields with token-based badges.
+ * Clicking the card body opens a quick-view modal (SolicitudDetailModal).
+ * "Ver solicitud" button navigates to full detail page.
  */
 "use client";
 
@@ -12,32 +14,33 @@ import {
   Paperclip,
   Printer,
 } from "lucide-react";
-import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { cn } from "@/lib/utils";
+import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 import {
   ESTADO_SOLICITUD,
-  PRIORIDAD_SOLICITUD,
   type EstadoSolicitud,
+  PRIORIDAD_SOLICITUD,
   type PrioridadSolicitud,
 } from "@/shared/constants/tramite.tokens";
 import type { SolicitudItem } from "../schemas/tramite.schema";
 import { PrintPreviewModal } from "./PrintPreviewModal";
-import { SolicitudPrintPreview } from "./SolicitudPrintPreview";
 import { buildSolicitudPrintHTML } from "./printExpediente";
+import { SolicitudDetailModal } from "./SolicitudDetailModal";
+import { SolicitudPrintPreview } from "./SolicitudPrintPreview";
 
 /** Safe accessor for tipo_documento which may be a string or {id,nombre,descripcion} object. */
-function getTipoDocumentoLabel(td: unknown): string {
+export function getTipoDocumentoLabel(td: unknown): string {
   if (!td) return "—";
   if (typeof td === "object" && "nombre" in (td as object)) {
     return (td as { nombre: string }).nombre;
@@ -57,6 +60,7 @@ export function SolicitudCard({ item, onClick: _onClick }: SolicitudCardProps) {
   const [printOpen, setPrintOpen] = useState(false);
   const [printHtml, setPrintHtml] = useState("");
   const [obsOpen, setObsOpen] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
 
   const handlePrint = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
@@ -92,7 +96,10 @@ export function SolicitudCard({ item, onClick: _onClick }: SolicitudCardProps) {
 
   return (
     <>
-      <Card className="app-card overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm">
+      <Card
+        className="app-card overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm cursor-pointer"
+        onClick={() => setDetailOpen(true)}
+      >
         <CardHeader className="border-b border-border/70 px-4 py-2.5">
           <div className="grid gap-3 md:grid-cols-[auto_1fr_auto] md:items-center">
             <div className="space-y-1">
@@ -376,6 +383,12 @@ export function SolicitudCard({ item, onClick: _onClick }: SolicitudCardProps) {
         title={`Solicitud ${item.expediente.id_publico}`}
         htmlContent={printHtml}
         previewContent={<SolicitudPrintPreview item={item} />}
+      />
+
+      <SolicitudDetailModal
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        item={item}
       />
     </>
   );

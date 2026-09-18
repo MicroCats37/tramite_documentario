@@ -182,16 +182,16 @@ def _crear_solicitud_en_gestion(usuario, expediente, area_asignada=None):
 # ── Task 4.1: POST /solicitudes/{id}/areas — happy paths ───────────────────
 
 @pytest.mark.django_db
-def test_incorporar_area_a_solicitud_registrada_transiciona_a_en_gestion(
+def test_incorporar_area_a_solicitud_registrada_transiciona_a_en_tramite(
     usuario_operador, area_arquitectura, area_estructuras
 ):
     """
     GIVEN: a Solicitud in REGISTRADA state (no areas) and two areas
     WHEN:  POST /solicitudes/{id}/areas is called with one area
     THEN:  response status is 200
-            AND Solicitud.estado == EN_GESTION
-            AND Solicitud.fecha_inicio_gestion is set
-            AND a SolicitudEstadoHistorial record shows REGISTRADA → EN_GESTION
+            AND Solicitud.estado == EN_TRAMITE (not EN_GESTION)
+            AND Solicitud.fecha_inicio_gestion is NULL
+            AND a SolicitudEstadoHistorial record shows REGISTRADA → EN_TRAMITE
             AND a SolicitudAsignacion record exists
             AND a SolicitudAsignacionPeriodo record exists (ciclo=1, PENDIENTE)
     """
@@ -230,17 +230,18 @@ def test_incorporar_area_a_solicitud_registrada_transiciona_a_en_gestion(
     )
 
     data = response.json()["data"]
-    assert data["estado"] == "EN_GESTION", (
-        f"Expected EN_GESTION, got {data['estado']}"
+    assert data["estado"] == "EN_TRAMITE", (
+        f"Expected EN_TRAMITE, got {data['estado']}"
     )
-    assert data["fecha_inicio_gestion"] is not None, (
-        "fecha_inicio_gestion should be set after first area incorporation"
+    assert data["fecha_inicio_gestion"] is None, (
+        "fecha_inicio_gestion should NOT be set at incorporation — "
+        "it is set when the first period starts active management"
     )
 
     # Verify DB state
     solicitud.refresh_from_db()
-    assert solicitud.estado == "EN_GESTION"
-    assert solicitud.fecha_inicio_gestion is not None
+    assert solicitud.estado == "EN_TRAMITE"
+    assert solicitud.fecha_inicio_gestion is None
 
     # Verify historial
     historial = list(
@@ -248,8 +249,8 @@ def test_incorporar_area_a_solicitud_registrada_transiciona_a_en_gestion(
         .order_by("fecha_cambio")
         .values_list("estado_nuevo", flat=True)
     )
-    assert historial == ["REGISTRADA", "EN_GESTION"], (
-        f"Expected [REGISTRADA, EN_GESTION], got {historial}"
+    assert historial == ["REGISTRADA", "EN_TRAMITE"], (
+        f"Expected [REGISTRADA, EN_TRAMITE], got {historial}"
     )
 
     # Verify asignacion

@@ -1,0 +1,11 @@
+[
+  {"nombre": "CARTA", "descripcion": "Carta"},
+  {"nombre": "CARTA_NOTARIAL", "descripcion": "Carta Notarial"},
+  {"nombre": "SOLICITUD", "descripcion": "Solicitud"},
+  {"nombre": "OFICIO", "descripcion": "Oficio"},
+  {"nombre": "CEDULA_NOTIFICACION", "descripcion": "Cédula de Notificación"},
+  {"nombre": "OFICIO_MULTIPLE", "descripcion": "Oficio Múltiple"},
+  {"nombre": "CARTA_MULTIPLE", "descripcion": "Carta Múltiple"},
+  {"nombre": "OPINION", "descripcion": "Opinión"},
+  {"nombre": "INFORME_PERICIAL_PARTE", "descripcion": "Informe Pericial Parte"}
+]

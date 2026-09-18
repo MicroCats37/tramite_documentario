@@ -16,7 +16,6 @@
 "use client";
 
 import { Calendar, Clock, Layers, LinkIcon, Users } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import type { SolicitudDetail } from "@/features/tramites/schemas/tramite.schema";
 import {
@@ -30,6 +29,8 @@ import {
 
 interface SolicitudResumenEjecutivoProps {
   item: SolicitudDetail;
+  /** Called when the user clicks "Ver Expediente" — parent opens the modal. */
+  onVerExpedienteClick?: () => void;
 }
 
 const CLOSED_PERIOD_STATES = new Set(["CERRADO", "FINALIZADO", "CANCELADO"]);
@@ -108,8 +109,8 @@ function deriveUltimoMovimiento(item: SolicitudDetail): string | null {
 
 export function SolicitudResumenEjecutivo({
   item,
+  onVerExpedienteClick,
 }: SolicitudResumenEjecutivoProps) {
-  const router = useRouter();
   const { activeAreaCount, activeEtapaCount, activeParticipantCount } =
     deriveActiveScope(item);
   const responsabilidad = deriveResponsabilidad(item);
@@ -158,7 +159,7 @@ export function SolicitudResumenEjecutivo({
               variant="outline"
               size="sm"
               className="h-7 gap-1.5 text-xs"
-              onClick={() => router.push(`/expedientes/${item.expediente.id}`)}
+              onClick={onVerExpedienteClick}
             >
               <LinkIcon className="h-3 w-3" aria-hidden="true" />
               <span className="hidden sm:inline">Ver Expediente</span>

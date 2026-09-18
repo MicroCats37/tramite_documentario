@@ -25,23 +25,81 @@ import { SolicitudTrazabilidadResponseSchema } from "../schemas/trazabilidad.sch
 
 // ── Solicitudes hooks (paginated) ──────────────────────────────────────────
 
+export interface SolicitudesFilters {
+  /** Búsqueda libre: id público, número documento, DNI, asunto */
+  busqueda?: string;
+  /** Estado de solicitud: REGISTRADA | EN_TRAMITE | EN_GESTION | FINALIZADA | ANULADA */
+  estado?: string;
+  /** Prioridad: BAJA | MEDIA | ALTA | URGENTE */
+  prioridad?: string;
+  /** Filtrar solicitudes de áreas donde el usuario tiene asignación vigente */
+  mis_areas?: boolean;
+  /** Filtrar solo áreas PRINCIPAL (solo válido con mis_areas=true) */
+  solo_principal?: boolean;
+  /** Filtrar solicitudes donde el usuario participa */
+  me?: boolean;
+  /** Filtrar solicitudes creadas por el usuario autenticado */
+  creadas_por_mi?: boolean;
+}
+
+export interface SolicitudesPagination {
+  page: number;
+  page_size: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (size: number) => void;
+}
+
 /**
  * Hook to fetch paginated Solicitudes list.
- * Combines usePagination (page, pageSize) with useApiQuery.
- * Returns { items, total, totalPages } directly via select transform on the ApiResponse envelope.
+ * Accepts pagination state and filter params from the caller.
+ * When pagination or filters change, the API call re-runs automatically.
+ *
+ * @param filters - Filter values derived from URL search params
+ * @param pagination - Pagination state from useUrlPagination (page, page_size, handlers)
  */
-export function useSolicitudes(initialPage = 1) {
-  const { page, pageSize, onPageChange, onPageSizeChange, paginationParams } =
-    usePagination({ initialPage });
+export function useSolicitudes(
+  filters: SolicitudesFilters = {},
+  pagination: SolicitudesPagination,
+) {
+  const { page, pageSize, onPageChange, onPageSizeChange } = pagination;
+
+  // Build API params: merge pagination + filters
+  // Only include filter keys with non-empty values
+  const apiParams: Record<string, unknown> = {
+    page,
+    page_size: pageSize,
+  };
+  if (filters.busqueda?.trim()) {
+    apiParams.busqueda = filters.busqueda.trim();
+  }
+  if (filters.estado && filters.estado !== "ALL") {
+    apiParams.estado = filters.estado;
+  }
+  if (filters.prioridad && filters.prioridad !== "ALL") {
+    apiParams.prioridad = filters.prioridad;
+  }
+  if (filters.mis_areas) {
+    apiParams.mis_areas = true;
+  }
+  if (filters.solo_principal) {
+    apiParams.solo_principal = true;
+  }
+  if (filters.me) {
+    apiParams.me = true;
+  }
+  if (filters.creadas_por_mi) {
+    apiParams.creadas_por_mi = true;
+  }
 
   const query = useApiQuery<
     SolicitudListResponse,
     { items: SolicitudItem[]; total: number; totalPages: number }
   >({
-    queryKey: ["solicitudes"],
+    queryKey: ["solicitudes", apiParams],
     url: "/solicitudes/",
     schema: SolicitudListResponseSchema,
-    params: paginationParams,
+    params: apiParams,
     queryOptions: {
       select: (response) => {
         const data = response.data;

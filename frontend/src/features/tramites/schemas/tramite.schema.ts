@@ -142,7 +142,7 @@ export type AreaActiva = z.infer<typeof AreaActivaSchema>;
 export const SolicitudItemSchema = z.object({
   id: z.string().uuid(),
   expediente: ExpedienteItemSchema,
-  estado: z.enum(["REGISTRADA", "EN_GESTION", "FINALIZADA", "ANULADA"]),
+  estado: z.enum(["REGISTRADA", "EN_TRAMITE", "EN_GESTION", "FINALIZADA", "ANULADA"]),
   prioridad: z.enum(["BAJA", "MEDIA", "ALTA", "URGENTE"]),
   fecha_registro: z.string().datetime(),
   fecha_inicio_gestion: z.string().datetime().nullable(),
@@ -259,7 +259,7 @@ export type HistorialEstadoGlobal = z.infer<typeof HistorialEstadoGlobalSchema>;
  */
 export const SolicitudDetailSchema = z.object({
   id: z.string().uuid(),
-  estado: z.enum(["REGISTRADA", "EN_GESTION", "FINALIZADA", "ANULADA"]),
+  estado: z.enum(["REGISTRADA", "EN_TRAMITE", "EN_GESTION", "FINALIZADA", "ANULADA"]),
   prioridad: z.enum(["BAJA", "MEDIA", "ALTA", "URGENTE"]),
   fecha_registro: z.string().datetime(),
   fecha_inicio_gestion: z.string().datetime().nullable(),

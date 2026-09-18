@@ -258,7 +258,36 @@ class PeriodoOperacionesFlujo:
             periodo, ahora, usuario, "inició la gestión",
         )
 
-        # 7. Retornar el período con relaciones precargadas
+        # 7. Si la Solicitud está en EN_TRAMITE o REGISTRADA, transicionar a EN_GESTION.
+        # setear fecha_inicio_gestion solo si es null (primera vez que inicia gestión).
+        from modules.tramites.domain.models import Solicitud
+        from modules.tramites.domain.constants import EstadoSolicitud
+        from modules.tramites.domain.models.solicitud_historial import OrigenCambio
+
+        solicitud = periodo.asignacion.solicitud
+        if solicitud.estado in (EstadoSolicitud.EN_TRAMITE, EstadoSolicitud.REGISTRADA):
+            estado_anterior = solicitud.estado
+            if solicitud.fecha_inicio_gestion is None:
+                solicitud.fecha_inicio_gestion = ahora
+            solicitud.estado = EstadoSolicitud.EN_GESTION
+            solicitud.save()
+
+            # Historial: EN_TRAMITE/REGISTRADA → EN_GESTION
+            from modules.tramites.domain.services.core.solicitud_core_service import (
+                SolicitudCoreService,
+            )
+            solicitud_core = SolicitudCoreService()
+            solicitud_core._crear_historial_estado(
+                solicitud=solicitud,
+                estado_anterior=estado_anterior,
+                estado_nuevo=EstadoSolicitud.EN_GESTION,
+                cambiado_por_id=usuario.id,
+                fecha_cambio=ahora,
+                motivo="Inicio de gestión de período",
+                origen=OrigenCambio.CAMBIO_ESTADO,
+            )
+
+        # 8. Retornar el período con relaciones precargadas
         # Re-fetch con las relaciones necesarias para el presenter
         return (
             SolicitudAsignacionPeriodo.objects
@@ -385,7 +414,36 @@ class PeriodoOperacionesFlujo:
             periodo, ahora, usuario, "tomó",
         )
 
-        # 9. Retornar el período con relaciones precargadas
+        # 9. Si la Solicitud está en EN_TRAMITE o REGISTRADA, transicionar a EN_GESTION.
+        # setear fecha_inicio_gestion solo si es null (primera vez que inicia gestión).
+        from modules.tramites.domain.models import Solicitud
+        from modules.tramites.domain.constants import EstadoSolicitud
+        from modules.tramites.domain.models.solicitud_historial import OrigenCambio
+
+        solicitud = periodo.asignacion.solicitud
+        if solicitud.estado in (EstadoSolicitud.EN_TRAMITE, EstadoSolicitud.REGISTRADA):
+            estado_anterior = solicitud.estado
+            if solicitud.fecha_inicio_gestion is None:
+                solicitud.fecha_inicio_gestion = ahora
+            solicitud.estado = EstadoSolicitud.EN_GESTION
+            solicitud.save()
+
+            # Historial: EN_TRAMITE/REGISTRADA → EN_GESTION
+            from modules.tramites.domain.services.core.solicitud_core_service import (
+                SolicitudCoreService,
+            )
+            solicitud_core = SolicitudCoreService()
+            solicitud_core._crear_historial_estado(
+                solicitud=solicitud,
+                estado_anterior=estado_anterior,
+                estado_nuevo=EstadoSolicitud.EN_GESTION,
+                cambiado_por_id=usuario.id,
+                fecha_cambio=ahora,
+                motivo="Usuario toma el período",
+                origen=OrigenCambio.CAMBIO_ESTADO,
+            )
+
+        # 10. Retornar el período con relaciones precargadas
         return (
             SolicitudAsignacionPeriodo.objects
             .select_related(

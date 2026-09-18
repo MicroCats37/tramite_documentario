@@ -27,8 +27,8 @@ from modules.asignaciones.domain.models import (
     SolicitudAsignacionPeriodo,
     SolicitudAsignacionUsuario,
 )
-from modules.asignaciones.domain.constants import EstadoPeriodoOperativo
-from modules.usuarios.domain.models import Area
+from modules.asignaciones.domain.constants import EstadoPeriodoOperativo, TipoParticipacion
+from modules.usuarios.domain.models import Area, AsignacionUsuario, Cargo
 
 
 @pytest.fixture
@@ -528,3 +528,329 @@ def test_detalle_solicitud_incluye_conversacion(usuario_solicitud, area_sol_1):
         f"Expected ABIERTA, got {data['conversacion']['estado']}"
     )
     assert "fecha_inicio" in data["conversacion"]
+
+
+# ── GET /solicitudes/?mis_areas=true&solo_principal=true ──────────────────
+
+
+@pytest.mark.django_db
+def test_mis_areas_solo_principal_sin_mis_areas_devuelve_400(usuario_solicitud):
+    """
+    GIVEN: an authenticated user
+    WHEN: GET /solicitudes/?solo_principal=true is called without mis_areas
+    THEN: returns 400 validation error
+    """
+    client = _make_auth_client(usuario_solicitud)
+    response = client.get("/solicitudes/?solo_principal=true")
+    assert response.status_code == 400, (
+        f"Expected 400, got {response.status_code}: {response.content}"
+    )
+
+
+@pytest.mark.django_db
+def test_mis_areas_filtra_por_area_usuario(usuario_solicitud, area_sol_1, area_sol_2):
+    """
+    GIVEN: a user with AsignacionUsuario to area_sol_1 (active),
+           a solicitud assigned to area_sol_1 with active period (fecha_fin IS NULL),
+           and another solicitud assigned to area_sol_2 (no user assignment)
+    WHEN: GET /solicitudes/?mis_areas=true is called
+    THEN: returns only the solicitud in the user's assigned area
+    """
+    # Create cargo and user area assignment to area_sol_1 only
+    cargo = Cargo.objects.create(nombre="Cargo Mis Áreas Test")
+    AsignacionUsuario.objects.create(
+        usuario=usuario_solicitud,
+        area=area_sol_1,
+        cargo=cargo,
+        periodo_inicio=datetime.now().date(),
+        periodo_fin=None,
+    )
+
+    # Create solicitud in area_sol_1 (user's assigned area) — should appear
+    exp1 = _crear_expediente_simple(usuario_solicitud, numero=9001)
+    sol1 = _crear_solicitud_simple(exp1, usuario_solicitud)
+    asig1 = SolicitudAsignacion.objects.create(
+        solicitud=sol1,
+        area=area_sol_1,
+        fecha_incorporacion=datetime.now(),
+        incorporado_por=usuario_solicitud,
+    )
+    periodo1 = SolicitudAsignacionPeriodo.objects.create(
+        asignacion=asig1,
+        numero_ciclo=1,
+        estado="EN_GESTION",
+        tipo_participacion=TipoParticipacion.PRINCIPAL,
+        fecha_inicio=datetime.now(),
+        fecha_fin=None,  # active period
+    )
+
+    # Create solicitud in area_sol_2 (NOT user's area) — should NOT appear
+    exp2 = _crear_expediente_simple(usuario_solicitud, numero=9002)
+    sol2 = _crear_solicitud_simple(exp2, usuario_solicitud)
+    asig2 = SolicitudAsignacion.objects.create(
+        solicitud=sol2,
+        area=area_sol_2,
+        fecha_incorporacion=datetime.now(),
+        incorporado_por=usuario_solicitud,
+    )
+    periodo2 = SolicitudAsignacionPeriodo.objects.create(
+        asignacion=asig2,
+        numero_ciclo=1,
+        estado="EN_GESTION",
+        tipo_participacion=TipoParticipacion.PRINCIPAL,
+        fecha_inicio=datetime.now(),
+        fecha_fin=None,  # active period
+    )
+
+    client = _make_auth_client(usuario_solicitud)
+    response = client.get("/solicitudes/?mis_areas=true")
+
+    assert response.status_code == 200, (
+        f"Expected 200, got {response.status_code}: {response.content}"
+    )
+    data = response.json()["data"]
+    ids = [item["id"] for item in data["items"]]
+    assert str(sol1.id) in ids, (
+        f"solicitud {sol1.id} in user's area should be returned, got ids: {ids}"
+    )
+    assert str(sol2.id) not in ids, (
+        f"solicitud {sol2.id} NOT in user's area should NOT be returned, got ids: {ids}"
+    )
+
+
+@pytest.mark.django_db
+def test_mis_areas_solo_principal_filtra_principal(
+    usuario_solicitud, area_sol_1, area_sol_2
+):
+    """
+    GIVEN: a user with AsignacionUsuario to area_sol_1,
+           a solicitud with PRINCIPAL period in area_sol_1,
+           and another solicitud with ADJUNTA period in area_sol_1
+    WHEN: GET /solicitudes/?mis_areas=true&solo_principal=true is called
+    THEN: returns only the solicitud where user's area is PRINCIPAL
+    """
+    cargo = Cargo.objects.create(nombre="Cargo Solo Principal Test")
+    AsignacionUsuario.objects.create(
+        usuario=usuario_solicitud,
+        area=area_sol_1,
+        cargo=cargo,
+        periodo_inicio=datetime.now().date(),
+        periodo_fin=None,
+    )
+
+    # Solicitud with PRINCIPAL period in area_sol_1 — should appear
+    exp1 = _crear_expediente_simple(usuario_solicitud, numero=9011)
+    sol1 = _crear_solicitud_simple(exp1, usuario_solicitud)
+    asig1 = SolicitudAsignacion.objects.create(
+        solicitud=sol1,
+        area=area_sol_1,
+        fecha_incorporacion=datetime.now(),
+        incorporado_por=usuario_solicitud,
+    )
+    periodo1 = SolicitudAsignacionPeriodo.objects.create(
+        asignacion=asig1,
+        numero_ciclo=1,
+        estado="EN_GESTION",
+        tipo_participacion=TipoParticipacion.PRINCIPAL,
+        fecha_inicio=datetime.now(),
+        fecha_fin=None,
+    )
+
+    # Solicitud with ADJUNTA period in area_sol_1 — should NOT appear
+    exp2 = _crear_expediente_simple(usuario_solicitud, numero=9012)
+    sol2 = _crear_solicitud_simple(exp2, usuario_solicitud)
+    asig2 = SolicitudAsignacion.objects.create(
+        solicitud=sol2,
+        area=area_sol_1,
+        fecha_incorporacion=datetime.now(),
+        incorporado_por=usuario_solicitud,
+    )
+    periodo2 = SolicitudAsignacionPeriodo.objects.create(
+        asignacion=asig2,
+        numero_ciclo=1,
+        estado="EN_GESTION",
+        tipo_participacion=TipoParticipacion.ADJUNTA,
+        fecha_inicio=datetime.now(),
+        fecha_fin=None,
+    )
+
+    client = _make_auth_client(usuario_solicitud)
+    response = client.get("/solicitudes/?mis_areas=true&solo_principal=true")
+
+    assert response.status_code == 200, (
+        f"Expected 200, got {response.status_code}: {response.content}"
+    )
+    data = response.json()["data"]
+    ids = [item["id"] for item in data["items"]]
+    assert str(sol1.id) in ids, (
+        f"solicitud {sol1.id} with PRINCIPAL should be returned, got ids: {ids}"
+    )
+    assert str(sol2.id) not in ids, (
+        f"solicitud {sol2.id} with ADJUNTA should NOT be returned, got ids: {ids}"
+    )
+
+
+@pytest.mark.django_db
+def test_mis_areas_con_area_id_misma_area(usuario_solicitud, area_sol_1, area_sol_2):
+    """
+    GIVEN: a user with AsignacionUsuario to area_sol_1,
+           two solicitudes: one in area_sol_1 and one in area_sol_2, both with active periods
+    WHEN: GET /solicitudes/?mis_areas=true&area_id={area_sol_1}
+    THEN: returns only the solicitud in area_sol_1 (mis_areas restricts to user's area,
+           area_id further restricts to that specific area which overlaps with user's area)
+    """
+    cargo = Cargo.objects.create(nombre="Cargo Área ID Mis Áreas Test")
+    AsignacionUsuario.objects.create(
+        usuario=usuario_solicitud,
+        area=area_sol_1,
+        cargo=cargo,
+        periodo_inicio=datetime.now().date(),
+        periodo_fin=None,
+    )
+
+    # Solicitud in area_sol_1 (user's area)
+    exp1 = _crear_expediente_simple(usuario_solicitud, numero=9031)
+    sol1 = _crear_solicitud_simple(exp1, usuario_solicitud)
+    asig1 = SolicitudAsignacion.objects.create(
+        solicitud=sol1,
+        area=area_sol_1,
+        fecha_incorporacion=datetime.now(),
+        incorporado_por=usuario_solicitud,
+    )
+    SolicitudAsignacionPeriodo.objects.create(
+        asignacion=asig1,
+        numero_ciclo=1,
+        estado="EN_GESTION",
+        fecha_inicio=datetime.now(),
+        fecha_fin=None,
+    )
+
+    # Solicitud in area_sol_2 (NOT user's area)
+    exp2 = _crear_expediente_simple(usuario_solicitud, numero=9032)
+    sol2 = _crear_solicitud_simple(exp2, usuario_solicitud)
+    asig2 = SolicitudAsignacion.objects.create(
+        solicitud=sol2,
+        area=area_sol_2,
+        fecha_incorporacion=datetime.now(),
+        incorporado_por=usuario_solicitud,
+    )
+    SolicitudAsignacionPeriodo.objects.create(
+        asignacion=asig2,
+        numero_ciclo=1,
+        estado="EN_GESTION",
+        fecha_inicio=datetime.now(),
+        fecha_fin=None,
+    )
+
+    # Query with mis_areas=true AND area_id=area_sol_1 (which IS in user's areas)
+    client = _make_auth_client(usuario_solicitud)
+    response = client.get(f"/solicitudes/?mis_areas=true&area_id={area_sol_1.id}")
+
+    assert response.status_code == 200, (
+        f"Expected 200, got {response.status_code}: {response.content}"
+    )
+    data = response.json()["data"]
+    ids = [item["id"] for item in data["items"]]
+    assert str(sol1.id) in ids, (
+        f"solicitud {sol1.id} in area_sol_1 (user's area) should be returned, got ids: {ids}"
+    )
+    assert str(sol2.id) not in ids, (
+        f"solicitud {sol2.id} in area_sol_2 should NOT be returned (not in user's area AND not area_id filter), got ids: {ids}"
+    )
+
+
+@pytest.mark.django_db
+def test_mis_areas_solo_principal_requiere_mis_areas_primero(
+    usuario_solicitud, area_sol_1
+):
+    """
+    GIVEN: mis_areas=false and solo_principal=true
+    WHEN: GET /solicitudes/?solo_principal=true&mis_areas=false
+    THEN: returns 400 (solo_principal without mis_areas is invalid)
+    """
+    client = _make_auth_client(usuario_solicitud)
+    response = client.get("/solicitudes/?solo_principal=true&mis_areas=false")
+    assert response.status_code == 400, (
+        f"Expected 400, got {response.status_code}: {response.content}"
+    )
+
+
+@pytest.mark.django_db
+def test_creadas_por_mi_filtra_por_creador(
+    usuario_solicitud, area_sol_1
+):
+    """
+    GIVEN: two solicitudes — one created by usuario_solicitud and one by another user
+    WHEN: GET /solicitudes/?creadas_por_mi=true is called
+    THEN: returns only the solicitud created by usuario_solicitud
+    """
+    # Create another user
+    User = get_user_model()
+    otro_usuario = User.objects.create_user(
+        username="otro_operador",
+        email="otro@cip.gob.pe",
+        password="testpass123",
+        dni="11223344",
+        nombres="Otro",
+        apellidos="Operador",
+    )
+
+    # Solicitud created by usuario_solicitud — should appear
+    exp1 = _crear_expediente_simple(usuario_solicitud, numero=9101)
+    sol1 = _crear_solicitud_simple(exp1, usuario_solicitud)
+
+    # Solicitud created by another user — should NOT appear
+    exp2 = _crear_expediente_simple(otro_usuario, numero=9102)
+    sol2 = _crear_solicitud_simple(exp2, otro_usuario)
+
+    client = _make_auth_client(usuario_solicitud)
+    response = client.get("/solicitudes/", {"creadas_por_mi": "true"})
+
+    assert response.status_code == 200, (
+        f"Expected 200, got {response.status_code}: {response.content}"
+    )
+    data = response.json()["data"]
+    ids = [item["id"] for item in data["items"]]
+    assert str(sol1.id) in ids, (
+        f"solicitud {sol1.id} created by user should be returned, got ids: {ids}"
+    )
+    assert str(sol2.id) not in ids, (
+        f"solicitud {sol2.id} created by another user should NOT be returned, got ids: {ids}"
+    )
+
+
+@pytest.mark.django_db
+def test_creadas_por_mi_false_devuelve_todas(
+    usuario_solicitud, area_sol_1
+):
+    """
+    GIVEN: two solicitudes — one created by usuario_solicitud and one by another user
+    WHEN: GET /solicitudes/?creadas_por_mi=false is called (default)
+    THEN: returns both solicitudes
+    """
+    User = get_user_model()
+    otro_usuario = User.objects.create_user(
+        username="otro_operador_2",
+        email="otro2@cip.gob.pe",
+        password="testpass123",
+        dni="22334455",
+        nombres="Otro Dos",
+        apellidos="Operador",
+    )
+
+    exp1 = _crear_expediente_simple(usuario_solicitud, numero=9111)
+    sol1 = _crear_solicitud_simple(exp1, usuario_solicitud)
+
+    exp2 = _crear_expediente_simple(otro_usuario, numero=9112)
+    sol2 = _crear_solicitud_simple(exp2, otro_usuario)
+
+    client = _make_auth_client(usuario_solicitud)
+    response = client.get("/solicitudes/", {"creadas_por_mi": "false"})
+
+    assert response.status_code == 200, (
+        f"Expected 200, got {response.status_code}: {response.content}"
+    )
+    data = response.json()["data"]
+    ids = [item["id"] for item in data["items"]]
+    assert str(sol1.id) in ids
+    assert str(sol2.id) in ids

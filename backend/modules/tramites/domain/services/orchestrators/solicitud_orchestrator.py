@@ -73,6 +73,9 @@ class SolicitudOrchestrator:
         periodo_estado: str | None = None,
         usuario_id: int | None = None,
         me: bool = False,
+        mis_areas: bool = False,
+        solo_principal: bool = False,
+        creadas_por_mi: bool = False,
         sin_participantes: bool = False,
         con_respuesta: bool = False,
         fecha_desde: datetime | None = None,
@@ -92,6 +95,9 @@ class SolicitudOrchestrator:
             periodo_estado: Filtrar por estado de período
             usuario_id: Filtrar por usuario asignado
             me: Si True, filtra por solicitudes donde request.user.id participa
+            mis_areas: Si True, filtra solicitudes con área asignada vigente donde el usuario tiene asignación activa
+            solo_principal: Si True (solo con mis_areas=True), filtra solo áreas PRINCIPAL en período activo
+            creadas_por_mi: Si True, filtra solicitudes creadas por el usuario autenticado
             sin_participantes: Si True, filtra asignaciones sin participantes activos
             con_respuesta: Si True, filtra áreas con respuesta emitida
             fecha_desde: Filtrar por fecha de registro >= fecha_desde
@@ -143,6 +149,9 @@ class SolicitudOrchestrator:
                     asignaciones__periodos__usuarios__fecha_fin__isnull=True,
                 )
 
+            if creadas_por_mi and usuario_id:
+                qs = qs.filter(creado_por_id=usuario_id)
+
             if sin_participantes:
                 qs = qs.filter(
                     asignaciones__periodos__usuarios__isnull=True,
@@ -152,6 +161,35 @@ class SolicitudOrchestrator:
                 qs = qs.filter(
                     asignaciones__periodos__respuestas__estado=EstadoRespuesta.EMITIDA,
                 )
+
+            if mis_areas and usuario_id:
+                # Get user's currently assigned areas (active assignments with no end date)
+                from modules.usuarios.domain.models import AsignacionUsuario
+                from modules.asignaciones.domain.models import SolicitudAsignacion
+                from modules.asignaciones.domain.models import SolicitudAsignacionPeriodo
+                user_area_ids = list(
+                    AsignacionUsuario.objects.vigentes()
+                    .filter(usuario_id=usuario_id)
+                    .values_list("area_id", flat=True)
+                )
+                if user_area_ids:
+                    if solo_principal:
+                        # Both conditions (active period AND PRINCIPAL) must be true
+                        # for the SAME period - use a subquery that checks this
+                        qs = qs.filter(
+                            asignaciones__area_id__in=user_area_ids,
+                        ).filter(
+                            asignaciones__periodos__fecha_fin__isnull=True,
+                            asignaciones__periodos__tipo_participacion="PRINCIPAL",
+                        )
+                    else:
+                        qs = qs.filter(
+                            asignaciones__area_id__in=user_area_ids,
+                            asignaciones__periodos__fecha_fin__isnull=True,
+                        )
+                else:
+                    # User has no active area assignments → return empty result
+                    qs = qs.none()
 
             qs = qs.distinct()
 

@@ -224,6 +224,9 @@ class SolicitudController:
         fecha_desde: datetime | None = Query(None, description="Filtrar desde fecha de registro"),
         fecha_hasta: datetime | None = Query(None, description="Filtrar hasta fecha de registro"),
         busqueda: str | None = Query(None, description="Buscar en id_publico, numero_documento, dni, asunto"),
+        mis_areas: bool = Query(False, description="Filtrar solicitudes de áreas donde el usuario tiene asignación vigente"),
+        solo_principal: bool = Query(False, description="Filtrar solo áreas PRINCIPAL (requiere mis_areas=true)"),
+        creadas_por_mi: bool = Query(False, description="Filtrar solicitudes creadas por el usuario autenticado"),
     ):
         """
         Lista solicitudes con filtros y paginación.
@@ -236,11 +239,19 @@ class SolicitudController:
         - periodo_estado: PENDIENTE, EN_GESTION o CERRADO
         - usuario_id: usuario asignado
         - me: true = solo solicitudes donde el usuario autenticado participa
+        - mis_areas: true = solo solicitudes con área asignada vigente donde el usuario tiene asignación activa
+        - solo_principal: true = solo áreas PRINCIPAL (solo válido con mis_areas=true)
+        - creadas_por_mi: true = solo solicitudes creadas por el usuario autenticado
         - sin_participantes: true = áreas sin participantes activos
         - con_respuesta: true = áreas con respuesta emitida
         - fecha_desde/fecha_hasta: rango de fecha de registro
         - busqueda: texto en id_publico, numero_documento, dni, asunto
         """
+        # Validation: solo_principal requires mis_areas
+        if solo_principal and not mis_areas:
+            from ninja.errors import HttpError
+            raise HttpError(400, "solo_principal=true requiere mis_areas=true")
+
         result = await self.solicitud_orchestrator.listar_solicitudes(
             page=page,
             page_size=page_size,
@@ -249,8 +260,11 @@ class SolicitudController:
             area_id=area_id,
             tipo_participacion=tipo_participacion,
             periodo_estado=periodo_estado,
-            usuario_id=usuario_id,
+            usuario_id=usuario_id if usuario_id is not None else request.auth.id,
             me=me,
+            mis_areas=mis_areas,
+            solo_principal=solo_principal,
+            creadas_por_mi=creadas_por_mi,
             sin_participantes=sin_participantes,
             con_respuesta=con_respuesta,
             fecha_desde=fecha_desde,

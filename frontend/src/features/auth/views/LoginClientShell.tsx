@@ -87,7 +87,8 @@ function UsernameLoginForm({ isLoading }: { isLoading: boolean }) {
                 autoComplete="username"
                 className={cn(
                   "h-14 pl-13 pr-5 rounded-[1.5rem] border-border bg-card text-base font-bold placeholder:text-muted-foreground/60",
-                  "focus:ring-[6px] focus:ring-primary/10 focus:border-primary transition-all",
+                  "focus:ring-[5px] focus:ring-primary/20 focus:border-primary transition-all duration-200",
+                  "shadow-[inset_0_1px_2px_oklch(0_0_0_/_0.04)]",
                 )}
                 {...methods.register("username")}
               />
@@ -119,14 +120,15 @@ function UsernameLoginForm({ isLoading }: { isLoading: boolean }) {
                 autoComplete="current-password"
                 className={cn(
                   "h-14 pl-13 pr-14 rounded-[1.5rem] border-border bg-card text-base font-bold placeholder:text-muted-foreground/60",
-                  "focus:ring-[6px] focus:ring-primary/10 focus:border-primary transition-all",
+                  "focus:ring-[5px] focus:ring-primary/20 focus:border-primary transition-all duration-200",
+                  "shadow-[inset_0_1px_2px_oklch(0_0_0_/_0.04)]",
                 )}
                 {...methods.register("password")}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors p-1"
+                className="absolute right-5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors duration-200 p-1 rounded-full hover:bg-primary/5"
                 aria-label={
                   showPassword ? "Ocultar contraseña" : "Mostrar contraseña"
                 }
@@ -231,7 +233,8 @@ function DniLoginForm({ isLoading }: { isLoading: boolean }) {
                 maxLength={8}
                 className={cn(
                   "h-14 pl-13 pr-5 rounded-[1.5rem] border-border bg-card text-base font-bold placeholder:text-muted-foreground/60",
-                  "focus:ring-[6px] focus:ring-primary/10 focus:border-primary transition-all",
+                  "focus:ring-[5px] focus:ring-primary/20 focus:border-primary transition-all duration-200",
+                  "shadow-[inset_0_1px_2px_oklch(0_0_0_/_0.04)]",
                 )}
                 {...methods.register("dni")}
               />
@@ -263,14 +266,15 @@ function DniLoginForm({ isLoading }: { isLoading: boolean }) {
                 autoComplete="current-password"
                 className={cn(
                   "h-14 pl-13 pr-14 rounded-[1.5rem] border-border bg-card text-base font-bold placeholder:text-muted-foreground/60",
-                  "focus:ring-[6px] focus:ring-primary/10 focus:border-primary transition-all",
+                  "focus:ring-[5px] focus:ring-primary/20 focus:border-primary transition-all duration-200",
+                  "shadow-[inset_0_1px_2px_oklch(0_0_0_/_0.04)]",
                 )}
                 {...methods.register("password")}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors p-1"
+                className="absolute right-5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors duration-200 p-1 rounded-full hover:bg-primary/5"
                 aria-label={
                   showPassword ? "Ocultar contraseña" : "Mostrar contraseña"
                 }
@@ -374,7 +378,8 @@ function EmailLoginForm({ isLoading }: { isLoading: boolean }) {
                 autoComplete="email"
                 className={cn(
                   "h-14 pl-13 pr-5 rounded-[1.5rem] border-border bg-card text-base font-bold placeholder:text-muted-foreground/60",
-                  "focus:ring-[6px] focus:ring-primary/10 focus:border-primary transition-all",
+                  "focus:ring-[5px] focus:ring-primary/20 focus:border-primary transition-all duration-200",
+                  "shadow-[inset_0_1px_2px_oklch(0_0_0_/_0.04)]",
                 )}
                 {...methods.register("email")}
               />
@@ -406,14 +411,15 @@ function EmailLoginForm({ isLoading }: { isLoading: boolean }) {
                 autoComplete="current-password"
                 className={cn(
                   "h-14 pl-13 pr-14 rounded-[1.5rem] border-border bg-card text-base font-bold placeholder:text-muted-foreground/60",
-                  "focus:ring-[6px] focus:ring-primary/10 focus:border-primary transition-all",
+                  "focus:ring-[5px] focus:ring-primary/20 focus:border-primary transition-all duration-200",
+                  "shadow-[inset_0_1px_2px_oklch(0_0_0_/_0.04)]",
                 )}
                 {...methods.register("password")}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors p-1"
+                className="absolute right-5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors duration-200 p-1 rounded-full hover:bg-primary/5"
                 aria-label={
                   showPassword ? "Ocultar contraseña" : "Mostrar contraseña"
                 }
@@ -472,11 +478,13 @@ function AuthCard({ children, className = "" }: AuthCardProps) {
     <div
       className={cn(
         "w-full bg-card/95 backdrop-blur-sm rounded-[2rem]",
-        "shadow-2xl shadow-black/20",
-        "border border-primary/[0.06]" /* brand-tinted border */,
+        "shadow-[0_8px_32px_-4px_oklch(0.25_0.16_22_/_0.12),0_2px_8px_-2px_oklch(0.25_0.16_22_/_0.08)]",
+        "border border-primary/[0.08]",
         "p-6 sm:p-8 md:p-10",
-        "transition-all duration-500",
-        "ring-1 ring-inset ring-primary/5" /* subtle primary glow ring */,
+        "transition-all duration-300 ease-out",
+        "hover:shadow-[0_16px_48px_-8px_oklch(0.3_0.16_22_/_0.18),0_4px_12px_-4px_oklch(0.25_0.16_22_/_0.1)]",
+        "hover:scale-[1.01]",
+        "ring-1 ring-inset ring-primary/[0.06]",
         className,
       )}
     >
@@ -664,10 +672,10 @@ export function LoginClientShell() {
 
             {/* Segmented Control — Mobile Pill Style */}
             <div className="w-full mb-6">
-              <div className="relative flex items-center w-full bg-muted/60 p-1 rounded-full">
+              <div className="relative flex items-center w-full bg-muted/40 p-1 rounded-full shadow-[inset_0_1px_2px_oklch(0_0_0_/_0.06)]">
                 {/* Sliding active indicator */}
                 <div
-                  className="absolute top-1 bottom-1 bg-primary rounded-full transition-all duration-300 ease-out"
+                  className="absolute top-1 bottom-1 bg-gradient-to-b from-[oklch(0.42_0.16_22)] to-[oklch(0.38_0.14_25)] rounded-full transition-all duration-300 ease-out shadow-[0_2px_8px_oklch(0.42_0.16_22_/_0.3)]"
                   style={{
                     width: "calc(33.333% - 4px)",
                     transform: `translateX(${activeTab === "username" ? "0" : activeTab === "dni" ? "calc(100% + 4px)" : "calc(200% + 8px)"})`,

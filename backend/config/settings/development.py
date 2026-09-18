@@ -6,6 +6,9 @@ from .base import *  # noqa
 
 DEBUG = True
 
+# Módulo de migración legacy — solo desarrollo
+INSTALLED_APPS += ["modules.migracion"]
+
 # development usa hosts locales; base define fallback ["*"]
 ALLOWED_HOSTS = ['localhost', '127.0.0.1', '[::1]', 'testserver']
 

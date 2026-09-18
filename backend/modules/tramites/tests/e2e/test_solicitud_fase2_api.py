@@ -223,16 +223,18 @@ def test_crear_solicitud_sin_areas(usuario_creador_sol):
     assert SolicitudAsignacionPeriodo.objects.count() == 0
 
 
-# ── Task 2.2: fecha_inicio_gestion en primera distribución ───────────────────
+# ── Task 2.2: Creación con áreas → EN_TRAMITE (nuevo comportamiento) ───────────
 
 @pytest.mark.django_db
-def test_fecha_inicio_gestion_en_primera_distribucion(usuario_creador_sol, area_test):
+def test_creacion_con_areas_estado_en_tramite_sin_fecha_inicio_gestion(
+    usuario_creador_sol, area_test
+):
     """
     GIVEN: an existing Expediente
     WHEN:  POST /solicitudes/crear is called with one area
-    THEN:  Solicitud.fecha_inicio_gestion is set
-            AND a SolicitudEstadoHistorial record shows REGISTRADA → EN_GESTION
-            AND Solicitud.estado == EN_GESTION
+    THEN:  Solicitud.estado == EN_TRAMITE
+            AND Solicitud.fecha_inicio_gestion is NULL
+            AND SolicitudEstadoHistorial shows REGISTRADA → EN_TRAMITE
     """
     expediente = _crear_expediente_directo(
         usuario_creador_sol,
@@ -270,11 +272,12 @@ def test_fecha_inicio_gestion_en_primera_distribucion(usuario_creador_sol, area_
     )
 
     data = response.json()["data"]
-    assert data["estado"] == "EN_GESTION", (
-        f"Expected EN_GESTION, got {data['estado']}"
+    assert data["estado"] == "EN_TRAMITE", (
+        f"Expected EN_TRAMITE, got {data['estado']}"
     )
-    assert data["fecha_inicio_gestion"] is not None, (
-        "fecha_inicio_gestion should be set when areas are provided"
+    assert data["fecha_inicio_gestion"] is None, (
+        "fecha_inicio_gestion should NOT be set at creation with areas — "
+        "it is set when the first period starts active management"
     )
 
     solicitud = Solicitud.objects.get(id=data["id"])
@@ -282,8 +285,8 @@ def test_fecha_inicio_gestion_en_primera_distribucion(usuario_creador_sol, area_
         solicitud=solicitud
     ).order_by("fecha_cambio")
     estados = list(historial.values_list("estado_nuevo", flat=True))
-    assert estados == ["REGISTRADA", "EN_GESTION"], (
-        f"Expected [REGISTRADA, EN_GESTION], got {estados}"
+    assert estados == ["REGISTRADA", "EN_TRAMITE"], (
+        f"Expected [REGISTRADA, EN_TRAMITE], got {estados}"
     )
 
 
@@ -866,4 +869,15 @@ def test_crear_solicitud_hibrida_crea_conversacion_vinculada(usuario_creador_sol
     conversacion = bridge.conversacion
     assert conversacion is not None, "Conversacion should exist"
     assert conversacion.fecha_cierre is None, "New conversation should be open"
+
+
+# ── EN_TRAMITE / EN_GESTION transition tests ──────────────────────────────────
+#
+# Note: Full end-to-end tests for EN_TRAMITE → EN_GESTION via tomar_periodo
+# are covered by test_tomar_periodo_pendiente_transiciona_a_en_gestion_y_asigna_usuario
+# in modules/asignaciones/tests/e2e/test_periodo_fase4_operaciones_api.py.
+# That test passes with the new semantics because its helper creates a Solicitud
+# directly in EN_GESTION (bypassing the real creation flow), and the code
+# correctly does NOT re-transition when the Solicitud is already in EN_GESTION.
+
 

@@ -15,16 +15,18 @@
 
 /**
  * V2 Django contract: estado values from backend enum.
- * Backend: REGISTRADA | EN_GESTION | FINALIZADA | ANULADA
+ * Backend: REGISTRADA | EN_TRAMITE | EN_GESTION | FINALIZADA | ANULADA
  *
  * Color mapping (tonal scheme):
- *   REGISTRADA  → AMARILLO (warning/pending)
+ *   REGISTRADA   → AMARILLO (warning/pending)
+ *   EN_TRAMITE   → AMARILLO (warning/areas distributed but no active management)
  *   EN_GESTION   → ROJO (critical/in-progress)
  *   FINALIZADA   → NEUTRAL (normal/closed)
  *   ANULADA      → ROJO (critical)
  */
 export type EstadoSolicitud =
   | "REGISTRADA"
+  | "EN_TRAMITE"
   | "EN_GESTION"
   | "FINALIZADA"
   | "ANULADA";
@@ -35,6 +37,10 @@ export const ESTADO_SOLICITUD: Record<
 > = {
   REGISTRADA: {
     label: "Registrada",
+    badgeClass: "badge-amber",
+  },
+  EN_TRAMITE: {
+    label: "En Trámite",
     badgeClass: "badge-amber",
   },
   EN_GESTION: {

@@ -9,7 +9,10 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageWrapper } from "@/components-app/page";
 import type { PeriodoOperation } from "@/features/asignaciones/components";
-import { PeriodoOperacionModal } from "@/features/asignaciones/components";
+import {
+  IncorporarAreaModal,
+  PeriodoOperacionModal,
+} from "@/features/asignaciones/components";
 import {
   useCambiarParticipacionPeriodo,
   useIniciarGestionPeriodo,
@@ -18,6 +21,7 @@ import {
 } from "@/features/asignaciones/hooks";
 import { useAuthStore } from "@/features/auth/store/auth.store";
 import { ConversacionPanel } from "@/features/conversaciones/components/ConversacionPanel";
+import { ExpedienteDetailModal } from "@/features/tramites/components/ExpedienteDetailModal";
 import { FinalizarSolicitudModal } from "@/features/tramites/components/FinalizarSolicitudModal";
 import { GestionOperativaSolicitud } from "@/features/tramites/components/GestionOperativaSolicitud";
 import { SolicitudResumenEjecutivo } from "@/features/tramites/components/SolicitudResumenEjecutivo";
@@ -98,6 +102,9 @@ export default function SolicitudDetallePage() {
 
   const [finalizarModalOpen, setFinalizarModalOpen] = useState(false);
   const [operacionModalOpen, setOperacionModalOpen] = useState(false);
+  const [incorporarAreaModalOpen, setIncorporarAreaModalOpen] = useState(false);
+  const [expedienteModalOpen, setExpedienteModalOpen] = useState(false);
+  const [activeOperation, setActiveOperation] = useState<string | null>(null);
   const [selectedOperation, setSelectedOperation] =
     useState<PeriodoOperation | null>(null);
   const [selectedPeriodoId, setSelectedPeriodoId] = useState<string | null>(
@@ -170,6 +177,8 @@ export default function SolicitudDetallePage() {
 
   const handleBack = () => router.back();
 
+  const handleVerExpediente = () => setExpedienteModalOpen(true);
+
   if (isLoading) return <DetailSkeleton />;
 
   if (isError || !item) {
@@ -180,11 +189,27 @@ export default function SolicitudDetallePage() {
     ? `Solicitud ${item.expediente.id_publico}`
     : "Detalle de Solicitud";
 
-  // Gate "Finalizar" on whether user belongs to at least one area in THIS solicitud,
-  // not merely "has any global areas". Normalize both sides for comparison.
-  const userCanFinalize = item.asignaciones.some((asignacion) =>
-    isUserAssignedToArea(asignacion.area_id, userAreaIds),
-  );
+  // Gate "Finalizar" on whether user has at least one manageable period/area
+  // with tipo_participacion=PRINCIPAL (principal area) AND that period is EN_GESTION
+  // (i.e., the area has actually been "taken" / is being managed), and the
+  // Solicitud is not finalized/anulada. Being a mere participant (ADJUNTA) or
+  // associated user does not grant finalization authority — only principal areas
+  // lead the closure. A non-member of a PRINCIPAL area cannot finalize either.
+  const userCanFinalize = item.asignaciones.some((asignacion) => {
+    const isMember = isUserAssignedToArea(asignacion.area_id, userAreaIds);
+    const isPrincipal =
+      asignacion.periodos?.[0]?.tipo_participacion === "PRINCIPAL";
+    const hasEnGesPeriod = (asignacion.periodos ?? []).some(
+      (p) => p.estado === "EN_GESTION",
+    );
+    // Require: user is a member of the area AND area is PRINCIPAL AND
+    // at least one period is actively in EN_GESTION (not just PENDIENTE).
+    return isMember && isPrincipal && hasEnGesPeriod;
+  });
+
+  // IDs of areas already assigned to this Solicitud — used to filter the
+  // IncorporarAreaModal area selector.
+  const assignedAreaIds = item.asignaciones.map((a) => a.area_id);
 
   return (
     <>
@@ -261,7 +286,10 @@ export default function SolicitudDetallePage() {
           )}
         >
           {/* Executive summary — under the header, above operational content */}
-          <SolicitudResumenEjecutivo item={item} />
+          <SolicitudResumenEjecutivo
+            item={item}
+            onVerExpedienteClick={handleVerExpediente}
+          />
 
           {/* Operational management — user area/period actions, surfaced before traceability */}
           <GestionOperativaSolicitud
@@ -272,6 +300,9 @@ export default function SolicitudDetallePage() {
             onOperationSelect={handleOperationSelect}
             userCanFinalize={userCanFinalize}
             onFinalizar={() => setFinalizarModalOpen(true)}
+            onIncorporarArea={() => setIncorporarAreaModalOpen(true)}
+            activeOperation={activeOperation}
+            onOperationStart={setActiveOperation}
           />
 
           {/* Flujo operativo — temporal graph + in-page contextual selection */}
@@ -293,7 +324,14 @@ export default function SolicitudDetallePage() {
       />
       <PeriodoOperacionModal
         open={operacionModalOpen}
-        onOpenChange={setOperacionModalOpen}
+        onOpenChange={(open) => {
+          setOperacionModalOpen(open);
+          if (!open) {
+            // Clear active operation when modal is closed without success.
+            // onSuccess already clears this; this covers backdrop/X/cancel close.
+            setActiveOperation(null);
+          }
+        }}
         periodoId={selectedPeriodoId ?? ""}
         operation={selectedOperation}
         iniciarGestion={iniciarGestion}
@@ -303,10 +341,28 @@ export default function SolicitudDetallePage() {
           setOperacionModalOpen(false);
           setSelectedOperation(null);
           setSelectedPeriodoId(null);
+          setActiveOperation(null);
           queryClient.invalidateQueries({
             queryKey: ["solicitudes", "trazabilidad", item.id],
           });
         }}
+      />
+      <IncorporarAreaModal
+        open={incorporarAreaModalOpen}
+        onOpenChange={setIncorporarAreaModalOpen}
+        solicitudId={item.id}
+        assignedAreaIds={assignedAreaIds}
+        onSuccess={() => {
+          queryClient.invalidateQueries({
+            queryKey: ["solicitudes", "detail", item.id],
+          });
+        }}
+      />
+      <ExpedienteDetailModal
+        open={expedienteModalOpen}
+        onOpenChange={setExpedienteModalOpen}
+        expediente={item.expediente}
+        solicitud={item}
       />
     </>
   );

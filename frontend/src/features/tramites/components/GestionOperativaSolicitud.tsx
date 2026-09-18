@@ -22,7 +22,7 @@ import {
   CheckCircle,
   Hand,
   Info,
-  PlayCircle,
+  Plus,
   XCircle,
 } from "lucide-react";
 import { useState } from "react";
@@ -34,7 +34,7 @@ import {
 } from "@/features/tramites/utils/actionVisibility";
 import { cn } from "@/lib/utils";
 import {
-  ESTADO_SOLICITUD,
+  ESTADO_PERIODO,
   TIPO_PARTICIPACION,
   type TipoParticipacion,
 } from "@/shared/constants/tramite.tokens";
@@ -60,92 +60,18 @@ export interface GestionOperativaProps {
   userCanFinalize: boolean;
   /** Handler to open the Finalizar modal. */
   onFinalizar: () => void;
-}
-
-// ── Operation tile ─────────────────────────────────────────────────────────────
-
-interface ActionTileProps {
-  icon: React.ComponentType<{ className?: string }>;
-  title: string;
-  description: string;
-  onAction: () => void;
-  disabled?: boolean;
-  isLoading?: boolean;
-  variant?: "default" | "destructive";
-}
-
-function ActionTile({
-  icon: Icon,
-  title,
-  description,
-  onAction,
-  disabled,
-  isLoading,
-  variant = "default",
-}: ActionTileProps) {
-  return (
-    <button
-      type="button"
-      onClick={onAction}
-      disabled={disabled || isLoading}
-      className={cn(
-        "flex w-full items-start gap-3 rounded-lg border px-3 py-2.5 text-left",
-        "transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-        "disabled:pointer-events-none disabled:opacity-50",
-        variant === "destructive"
-          ? "border-destructive/30 bg-destructive/5 hover:bg-destructive/10"
-          : "border-border bg-card hover:bg-muted/40",
-      )}
-    >
-      <div
-        className={cn(
-          "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border",
-          variant === "destructive"
-            ? "border-destructive/20 bg-destructive/10"
-            : "border-primary/20 bg-primary/10",
-        )}
-      >
-        <Icon
-          className={cn(
-            "h-4 w-4",
-            variant === "destructive" ? "text-destructive" : "text-primary",
-          )}
-          aria-hidden="true"
-        />
-      </div>
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span
-          className={cn(
-            "text-xs font-semibold",
-            variant === "destructive" ? "text-destructive" : "text-foreground",
-          )}
-        >
-          {title}
-        </span>
-        <span className="text-xs text-muted-foreground">{description}</span>
-      </div>
-      <Button
-        type="button"
-        size="sm"
-        variant={variant === "destructive" ? "destructive" : "outline"}
-        className="h-7 shrink-0 gap-1.5 text-xs"
-        disabled={disabled || isLoading}
-        onClick={(e) => {
-          e.stopPropagation();
-          onAction();
-        }}
-      >
-        {isLoading ? (
-          <span className="size-3.5 inline-block" aria-hidden="true">
-            <span className="absolute inset-0 flex items-center justify-center">
-              <span className="size-3.5 rounded-full border border-primary/40 border-t-primary animate-spin" />
-            </span>
-          </span>
-        ) : null}
-        Acceder
-      </Button>
-    </button>
-  );
+  /** Handler to open the IncorporarAreaModal. */
+  onIncorporarArea: () => void;
+  /**
+   * The currently active operation (e.g. "tomar", "iniciar-gestion", "marcar-erronea").
+   * Used to show loading state on the correct button.
+   */
+  activeOperation: string | null;
+  /**
+   * Called when an operation button is clicked — tells the parent which
+   * operation is starting so it can track isPending for loading UI.
+   */
+  onOperationStart: (op: string) => void;
 }
 
 // ── Derivation helpers ─────────────────────────────────────────────────────────
@@ -190,12 +116,13 @@ function deriveViewModel(
   currentUserId: string | null,
   userAreaIds: Set<string>,
 ): {
-  matchedAreas: MatchedArea[];
+  myManagedAreas: MatchedArea[];
+  otherAssociatedAreas: MatchedArea[];
   allClosed: boolean;
-  hasMatchedAreas: boolean;
-  hasActiveParticipation: boolean;
+  hasManagedOrAssociated: boolean;
 } {
-  const matchedAreas: MatchedArea[] = [];
+  const myManagedAreas: MatchedArea[] = [];
+  const otherAssociatedAreas: MatchedArea[] = [];
 
   for (const asignacion of item.asignaciones) {
     const isMember = isUserAssignedToArea(asignacion.area_id, userAreaIds);
@@ -210,9 +137,10 @@ function deriveViewModel(
           asignacion.participantes,
           currentUserId,
         );
+        // FIX: operations require isMember — active participation alone does NOT
+        // grant management rights over other periods of the same area.
         const showTomar = isMember && !isActiveParticipant && !isPeriodClosed;
-        const showOperations =
-          (isMember || isActiveParticipant) && !isPeriodClosed;
+        const showOperations = isMember && !isPeriodClosed;
 
         return {
           periodoId: periodo.id,
@@ -220,7 +148,7 @@ function deriveViewModel(
           tipoParticipacion: periodo.tipo_participacion,
           estado: periodo.estado,
           estadoLabel:
-            ESTADO_SOLICITUD[periodo.estado as keyof typeof ESTADO_SOLICITUD]
+            ESTADO_PERIODO[periodo.estado as keyof typeof ESTADO_PERIODO]
               ?.label ?? periodo.estado,
           isOperable: !isPeriodClosed,
           isActiveParticipant,
@@ -238,32 +166,37 @@ function deriveViewModel(
       (p) => p.isActiveParticipant,
     );
 
-    // Include area if user is a member OR has active participation in any period.
-    if (isMember || hasActiveParticipation) {
-      matchedAreas.push({
-        areaId: asignacion.area_id,
-        areaNombre: asignacion.area_nombre,
-        tipoParticipacion: tipo,
-        badgeClass:
-          token?.badgeClass ??
-          "bg-muted text-muted-foreground border border-border",
-        isMember,
-        hasActiveParticipation,
-        matchedPeriods,
-        allPeriods,
-      });
+    const areaEntry: MatchedArea = {
+      areaId: asignacion.area_id,
+      areaNombre: asignacion.area_nombre,
+      tipoParticipacion: tipo,
+      badgeClass:
+        token?.badgeClass ??
+        "bg-muted text-muted-foreground border border-border",
+      isMember,
+      hasActiveParticipation,
+      matchedPeriods,
+      allPeriods,
+    };
+
+    // Separate: member areas get full management; associated-only areas are informational.
+    if (isMember) {
+      myManagedAreas.push(areaEntry);
+    } else if (hasActiveParticipation) {
+      otherAssociatedAreas.push(areaEntry);
     }
   }
 
-  const allClosed = matchedAreas.every((area) =>
+  const allManagedClosed = myManagedAreas.every((area) =>
     area.allPeriods.every((p) => !p.isOperable),
   );
 
   return {
-    matchedAreas,
-    allClosed,
-    hasMatchedAreas: matchedAreas.length > 0,
-    hasActiveParticipation: matchedAreas.some((a) => a.hasActiveParticipation),
+    myManagedAreas,
+    otherAssociatedAreas,
+    allClosed: allManagedClosed,
+    hasManagedOrAssociated:
+      myManagedAreas.length > 0 || otherAssociatedAreas.length > 0,
   };
 }
 
@@ -309,25 +242,50 @@ export function GestionOperativaSolicitud({
   onOperationSelect,
   userCanFinalize,
   onFinalizar,
+  onIncorporarArea,
+  activeOperation,
+  onOperationStart,
 }: GestionOperativaProps) {
   const [tomandoPeriodoId, setTomandoPeriodoId] = useState<string | null>(null);
-  const [loadingOperation, setLoadingOperation] = useState<string | null>(null);
 
-  const { matchedAreas, allClosed, hasMatchedAreas } = deriveViewModel(
-    item,
-    currentUserId,
-    userAreaIds,
-  );
+  const {
+    myManagedAreas,
+    otherAssociatedAreas,
+    allClosed,
+    hasManagedOrAssociated,
+  } = deriveViewModel(item, currentUserId, userAreaIds);
 
   // No auth user yet — show neutral skeleton to avoid flash of "consulta" state.
   if (!currentUserId) {
     return <GestionOperativaSkeleton />;
   }
 
+  const isFinalizable =
+    userCanFinalize &&
+    item.estado !== "FINALIZADA" &&
+    item.estado !== "ANULADA";
+
+  // Only show "Cierre de la solicitud" when the user is actually managing
+  // (has taken) at least one PRINCIPAL period — i.e., it is EN_GESTION.
+  // PENDING principal periods do not qualify.
+  const hasEnGesPrincipal = myManagedAreas.some(
+    (area) =>
+      area.isMember &&
+      area.tipoParticipacion === "PRINCIPAL" &&
+      area.allPeriods.some((p) => p.estado === "EN_GESTION"),
+  );
+
+  const canIncorporarArea =
+    item.estado !== "FINALIZADA" && item.estado !== "ANULADA";
+
   const handleTomar = (periodoId: string) => {
     setTomandoPeriodoId(periodoId);
+    onOperationStart("tomar");
     tomarPeriodo.mutate(periodoId, {
-      onSettled: () => setTomandoPeriodoId(null),
+      onSettled: () => {
+        setTomandoPeriodoId(null);
+        onOperationStart("");
+      },
     });
   };
 
@@ -335,20 +293,14 @@ export function GestionOperativaSolicitud({
     periodoId: string,
     op: "iniciar-gestion" | "marcar-erronea" | "cambiar-participacion",
   ) => {
-    setLoadingOperation(`${periodoId}-${op}`);
-    // The page handles the modal opening; we just signal the intent.
-    // The modal state is owned by the page, not this component.
+    onOperationStart(`${periodoId}-${op}`);
     onOperationSelect(periodoId, op);
-    setLoadingOperation(null);
+    // Parent handles isPending tracking via activeOperation; loading state
+    // is derived from activeOperation === `${periodoId}-${op}` in each button.
   };
 
-  // ── State 1: User has matched areas/participation ───────────────────────────
-  if (hasMatchedAreas) {
-    const isFinalizable =
-      userCanFinalize &&
-      item.estado !== "FINALIZADA" &&
-      item.estado !== "ANULADA";
-
+  // ── State 1: User has managed or associated areas ─────────────────────────
+  if (hasManagedOrAssociated) {
     return (
       <section
         aria-labelledby="gestion-operativa-heading"
@@ -367,56 +319,70 @@ export function GestionOperativaSolicitud({
               Tus responsabilidades en esta solicitud
             </p>
           </div>
+          {canIncorporarArea && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 gap-1.5 text-xs shrink-0"
+              onClick={onIncorporarArea}
+            >
+              <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+              Incorporar area
+            </Button>
+          )}
         </div>
 
-        {/* Tus áreas vinculadas */}
-        <div className="flex flex-col gap-3">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-            Tus areas vinculadas
-          </p>
-          <div className="flex flex-col gap-2">
-            {matchedAreas.map((area) => (
-              <div
-                key={area.areaId}
-                className="flex flex-col gap-1.5 rounded-lg border border-border bg-card px-3 py-2"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="truncate text-sm font-medium text-foreground">
-                    {area.areaNombre}
-                  </span>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <span
-                      className={cn(
-                        "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold",
-                        area.badgeClass,
-                      )}
-                    >
-                      {TIPO_PARTICIPACION[area.tipoParticipacion]?.label ??
-                        area.tipoParticipacion}
+        {/* Mis áreas gestionables */}
+        {myManagedAreas.length > 0 && (
+          <div className="flex flex-col gap-3">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Mis areas gestionables
+            </p>
+            <div className="flex flex-col gap-2">
+              {myManagedAreas.map((area) => (
+                <div
+                  key={area.areaId}
+                  className="flex flex-col gap-1.5 rounded-lg border border-border bg-card px-3 py-2"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate text-sm font-medium text-foreground">
+                      {area.areaNombre}
                     </span>
-                    {area.hasActiveParticipation && (
-                      <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
-                        Participas
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span
+                        className={cn(
+                          "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold",
+                          area.badgeClass,
+                        )}
+                      >
+                        {TIPO_PARTICIPACION[area.tipoParticipacion]?.label ??
+                          area.tipoParticipacion}
                       </span>
-                    )}
+                      {area.hasActiveParticipation && (
+                        <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                          Participas
+                        </span>
+                      )}
+                    </div>
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    {getParticipacionExplicacion(area.tipoParticipacion)}
+                  </p>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {getParticipacionExplicacion(area.tipoParticipacion)}
-                </p>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Acciones disponibles */}
-        {matchedAreas.some((a) => a.matchedPeriods.length > 0) ? (
+        {/* Acciones disponibles — only for managed areas */}
+        {myManagedAreas.some((a) => a.matchedPeriods.length > 0) ? (
           <div className="flex flex-col gap-3">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
               Acciones disponibles
             </p>
             <div className="flex flex-col gap-2">
-              {matchedAreas.map((area) =>
+              {myManagedAreas.map((area) =>
                 area.matchedPeriods.map((periodo) => (
                   <div
                     key={periodo.periodoId}
@@ -434,8 +400,8 @@ export function GestionOperativaSolicitud({
                           <span
                             className={cn(
                               "rounded px-1 py-0.5 text-[10px]",
-                              ESTADO_SOLICITUD[
-                                periodo.estado as keyof typeof ESTADO_SOLICITUD
+                              ESTADO_PERIODO[
+                                periodo.estado as keyof typeof ESTADO_PERIODO
                               ]?.badgeClass ??
                                 "bg-muted text-muted-foreground border border-border",
                             )}
@@ -455,14 +421,15 @@ export function GestionOperativaSolicitud({
                           variant="outline"
                           size="sm"
                           className="h-7 gap-1.5 text-xs shrink-0"
-                          aria-label={`Tomar ciclo ${periodo.numeroCiclo} de ${area.areaNombre}`}
+                          aria-label={`Gestionar ciclo ${periodo.numeroCiclo} de ${area.areaNombre}`}
                           onClick={() => handleTomar(periodo.periodoId)}
                           disabled={
                             tomandoPeriodoId === periodo.periodoId ||
                             tomarPeriodo.isPending
                           }
                         >
-                          {tomandoPeriodoId === periodo.periodoId ? (
+                          {tomandoPeriodoId === periodo.periodoId ||
+                          activeOperation === "tomar" ? (
                             <span
                               className="size-3.5 inline-block"
                               aria-hidden="true"
@@ -474,87 +441,163 @@ export function GestionOperativaSolicitud({
                           ) : (
                             <Hand className="h-3.5 w-3.5" aria-hidden="true" />
                           )}
-                          Tomar
+                          Gestionar
                         </Button>
                       )}
                     </div>
 
-                    {/* Inline action tiles — only when period is EN_GESTION and user is eligible */}
+                    {/* Compact secondary actions — only when period is EN_GESTION and user is eligible */}
                     {periodo.showOperations &&
                       periodo.estado === "EN_GESTION" && (
-                        <div className="flex flex-col gap-2">
-                          {/* Marcar como erronea — destructive tile */}
-                          <ActionTile
-                            icon={AlertTriangle}
-                            title="No corresponde a mi area"
-                            description="Indica que esta asignacion fue incorrecta. Se registrara el motivo y la asignacion se marca como erronea."
-                            onAction={() =>
-                              handleOperation(
-                                periodo.periodoId,
-                                "marcar-erronea",
-                              )
-                            }
-                            isLoading={
-                              loadingOperation ===
-                              `${periodo.periodoId}-marcar-erronea`
-                            }
-                            variant="destructive"
-                          />
-                          {/* Cambiar participacion */}
-                          <ActionTile
-                            icon={ArrowLeftRight}
-                            title="Cambiar participacion"
-                            description={`Actualmente: ${TIPO_PARTICIPACION[periodo.tipoParticipacion as TipoParticipacion]?.label ?? periodo.tipoParticipacion}. El ciclo actual se cierra y se abre uno nuevo con el tipo seleccionado.`}
-                            onAction={() =>
-                              handleOperation(
-                                periodo.periodoId,
-                                "cambiar-participacion",
-                              )
-                            }
-                            isLoading={
-                              loadingOperation ===
-                              `${periodo.periodoId}-cambiar-participacion`
-                            }
-                          />
+                        <div className="flex flex-wrap items-center gap-3">
+                          {/* Marcar como erronea — compact destructive row */}
+                          <div className="flex flex-col gap-0.5 min-w-0">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-7 gap-1.5 text-xs text-destructive border-destructive/30 hover:bg-destructive/10"
+                              disabled={
+                                activeOperation ===
+                                `${periodo.periodoId}-marcar-erronea`
+                              }
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOperation(
+                                  periodo.periodoId,
+                                  "marcar-erronea",
+                                );
+                              }}
+                            >
+                              {activeOperation ===
+                              `${periodo.periodoId}-marcar-erronea` ? (
+                                <span
+                                  className="size-3.5 inline-block"
+                                  aria-hidden="true"
+                                >
+                                  <span className="absolute inset-0 flex items-center justify-center">
+                                    <span className="size-3.5 rounded-full border border-destructive/40 border-t-destructive animate-spin" />
+                                  </span>
+                                </span>
+                              ) : (
+                                <AlertTriangle
+                                  className="h-3.5 w-3.5"
+                                  aria-hidden="true"
+                                />
+                              )}
+                              Marcar erronea
+                            </Button>
+                            <span className="text-[10px] text-muted-foreground leading-tight">
+                              Marca como incorrecta y solicita el motivo
+                            </span>
+                          </div>
+                          {/* Cambiar participacion — compact row */}
+                          <div className="flex flex-col gap-0.5 min-w-0">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-7 gap-1.5 text-xs"
+                              disabled={
+                                activeOperation ===
+                                `${periodo.periodoId}-cambiar-participacion`
+                              }
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOperation(
+                                  periodo.periodoId,
+                                  "cambiar-participacion",
+                                );
+                              }}
+                            >
+                              {activeOperation ===
+                              `${periodo.periodoId}-cambiar-participacion` ? (
+                                <span
+                                  className="size-3.5 inline-block"
+                                  aria-hidden="true"
+                                >
+                                  <span className="absolute inset-0 flex items-center justify-center">
+                                    <span className="size-3.5 rounded-full border border-primary/40 border-t-primary animate-spin" />
+                                  </span>
+                                </span>
+                              ) : (
+                                <ArrowLeftRight
+                                  className="h-3.5 w-3.5"
+                                  aria-hidden="true"
+                                />
+                              )}
+                              Cambiar participacion
+                            </Button>
+                            <span className="text-[10px] text-muted-foreground leading-tight">
+                              Cierra el ciclo y abre uno nuevo como
+                              principal/adjunta
+                            </span>
+                          </div>
                         </div>
-                      )}
-
-                    {/* Inline action tile — only when period is PENDIENTE and user is eligible */}
-                    {periodo.showOperations &&
-                      periodo.estado === "PENDIENTE" && (
-                        <ActionTile
-                          icon={PlayCircle}
-                          title="Iniciar gestion"
-                          description="Comenzar la atencion de este periodo. El estado cambia a En Gestion."
-                          onAction={() =>
-                            handleOperation(
-                              periodo.periodoId,
-                              "iniciar-gestion",
-                            )
-                          }
-                          isLoading={
-                            loadingOperation ===
-                            `${periodo.periodoId}-iniciar-gestion`
-                          }
-                        />
                       )}
                   </div>
                 )),
               )}
             </div>
           </div>
-        ) : allClosed ? (
+        ) : myManagedAreas.length > 0 ? (
           <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2.5">
             <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
             <p className="text-xs text-muted-foreground">
-              No hay acciones pendientes. Los periodos de tus areas vinculadas
-              estan cerrados o finalizados.
+              {allClosed
+                ? "No hay acciones pendientes. Los periodos de tus areas gestionables estan cerrados o finalizados."
+                : "No hay acciones pendientes para tus areas gestionables en este momento."}
             </p>
           </div>
         ) : null}
 
-        {/* Cierre de la solicitud */}
-        {isFinalizable && (
+        {/* Otras áreas de la solicitud — read-only informational */}
+        {otherAssociatedAreas.length > 0 && (
+          <div className="flex flex-col gap-3">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Otras areas de la solicitud
+            </p>
+            <div className="flex flex-col gap-2">
+              {otherAssociatedAreas.map((area) =>
+                area.allPeriods
+                  .filter((p) => p.isActiveParticipant)
+                  .map((periodo) => (
+                    <div
+                      key={`${area.areaId}-${periodo.periodoId}`}
+                      className="flex flex-col gap-1.5 rounded-lg border border-border bg-muted/20 px-3 py-2"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="truncate text-sm font-medium text-muted-foreground">
+                          {area.areaNombre}
+                        </span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span
+                            className={cn(
+                              "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold",
+                              area.badgeClass,
+                            )}
+                          >
+                            {TIPO_PARTICIPACION[area.tipoParticipacion]
+                              ?.label ?? area.tipoParticipacion}
+                          </span>
+                          <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                            Participas
+                          </span>
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Solo tienes participacion en ciclo {periodo.numeroCiclo}{" "}
+                        de esta area.
+                      </p>
+                    </div>
+                  )),
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Cierre de la solicitud — only when a principal period is actually being managed (EN_GESTION) */}
+        {isFinalizable && hasEnGesPrincipal && (
           <div className="flex flex-col gap-2 rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-3">
             <div className="flex items-start gap-2">
               <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-destructive/20 bg-destructive/10">
@@ -589,28 +632,42 @@ export function GestionOperativaSolicitud({
     );
   }
 
-  // ── State 2: No matched areas and no active participation — consulta view ───
+  // ── State 2: No managed or associated areas — consulta view ───────────────
   return (
     <section
       aria-labelledby="gestion-operativa-heading"
       className="app-card p-5 lg:p-6"
     >
-      <div className="flex flex-col gap-1">
-        <h2
-          id="gestion-operativa-heading"
-          className="text-sm font-semibold text-foreground"
-        >
-          Gestion operativa
-        </h2>
-        <p className="text-xs text-muted-foreground">
-          Tus responsabilidades en esta solicitud
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <h2
+            id="gestion-operativa-heading"
+            className="text-sm font-semibold text-foreground"
+          >
+            Gestion operativa
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            Tus responsabilidades en esta solicitud
+          </p>
+        </div>
+        {canIncorporarArea && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-7 gap-1.5 text-xs shrink-0"
+            onClick={onIncorporarArea}
+          >
+            <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+            Incorporar area
+          </Button>
+        )}
       </div>
       <div className="mt-3 flex items-start gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2.5">
         <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         <p className="text-xs text-muted-foreground">
-          Vista de consulta. No tienes areas vinculadas ni participacion activa
-          en esta solicitud.
+          Vista de consulta. No tienes areas gestionables ni participacion
+          activa en esta solicitud.
         </p>
       </div>
     </section>

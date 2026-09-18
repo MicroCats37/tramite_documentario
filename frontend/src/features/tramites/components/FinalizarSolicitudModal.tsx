@@ -13,12 +13,12 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { notify } from "@/errors";
+import { useFinalizarSolicitud } from "../hooks/useFinalizarSolicitud";
 import {
   type FinalizarSolicitudFormData,
   TIPO_RESPUESTA_LABELS,
   type TipoRespuesta,
 } from "../schemas/finalizar-solicitud.schema";
-import { useFinalizarSolicitud } from "../hooks/useFinalizarSolicitud";
 
 interface FinalizarSolicitudModalProps {
   open: boolean;
@@ -38,12 +38,12 @@ export function FinalizarSolicitudModal({
 }: FinalizarSolicitudModalProps) {
   const finalizarMutation = useFinalizarSolicitud(solicitudId);
 
-  const [tipoRespuesta, setTipoRespuesta] = useState<TipoRespuesta | "">("");
+  const [tipoRespuesta, setTipoRespuesta] = useState<TipoRespuesta | "">("CONFORMIDAD");
   const [contenido, setContenido] = useState("");
   const [files, setFiles] = useState<File[]>([]);
 
   const resetForm = useCallback(() => {
-    setTipoRespuesta("");
+    setTipoRespuesta("CONFORMIDAD");
     setContenido("");
     setFiles([]);
   }, []);
@@ -71,6 +71,10 @@ export function FinalizarSolicitudModal({
     }
     if (!contenido.trim()) {
       notify.error("El contenido de la respuesta es requerido");
+      return;
+    }
+    if (files.length === 0) {
+      notify.error("Debes adjuntar al menos un documento formal de respuesta");
       return;
     }
 
@@ -144,14 +148,17 @@ export function FinalizarSolicitudModal({
         <GenericModal.Body className="space-y-5">
           {/* Tipo de respuesta */}
           <div className="space-y-2">
-            <label className="text-sm font-semibold text-foreground">
+            <label
+              htmlFor="tipo-respuesta"
+              className="text-sm font-semibold text-foreground"
+            >
               Tipo de respuesta
             </label>
             <Select
               value={tipoRespuesta}
               onValueChange={(v) => setTipoRespuesta(v as TipoRespuesta)}
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger id="tipo-respuesta" className="w-full">
                 <SelectValue placeholder="Selecciona el tipo de respuesta..." />
               </SelectTrigger>
               <SelectContent>
@@ -168,11 +175,15 @@ export function FinalizarSolicitudModal({
 
           {/* Contenido */}
           <div className="space-y-2">
-            <label className="text-sm font-semibold text-foreground">
+            <label
+              htmlFor="contenido"
+              className="text-sm font-semibold text-foreground"
+            >
               Contenido de la respuesta
               <span className="text-destructive ml-1">*</span>
             </label>
             <Textarea
+              id="contenido"
               value={contenido}
               onChange={(e) => setContenido(e.target.value)}
               placeholder="Describe la respuesta formal a la solicitud..."
@@ -186,18 +197,25 @@ export function FinalizarSolicitudModal({
 
           {/* Archivos adjuntos */}
           <div className="space-y-2">
-            <label className="text-sm font-semibold text-foreground">
-              Archivos adjuntos
-              <span className="text-muted-foreground font-normal ml-1">
-                (opcional)
+            <div className="flex flex-col gap-0.5">
+              <label
+                htmlFor="archivos-adjuntos"
+                className="text-sm font-semibold text-foreground"
+              >
+                Documentos adjuntos
+                <span className="text-destructive ml-1">*</span>
+              </label>
+              <span className="text-xs text-muted-foreground">
+                Adjunta el documento formal de respuesta (oficio, informe,
+                resolucion u otro) para cerrar la solicitud.
               </span>
-            </label>
+            </div>
             <div className="border border-dashed border-border rounded-xl p-4 space-y-3">
               {files.length > 0 && (
                 <ul className="space-y-2">
                   {files.map((file, index) => (
                     <li
-                      key={index}
+                      key={`${file.name}-${index}`}
                       className="flex items-center justify-between gap-2 bg-muted/50 rounded-lg px-3 py-2"
                     >
                       <div className="flex items-center gap-2 min-w-0">
@@ -218,15 +236,19 @@ export function FinalizarSolicitudModal({
                   ))}
                 </ul>
               )}
-              <label className="flex items-center justify-center gap-2 cursor-pointer text-sm text-muted-foreground hover:text-foreground transition-colors">
+              <label
+                htmlFor="archivos-adjuntos"
+                className="flex items-center justify-center gap-2 cursor-pointer text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
                 <input
+                  id="archivos-adjuntos"
                   type="file"
                   multiple
                   className="sr-only"
                   onChange={handleFileChange}
                   accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
                 />
-                <span>Adjuntar archivos</span>
+                <span>Agregar documentos</span>
               </label>
             </div>
           </div>

@@ -1072,3 +1072,209 @@ button {
 @utility app-section-title {
   @apply text-lg font-semibold text-foreground;
 }
+
+/* === EXPEDIENTE DETAIL MODAL — Print Styles === */
+/*
+ * Print-optimized layout for ExpedienteDetailModal.
+ * - Hides interactive-only controls (.print-hidden)
+ * - Stacks columns vertically on print
+ * - Uses document width for clean print output
+ * - Removes modal backdrop and overlay
+ */
+
+/* Modal header time — shown on screen, hidden in print */
+.expediente-modal-header-time {
+  display: block;
+}
+
+/* Shared card title styling for expediente modal */
+.expediente-card-title {
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+}
+
+/* Print: hide interactive-only controls */
+.print-hidden {
+  display: none !important;
+}
+
+/* Print: document-width modal content */
+@media print {
+  /* Remove dialog backdrop overlay */
+  [data-state="open"] > [class*="backdrop"],
+  [role="dialog"] ~ [class*="backdrop"],
+  .fixed.inset-0 {
+    display: none !important;
+  }
+
+  /* Reset modal positioning for print */
+  [role="dialog"][class*="fixed"] {
+    position: static !important;
+    inset: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: white !important;
+  }
+
+  /* Modal header */
+  .expediente-modal-header {
+    border-bottom: 1px solid #e5e5e5 !important;
+    padding: 1rem 0 !important;
+  }
+
+  .expediente-modal-header-time {
+    display: none !important;
+  }
+
+  /* Modal body */
+  .expediente-modal-body {
+    padding: 1rem 0 !important;
+  }
+
+  /* Two-column → single column on print */
+  .expediente-modal-body .grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Cards: remove shadow/border-radius for clean print */
+  .expediente-card {
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    border: 1px solid #e5e5e5 !important;
+    margin-bottom: 0.75rem !important;
+    break-inside: avoid;
+  }
+
+  /* Footer: hide print button on print */
+  .expediente-modal-footer {
+    display: none !important;
+  }
+
+  /* Remove scroll area */
+  .flex-1.overflow-y-auto {
+    overflow: visible !important;
+    height: auto !important;
+  }
+}
+
+/* === SOLICITUD DETAIL MODAL — Shell, Header, Body, Card, Footer === */
+/*
+ * Reusable modal shell classes for SolicitudDetailModal.
+ * These are separate from .expediente-modal-* to avoid style leakage.
+ * Follows the same visual language as ExpedienteDetailModal.
+ */
+
+/* Modal shell — flexible dialog container */
+.solicitud-modal-shell {
+  border-radius: 1rem;
+}
+
+/* Modal header band — kept for print compatibility; screen styles are inline via Tailwind */
+.solicitud-modal-header {
+  /* background handled inline via Tailwind: bg-gradient-to-r from-primary/5 via-primary/[0.02] to-transparent */
+}
+
+/* Modal header time badge */
+.solicitud-modal-header-time {
+  display: block;
+}
+
+/* Modal body padding and layout */
+.solicitud-modal-body {
+  background: transparent;
+}
+
+/* Modal card — rounded-xl (matches form modal SectionCard pattern) */
+.solicitud-modal-card {
+  border-radius: 0.625rem;
+}
+
+/* Modal card title — shared with expediente-card-title for consistency */
+.solicitud-modal-card-title {
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+}
+
+/* Modal footer bar — kept for print compatibility; screen styles are inline via Tailwind bg-muted/30 */
+.solicitud-modal-footer {
+  /* background handled inline via Tailwind: bg-muted/30 */
+}
+
+/* === SOLICITUD DETAIL MODAL — Print Styles === */
+/*
+ * Print-optimized layout for SolicitudDetailModal.
+ * Mirrors the ExpedienteDetailModal print rules but targets
+ * .solicitud-modal-* classes for clear separation.
+ */
+
+@media print {
+  /* Remove dialog backdrop overlay */
+  [data-state="open"] > [class*="backdrop"],
+  [role="dialog"] ~ [class*="backdrop"],
+  .fixed.inset-0 {
+    display: none !important;
+  }
+
+  /* Reset modal positioning for print */
+  [role="dialog"][class*="fixed"] {
+    position: static !important;
+    inset: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: white !important;
+  }
+
+  /* Modal header */
+  .solicitud-modal-header {
+    border-bottom: 1px solid #e5e5e5 !important;
+    padding: 1rem 0 !important;
+  }
+
+  .solicitud-modal-header-time {
+    display: none !important;
+  }
+
+  /* Modal body */
+  .solicitud-modal-body {
+    padding: 1rem 0 !important;
+  }
+
+  /* Two-column → single column on print */
+  .solicitud-modal-body .grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Cards: remove shadow/border-radius for clean print */
+  .solicitud-modal-card {
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    border: 1px solid #e5e5e5 !important;
+    margin-bottom: 0.75rem !important;
+    break-inside: avoid;
+  }
+
+  /* Footer: hide on print */
+  .solicitud-modal-footer {
+    display: none !important;
+  }
+
+  /* Remove scroll area */
+  .flex-1.overflow-y-auto {
+    overflow: visible !important;
+    height: auto !important;
+  }
+}

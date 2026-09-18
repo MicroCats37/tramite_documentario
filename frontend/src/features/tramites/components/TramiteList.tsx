@@ -7,7 +7,10 @@ import { useTramites } from "../hooks/useTramites";
  * Components handle ZERO raw error logic - errors flow through error handler.
  */
 export function TramiteList() {
-  const { data: tramites, isLoading } = useTramites();
+  const { data: tramites, isLoading } = useTramites(
+    {},
+    { page: 1, pageSize: 20, page_size: 20, onPageChange: () => {}, onPageSizeChange: () => {} }
+  );
 
   if (isLoading) {
     return <div>Cargando trámites...</div>;

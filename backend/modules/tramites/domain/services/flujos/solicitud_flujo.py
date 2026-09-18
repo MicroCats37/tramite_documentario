@@ -149,20 +149,22 @@ class SolicitudCreacionFlujo:
             origen=OrigenCambio.CREACION,
         )
 
-        # 4. Si hay áreas, establecer fecha_inicio_gestion y transicionar a EN_GESTION
+        # 4. Si hay áreas, transicionar a EN_TRAMITE (no a EN_GESTION).
+        # EN_TRAMITE significa que las áreas fueron notificadas pero ningún período
+        # está aún en gestión activa. fecha_inicio_gestion se setea recién cuando
+        # el primer período transiciona a EN_GESTION (en periodo_flujo).
         if data.areas_distribucion:
             ahora = datetime.now()
-            solicitud.fecha_inicio_gestion = ahora
-            solicitud.estado = EstadoSolicitud.EN_GESTION
+            solicitud.estado = EstadoSolicitud.EN_TRAMITE
             solicitud.save()
-            # Crear historial global: REGISTRADA → EN_GESTION
+            # Crear historial global: REGISTRADA → EN_TRAMITE
             self.solicitud_core._crear_historial_estado(
                 solicitud=solicitud,
                 estado_anterior=EstadoSolicitud.REGISTRADA,
-                estado_nuevo=EstadoSolicitud.EN_GESTION,
+                estado_nuevo=EstadoSolicitud.EN_TRAMITE,
                 cambiado_por_id=usuario_id,
                 fecha_cambio=ahora,
-                motivo="Inicio de gestión con primera área",
+                motivo="Distribución de áreas — en trámite",
                 origen=OrigenCambio.CAMBIO_ESTADO,
             )
 
@@ -265,19 +267,19 @@ class SolicitudCreacionFlujo:
             origen=OrigenCambio.CREACION,
         )
 
-        # d) Si hay áreas, establecer fecha_inicio_gestion y transicionar a EN_GESTION
+        # d) Si hay áreas, transicionar a EN_TRAMITE (no a EN_GESTION).
+        # fecha_inicio_gestion se setea cuando el primer período inicia gestión activa.
         if payload.areas_distribucion:
             ahora = datetime.now()
-            solicitud.fecha_inicio_gestion = ahora
-            solicitud.estado = EstadoSolicitud.EN_GESTION
+            solicitud.estado = EstadoSolicitud.EN_TRAMITE
             solicitud.save()
             self.solicitud_core._crear_historial_estado(
                 solicitud=solicitud,
                 estado_anterior=EstadoSolicitud.REGISTRADA,
-                estado_nuevo=EstadoSolicitud.EN_GESTION,
+                estado_nuevo=EstadoSolicitud.EN_TRAMITE,
                 cambiado_por_id=usuario_id,
                 fecha_cambio=ahora,
-                motivo="Inicio de gestión con primera área",
+                motivo="Distribución de áreas — en trámite",
                 origen=OrigenCambio.CAMBIO_ESTADO,
             )
 
@@ -590,16 +592,17 @@ class SolicitudAreaOperacionesFlujo:
             iniciado_por_id=usuario_id,
         )
 
-        # 6. Si estaba en REGISTRADA → transicionar a EN_GESTION
+        # 6. Si estaba en REGISTRADA → transicionar a EN_TRAMITE.
+        # No se setea fecha_inicio_gestion aquí — se setea cuando el primer
+        # período inicia gestión activa (en periodo_flujo).
         if solicitud.estado == EstadoSolicitud.REGISTRADA:
-            solicitud.estado = EstadoSolicitud.EN_GESTION
-            solicitud.fecha_inicio_gestion = ahora
+            solicitud.estado = EstadoSolicitud.EN_TRAMITE
             solicitud.save()
-            # Historial: REGISTRADA → EN_GESTION
+            # Historial: REGISTRADA → EN_TRAMITE
             self.solicitud_core._crear_historial_estado(
                 solicitud=solicitud,
                 estado_anterior=EstadoSolicitud.REGISTRADA,
-                estado_nuevo=EstadoSolicitud.EN_GESTION,
+                estado_nuevo=EstadoSolicitud.EN_TRAMITE,
                 cambiado_por_id=usuario_id,
                 fecha_cambio=ahora,
                 motivo="Incorporación de primera área",
