@@ -29,7 +29,7 @@ export function useCrearReciboDelegado() {
     ResponseType,
     { liquidacion_delegado_id: string }
   >({
-    url: "/finanzas/recibos-delegados",
+    url: "/finanzas/recibos-delegados/",
     schema: responseSchema,
     options: {
       onSuccess: () => {

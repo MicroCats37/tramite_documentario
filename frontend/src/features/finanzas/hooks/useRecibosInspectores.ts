@@ -42,7 +42,7 @@ export function useRecibosInspectores({
       inspectorId,
       liquidacionId,
     ],
-    url: "/finanzas/recibos-inspectores",
+    url: "/finanzas/recibos-inspectores/",
     schema: paginatedSchema,
     params,
     queryOptions: {

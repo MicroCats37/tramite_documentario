@@ -218,7 +218,7 @@ export function useCrearConversacion() {
   const queryClient = useQueryClient();
 
   return useApiCreate({
-    url: "/conversaciones",
+    url: "/conversaciones/",
     schema: ConversacionResponseSchema,
     options: {
       onSuccess: () => {
@@ -250,7 +250,7 @@ export function useIniciarConversacion() {
         success: boolean;
         data: { id: string } | null;
         error?: { message: string };
-      }>("/conversaciones", {
+      }>("/conversaciones/", {
         solicitud_id: solicitudId,
         titulo: titulo ?? null,
       });

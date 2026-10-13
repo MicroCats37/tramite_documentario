@@ -49,7 +49,7 @@ export function useTarifasGenerales({
       fechaDesde,
       fechaHasta,
     ],
-    url: "/liquidaciones/tarifas",
+    url: "/liquidaciones/tarifas/",
     schema: paginatedTarifaHistoricaResponseSchema,
     params,
     queryOptions: {

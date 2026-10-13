@@ -64,7 +64,7 @@ export function useLiquidacionesGenerales({
     ],
     url: soloUltimasRevisiones
       ? "/liquidaciones/generales/ultimas-revisiones"
-      : "/liquidaciones/generales",
+      : "/liquidaciones/generales/",
     schema: paginatedSchema,
     params,
     queryOptions: {

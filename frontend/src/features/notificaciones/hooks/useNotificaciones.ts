@@ -123,7 +123,7 @@ export function useNotificaciones(
     { items: NotificationListItem[]; total: number; totalPages: number }
   >({
     queryKey: NOTIFICACIONES_LIST_KEY(queryParams),
-    url: "/notificaciones",
+    url: "/notificaciones/",
     schema: NotificacionListResponseSchema,
     params: queryParams as Record<string, unknown>,
     queryOptions: {

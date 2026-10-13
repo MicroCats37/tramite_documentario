@@ -17,7 +17,7 @@ export async function getConversaciones(params?: {
   page?: number;
   page_size?: number;
 }): Promise<ConversacionListResponse> {
-  const response = await api.get<ConversacionListResponse>("/conversaciones", {
+  const response = await api.get<ConversacionListResponse>("/conversaciones/", {
     params,
   });
   return response.data;
@@ -45,7 +45,7 @@ export async function crearConversacion(
   data: ConversacionCreate,
 ): Promise<ConversacionResponse["data"]> {
   const response = await api.post<ConversacionResponse>(
-    "/conversaciones",
+    "/conversaciones/",
     data,
   );
   if (!response.data.success || !response.data.data) {

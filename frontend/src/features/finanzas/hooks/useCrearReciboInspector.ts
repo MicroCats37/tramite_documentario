@@ -29,7 +29,7 @@ export function useCrearReciboInspector() {
     ResponseType,
     { liquidacion_inspector_id: string; inspecciones_mes: number }
   >({
-    url: "/finanzas/recibos-inspectores",
+    url: "/finanzas/recibos-inspectores/",
     schema: responseSchema,
     options: {
       onSuccess: () => {

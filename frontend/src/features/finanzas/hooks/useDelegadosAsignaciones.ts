@@ -42,7 +42,7 @@ export function useDelegadosAsignaciones({
       cip,
       liquidacionId,
     ],
-    url: "/liquidaciones/delegados-asignaciones",
+    url: "/liquidaciones/delegados-asignaciones/",
     schema: paginatedSchema,
     params,
     queryOptions: {

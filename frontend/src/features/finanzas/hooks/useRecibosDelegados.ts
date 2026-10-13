@@ -42,7 +42,7 @@ export function useRecibosDelegados({
       delegadoId,
       liquidacionId,
     ],
-    url: "/finanzas/recibos-delegados",
+    url: "/finanzas/recibos-delegados/",
     schema: paginatedSchema,
     params,
     queryOptions: {
