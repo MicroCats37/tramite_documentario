@@ -24,6 +24,7 @@ class SolicitudArchivo(BaseModel):
         verbose_name="Solicitud",
     )
     archivo = models.FileField(
+        max_length=1024,
         upload_to="tramites/solicitudes/",
         verbose_name="Archivo",
     )

@@ -35,6 +35,7 @@ class ExpedienteArchivo(BaseModel):
         verbose_name="Tipo de Archivo",
     )
     archivo = models.FileField(
+        max_length=1024,
         upload_to="tramites/expedientes/",
         verbose_name="Archivo",
     )
