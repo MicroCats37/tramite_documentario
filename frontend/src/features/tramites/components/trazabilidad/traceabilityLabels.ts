@@ -84,15 +84,15 @@ const EVENTO_TIPO_LABELS: Record<string, string> = {
   // Canonical backend event types (solicitud_trazabilidad_presenter).
   ESTADO_SOLICITUD: "Estado de la solicitud",
   AREA_INCORPORADA: "Área incorporada",
-  PERIODO_INICIADO: "Ciclo iniciado",
-  PERIODO_CERRADO: "Ciclo cerrado",
+  PERIODO_INICIADO: "Participación iniciada",
+  PERIODO_CERRADO: "Participación cerrada",
   PARTICIPANTE_AGREGADO: "Participante agregado",
   PARTICIPANTE_RETIRO: "Participante retirado",
   RESPUESTA_EMITIDA: "Respuesta emitida",
   // Alias spellings kept for forward-compat with future payloads.
   ESTADO_SOLICITUD_CAMBIADO: "Estado de la solicitud",
-  ESTADO_PERIODO_CAMBIADO: "Cambio de estado del ciclo",
-  PERIODO_ESTADO_CAMBIADO: "Cambio de estado del ciclo",
+  ESTADO_PERIODO_CAMBIADO: "Cambio de estado de la participación",
+  PERIODO_ESTADO_CAMBIADO: "Cambio de estado de la participación",
   PARTICIPANTE_RETIRADO: "Participante retirado",
   RESPUESTA_REGISTRADA: "Respuesta registrada",
 };

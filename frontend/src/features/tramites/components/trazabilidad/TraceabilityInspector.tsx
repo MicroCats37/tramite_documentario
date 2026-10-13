@@ -25,6 +25,7 @@ import { X } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { BUTTON_PRESETS } from "@/shared/constants/button.tokens";
 import type {
   AsignacionTrazabilidad,
   ParticipanteTrazabilidad,
@@ -98,12 +99,12 @@ function StatusBadge({
 
 const NODE_KIND_LABELS: Record<string, string> = {
   "global-start": "Registro",
-  "global-merge": "Convergencia",
+  "global-merge": "Las áreas cerraron",
   "global-terminal": "Estado final",
   "area-start": "Área incorporada",
   "area-terminal": "Rama",
-  "period-start": "Ciclo iniciado",
-  "period-terminal": "Ciclo",
+  "period-start": "Participación iniciada",
+  "period-terminal": "Participación",
   "participant-added": "Participante agregado",
   "participant-removed": "Participante retirado",
   response: "Respuesta",
@@ -122,8 +123,8 @@ function metaFor(
   switch (selection.type) {
     case "period":
       return {
-        typeLabel: "Ciclo",
-        title: `Ciclo ${selection.period.numero_ciclo} · ${participacionLabel(selection.period.tipo_participacion)}`,
+        typeLabel: "Participación",
+        title: `Participación ${selection.period.numero_ciclo} · ${participacionLabel(selection.period.tipo_participacion)}`,
         badge: {
           label: periodoEstadoLabel(selection.period.estado),
           status: classifyPeriod(selection.period),
@@ -190,7 +191,10 @@ function contextRowsFor(
     case "period": {
       const rows: ContextRow[] = [
         { label: "Área", value: selection.area.area_nombre },
-        { label: "Ciclo", value: `Ciclo ${selection.period.numero_ciclo}` },
+        {
+          label: "Participación",
+          value: `Participación ${selection.period.numero_ciclo}`,
+        },
         {
           label: "Participación",
           value: participacionLabel(selection.period.tipo_participacion),
@@ -220,7 +224,10 @@ function contextRowsFor(
     case "participant-event": {
       const rows: ContextRow[] = [
         { label: "Área", value: selection.area.area_nombre },
-        { label: "Ciclo", value: `Ciclo ${selection.period.numero_ciclo}` },
+        {
+          label: "Participación",
+          value: `Participación ${selection.period.numero_ciclo}`,
+        },
       ];
       if (selection.participant.rol) {
         rows.push({ label: "Rol", value: selection.participant.rol });
@@ -252,7 +259,10 @@ function contextRowsFor(
     case "response": {
       const rows: ContextRow[] = [
         { label: "Área", value: selection.area.area_nombre },
-        { label: "Ciclo", value: `Ciclo ${selection.period.numero_ciclo}` },
+        {
+          label: "Participación",
+          value: `Participación ${selection.period.numero_ciclo}`,
+        },
       ];
       if (selection.response.emitido_por_nombres) {
         rows.push({
@@ -280,7 +290,7 @@ function contextRowsFor(
     }
     case "area": {
       const rows: ContextRow[] = [
-        { label: "Ciclos", value: `${selection.area.etapas.length}` },
+        { label: "Participaciones", value: `${selection.area.etapas.length}` },
       ];
       if (selection.area.tipo_actual) {
         rows.push({
@@ -414,7 +424,7 @@ function disclosureOptionsFor(
 }
 
 const DISCLOSURE_LABELS: Record<DisclosureOption, string> = {
-  cycle: "Ver ciclo completo",
+  cycle: "Ver participación completa",
   history: "Ver historial",
   response: "Ver respuesta",
 };
@@ -567,7 +577,7 @@ export function TraceabilityInspector({
           size="sm"
           onClick={onClose}
           aria-label="Cerrar detalle"
-          className="shrink-0 gap-1.5"
+          className={cn(BUTTON_PRESETS.compact.secondary, "shrink-0")}
         >
           <X className="size-4" aria-hidden="true" />
           <span className="hidden sm:inline">Cerrar</span>

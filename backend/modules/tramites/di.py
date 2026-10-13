@@ -4,6 +4,9 @@ Módulo Tramites — Cableado de Inyección de Dependencias.
 Usa el patrón Module de injector para vincular servicios.
 Se registra en settings vía NINJA_EXTRA["INJECTOR_MODULES"].
 """
+import os
+
+from django.conf import settings
 from injector import Module, singleton, Binder
 
 from modules.tramites.domain.services.core.expediente_core_service import ExpedienteCoreService
@@ -28,6 +31,9 @@ from modules.tramites.domain.services.orchestrators.solicitud_respuesta_orchestr
 from modules.conversaciones.domain.services.flujos.conversacion_flujo import (
     ConversacionFlujo,
 )
+from modules.tramites.domain.ports.saaa_ports import AbstractSaaaClient
+from modules.tramites.infrastructure.saaa_client import FakeSaaaClient, RealSaaaClient
+from core_application.storage.services import AbstractStorageService, SaaaStorageService
 
 
 class TramitesModule(Module):
@@ -69,3 +75,17 @@ class TramitesModule(Module):
         binder.bind(ExpedienteOrchestrator, to=ExpedienteOrchestrator, scope=singleton)
         binder.bind(SolicitudOrchestrator, to=SolicitudOrchestrator, scope=singleton)
         binder.bind(SolicitudRespuestaOrchestrator, to=SolicitudRespuestaOrchestrator, scope=singleton)
+
+        # SAAA Client — usa FakeSaaaClient en tests/DEBUG, RealSaaaClient en production
+        env_fake = os.environ.get("SAAA_USE_FAKE", "").lower()
+        use_fake = env_fake not in ("false", "0", "no") and (
+            env_fake != "" or getattr(settings, "SAAA_USE_FAKE", settings.DEBUG)
+        )
+        if use_fake:
+            binder.bind(AbstractSaaaClient, to=FakeSaaaClient, scope=singleton)
+        else:
+            binder.bind(AbstractSaaaClient, to=RealSaaaClient, scope=singleton)
+
+        # Storage service — wraps AbstractSaaaClient and provides a save() interface
+        # that returns either a local path or SAAA pointer string for FileField.name
+        binder.bind(AbstractStorageService, to=SaaaStorageService, scope=singleton)

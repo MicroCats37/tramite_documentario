@@ -29,6 +29,7 @@
 import { AlertCircle, FileSearch } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { BUTTON_PRESETS } from "@/shared/constants/button.tokens";
 import { useSolicitudTrazabilidad } from "../../hooks/useTramites";
 import type { SolicitudGlobalContext } from "./buildSolicitudFlow";
 import { ChronologicalHistory } from "./ChronologicalHistory";
@@ -78,7 +79,12 @@ function TrazabilidadError({
           {message ?? "No se pudo obtener los datos de trazabilidad."}
         </p>
       </div>
-      <Button variant="outline" size="sm" onClick={onRetry}>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={onRetry}
+        className={BUTTON_PRESETS.compact.secondary}
+      >
         Reintentar
       </Button>
     </div>

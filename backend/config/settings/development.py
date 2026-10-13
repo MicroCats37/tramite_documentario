@@ -52,3 +52,13 @@ NINJA_JWT = {
 # ── CIP — Usar cliente real en desarrollo (no el simulador) ──
 # Tests siguen usando CIP_USE_SIMULATOR=True en test.py
 CIP_USE_SIMULATOR = False
+
+# ── Channels — InMemory para desarrollo local sin Redis ─────────────────────────
+# Solo para desarrollo single-process. Instancias múltiples o producción
+# DEBEN usar Redis channel layer (configurado en base.py / production.py).
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+        "CONFIG": {},
+    },
+}

@@ -6,6 +6,7 @@ obtener_expediente, siguiendo el contrato de controllers-delgados (薄).
 """
 from uuid import UUID
 
+from core_application.storage.resolvers import resolve_public_url
 from modules.tramites.domain.models.expediente import Expediente
 from modules.tramites.domain.constants import TipoPersona
 from modules.tramites.presentation.schemas.expediente_out import ExpedienteArchivoOut
@@ -14,6 +15,20 @@ from modules.tramites.presentation.schemas.expediente_list_out import (
     ExpedienteDetailOut,
     ExpedienteAntecedenteOut,
 )
+
+
+def _archivo_url(archivo) -> str:
+    """
+    Construye la URL de un archivo, detectando punteros SAAA.
+
+    Si archivo.archivo.name es un puntero SAAA, retorna /api/archivo/public/{archivo_id}.
+    Si no, retorna la URL local del archivo.
+    Usa resolve_public_url() para respetar FILE_PROXY_URL (absoluto o relativo).
+    """
+    return resolve_public_url(
+        archivo_field_name=archivo.archivo.name if archivo.archivo else "",
+        archivo_url_attr=archivo.archivo,
+    )
 
 
 class ExpedienteConsultaPresenter:
@@ -42,7 +57,7 @@ class ExpedienteConsultaPresenter:
                 id=a.id,
                 tipo_archivo=a.tipo_archivo,
                 nombre_original=a.nombre_original,
-                url=a.archivo.url if a.archivo else "",
+                url=_archivo_url(a),
             )
             for a in expediente.archivos.all()
         ]
@@ -104,7 +119,7 @@ class ExpedienteConsultaPresenter:
                 id=a.id,
                 tipo_archivo=a.tipo_archivo,
                 nombre_original=a.nombre_original,
-                url=a.archivo.url if a.archivo else "",
+                url=_archivo_url(a),
             )
             for a in expediente.archivos.all()
         ]

@@ -40,6 +40,12 @@ from modules.conversaciones.domain.services.core.mensajeria_service import (
 from modules.conversaciones.domain.services.flujos.conversacion_flujo import (
     ConversacionFlujo,
 )
+from modules.notificaciones.domain.services.core.notificacion_service import (
+    NotificacionService,
+)
+
+# Import FakeNotificationRealtimePublisher from shared conftest
+from modules.conversaciones.tests.conftest import FakeNotificationRealtimePublisher
 
 
 # ── Fixtures ────────────────────────────────────────────────────────────────
@@ -51,9 +57,24 @@ def core_service():
 
 
 @pytest.fixture
-def conversacion_flujo(core_service):
-    """ConversacionFlujo with injected core service."""
-    return ConversacionFlujo(mensajeria_service=core_service)
+def fake_publisher():
+    """FakeNotificationRealtimePublisher for test isolation."""
+    return FakeNotificationRealtimePublisher()
+
+
+@pytest.fixture
+def notificacion_service(fake_publisher):
+    """NotificacionService with fake publisher for test isolation."""
+    return NotificacionService(realtime_publisher=fake_publisher)
+
+
+@pytest.fixture
+def conversacion_flujo(core_service, notificacion_service):
+    """ConversacionFlujo with injected core and notification services."""
+    return ConversacionFlujo(
+        mensajeria_service=core_service,
+        notificacion_service=notificacion_service,
+    )
 
 
 @pytest.fixture

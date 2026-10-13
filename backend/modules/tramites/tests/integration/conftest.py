@@ -14,3 +14,4 @@ Usage:
 from modules.tramites.tests.fixtures import (
     expediente_fixtures,
 )
+from modules.tramites.tests.fixtures import saaa_fixtures

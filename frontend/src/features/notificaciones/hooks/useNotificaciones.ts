@@ -5,13 +5,13 @@ import {
   type DescartarNotificacionResponse,
   type EstadoNotificacionIndividual,
   type MarcarVistaResponse,
+  type NotificacionListResponse,
+  NotificacionListResponseSchema,
   type NotificationDetailData,
   NotificationDetailResponseSchema,
   NotificationDetalleResponseSchema,
   type NotificationListItem,
   type NotificationSolicitudDetailData,
-  type NotificacionListResponse,
-  NotificacionListResponseSchema,
 } from "../schemas/notificacion.schema";
 import {
   abrirNotificacion,
@@ -25,10 +25,18 @@ import {
 
 // ── Query Keys ─────────────────────────────────────────────────────────────────
 
-const NOTIFICACIONES_QUERY_KEY = ["notificaciones"] as const;
-const NOTIFICACIONES_LIST_KEY = (params: GetNotificacionesParams) =>
+export const NOTIFICACIONES_QUERY_KEY = ["notificaciones"] as const;
+export const NOTIFICACIONES_LIST_KEY = (params: GetNotificacionesParams) =>
   ["notificaciones", "list", { ...params }] as const;
-const NOTIFICACIONES_SUMMARY_KEY = ["notificaciones", "summary"] as const;
+/** Prefix key for invalidating all list query variants (any pagination/filter params). */
+export const NOTIFICACIONES_LIST_QUERY_KEY = [
+  "notificaciones",
+  "list",
+] as const;
+export const NOTIFICACIONES_SUMMARY_KEY = [
+  "notificaciones",
+  "summary",
+] as const;
 const NOTIFICACIONES_DETAIL_KEY = (id: string) =>
   ["notificaciones", "detail", id] as const;
 
@@ -164,10 +172,14 @@ export function useNotificacionSummary() {
   return useQuery<NotificacionSummary | null, Error>({
     queryKey: NOTIFICACIONES_SUMMARY_KEY,
     queryFn: getNotificacionSummary,
-    // No retry — a failure means the endpoint isn't ready yet, not a transient error.
-    retry: false,
-    // Stale time of 30 seconds — counts don't need to be real-time.
-    staleTime: 30_000,
+    // Retry once: protects against transient network hiccups without hammering the endpoint.
+    // Note: getNotificacionSummary returns null (not throws) on error, so retry applies
+    // only when the request actually fails at the network level.
+    retry: 1,
+    // 5s stale time — enables faster WS-driven badge refresh without overwhelming the endpoint.
+    // When a WS notification.created event triggers invalidateQueries, the query becomes
+    // stale immediately and refetches in the background, keeping the bell count current.
+    staleTime: 5_000,
   });
 }
 

@@ -1,8 +1,8 @@
 /**
- * SolicitudPrintPreview — two-column administrative detail card.
- * Rendered inside PrintPreviewModal. Preserves estado/prioridad context
- * from the nested expediente. Styled to match the legacy modal look:
- * white bordered cards, subtle header bars, wine/primary accents.
+ * SolicitudPrintPreview — compact 1-page print preview.
+ * Rendered inside PrintPreviewModal. Adapted for print: 1 page, no brand band,
+ * no duplicate header (the SolicitudDetailModal's own header is hidden in
+ * @media print), single-column section stack.
  */
 "use client";
 
@@ -10,17 +10,17 @@ import {
   Briefcase,
   Calendar,
   FileText,
-  MapPin,
-  Timer,
+  Paperclip,
+  Send,
   User,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   ESTADO_SOLICITUD,
-  PRIORIDAD_SOLICITUD,
-  TIPO_PERSONA,
   type EstadoSolicitud,
+  PRIORIDAD_SOLICITUD,
   type PrioridadSolicitud,
+  TIPO_PERSONA,
   type TipoPersona,
 } from "@/shared/constants/tramite.tokens";
 import type { SolicitudItem } from "../schemas/tramite.schema";
@@ -39,14 +39,58 @@ function SectionCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-border/80 bg-white shadow-sm overflow-hidden">
-      <div className="flex items-center gap-2 px-3 py-2 bg-muted/40 border-b border-border/60">
-        {Icon && <Icon className="h-3.5 w-3.5 text-primary shrink-0" />}
+    <div className="overflow-hidden rounded-lg border border-border/80 bg-white">
+      <div className="flex items-center gap-2 border-b border-primary/30 bg-muted/40 px-3 py-1.5">
+        {Icon && (
+          <Icon
+            className="h-3.5 w-3.5 shrink-0 text-primary"
+            aria-hidden="true"
+          />
+        )}
         <span className="text-[10px] font-black uppercase tracking-[0.16em] text-primary">
           {title}
         </span>
       </div>
-      <div className="p-3 space-y-2">{children}</div>
+      <div className="space-y-1.5 p-3">{children}</div>
+    </div>
+  );
+}
+
+function FieldRow({
+  label,
+  value,
+  mono = false,
+}: {
+  label: string;
+  value: string | number | null | undefined;
+  mono?: boolean;
+}) {
+  return (
+    <div className="flex items-baseline justify-between gap-2 leading-tight">
+      <span className="shrink-0 text-[10px] font-semibold text-muted-foreground">
+        {label}
+      </span>
+      <span
+        className={`text-right text-xs font-bold text-foreground ${mono ? "font-mono" : ""}`}
+        style={{ wordBreak: "break-word" }}
+      >
+        {value ?? "—"}
+      </span>
+    </div>
+  );
+}
+
+function TwoUpRow({
+  left,
+  right,
+}: {
+  left: { label: string; value: string | number | null | undefined; mono?: boolean };
+  right: { label: string; value: string | number | null | undefined; mono?: boolean };
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+      <FieldRow {...left} />
+      <FieldRow {...right} />
     </div>
   );
 }
@@ -61,28 +105,32 @@ function getTipoDocumentoLabel(td: unknown): string {
   return "—";
 }
 
-function FieldRow({
-  label,
-  value,
-  mono = false,
-}: {
-  label: string;
-  value: string | number | null | undefined;
-  mono?: boolean;
-}) {
-  return (
-    <div className="flex items-start justify-between gap-2">
-      <span className="text-[10px] font-semibold text-muted-foreground shrink-0">
-        {label}
-      </span>
-      <span
-        className={`text-xs font-bold text-foreground text-right ${mono ? "font-mono" : ""}`}
-        style={{ wordBreak: "break-word" }}
-      >
-        {value ?? "—"}
-      </span>
-    </div>
-  );
+function formatDateShort(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  try {
+    return new Date(iso).toLocaleDateString("es-PE", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return "—";
+  }
+}
+
+function formatDateTime(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  try {
+    return new Date(iso).toLocaleString("es-PE", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return "—";
+  }
 }
 
 export function SolicitudPrintPreview({ item }: SolicitudPrintPreviewProps) {
@@ -97,7 +145,9 @@ export function SolicitudPrintPreview({ item }: SolicitudPrintPreviewProps) {
     [exp.nombres, exp.apellidos].filter(Boolean).join(" ") ||
     "—";
 
-  const documentoIdentidad = exp.dni || exp.ruc || exp.cip || "—";
+  const docTipo = exp.dni ? "DNI" : exp.ruc ? "RUC" : exp.cip ? "CIP" : null;
+  const docNumero = exp.dni || exp.ruc || exp.cip || "—";
+  const identificacionLabel = docTipo ? `${docTipo} ${docNumero}` : docNumero;
 
   const areasPrincipales = item.areas_activas.filter(
     (a) => a.tipo_participacion === "PRINCIPAL",
@@ -111,233 +161,154 @@ export function SolicitudPrintPreview({ item }: SolicitudPrintPreviewProps) {
     ? fechaLimite < new Date() && item.estado !== "FINALIZADA"
     : false;
 
-  return (
-    <div className="space-y-4">
-      {/* ── Modal header: icon left, big ID/title, doc type badge, registration line; right: persona/estado badges ── */}
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-white">
-            <FileText className="h-5 w-5" />
-          </div>
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-mono text-lg font-black tracking-tight text-primary">
-                {exp.id_publico}
-              </span>
-              <Badge variant="outline" className="text-[10px] font-bold">
-                {getTipoDocumentoLabel(exp.tipo_documento)}
-              </Badge>
-            </div>
-            <p className="mt-0.5 text-xs font-semibold text-foreground line-clamp-1">
-              {exp.asunto}
-            </p>
-            <p className="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground">
-              <Calendar className="h-3 w-3" />
-              Registro:{" "}
-              {new Date(item.fecha_registro).toLocaleDateString("es-PE", {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-              })}
-            </p>
-          </div>
-        </div>
+  const allAreas = [...areasPrincipales, ...areasAdjuntas];
 
-        {/* Right-side badges */}
-        <div className="flex flex-col items-end gap-1.5 shrink-0">
-          <Badge className={tipoPersonaToken.badgeClass} variant="secondary">
-            {tipoPersonaToken.label}
-          </Badge>
-          <Badge className={estadoToken.badgeClass} variant="secondary">
-            {estadoToken.label}
-          </Badge>
-          <Badge className={prioridadToken.badgeClass} variant="secondary">
-            {prioridadToken.label}
-          </Badge>
+  return (
+    <div className="space-y-3 rounded-xl border border-border/60 bg-white p-4">
+      {/* ── Compact header: icon + ID + type badge ── */}
+      <div className="flex items-center gap-3 border-b border-border pb-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 border border-primary/20">
+          <FileText className="h-4 w-4 text-primary" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-mono text-base font-black tracking-tight text-foreground">
+              {exp.id_publico}
+            </span>
+            <Badge
+              variant="outline"
+              className="text-[9px] font-bold uppercase tracking-wider"
+            >
+              Cédula Notificación
+            </Badge>
+          </div>
+          <p className="mt-0.5 line-clamp-1 text-[11px] text-muted-foreground">
+            <Calendar className="mr-1 inline h-3 w-3" />
+            Registrado {formatDateTime(item.fecha_registro)}
+          </p>
         </div>
       </div>
 
-      {/* ── Two-column body ── */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.05fr_0.95fr]">
-        {/* LEFT column */}
-        <div className="space-y-4">
-          {/* Solicitante */}
-          <SectionCard title="Solicitante" icon={User}>
-            <FieldRow label="Nombre" value={nombreCompleto} />
-            <FieldRow label="Documento" value={documentoIdentidad} mono />
-            <FieldRow label="Tipo" value={exp.tipo_persona} />
-            {exp.telefono && <FieldRow label="Teléfono" value={exp.telefono} />}
-            {exp.correo && <FieldRow label="Correo" value={exp.correo} />}
-          </SectionCard>
-
-          {/* Expediente */}
-          <SectionCard title="Expediente" icon={FileText}>
-            <FieldRow label="N.° Registro" value={exp.numero} mono />
-            <FieldRow
-              label="Documento"
-              value={`${getTipoDocumentoLabel(exp.tipo_documento)} ${exp.numero_documento || "—"}`}
-              mono
+      {/* ── Single-column section stack (1 page) ── */}
+      <div className="space-y-2.5">
+        {/* Solicitante */}
+        <SectionCard title="Solicitante" icon={User}>
+          <FieldRow label="Razón social" value={nombreCompleto} />
+          <TwoUpRow
+            left={{ label: "Identificación", value: identificacionLabel, mono: true }}
+            right={{ label: "Tipo persona", value: tipoPersonaToken.label }}
+          />
+          {(exp.telefono || exp.correo) && (
+            <TwoUpRow
+              left={{ label: "Teléfono", value: exp.telefono }}
+              right={{ label: "Correo", value: exp.correo }}
             />
-            <FieldRow label="Folios" value={exp.numero_folios} />
-            <FieldRow
-              label="Archivos"
-              value={`${exp.archivos.length} archivo${exp.archivos.length !== 1 ? "s" : ""}`}
-            />
-            {exp.observaciones && (
-              <div className="pt-1 border-t border-border/60">
-                <p className="text-[10px] font-semibold text-muted-foreground mb-0.5">
-                  Observaciones
-                </p>
-                <p className="text-xs text-foreground whitespace-pre-wrap">
-                  {exp.observaciones}
-                </p>
-              </div>
-            )}
-          </SectionCard>
+          )}
+        </SectionCard>
 
-          {/* Adjuntos */}
-          <SectionCard title="Adjuntos" icon={MapPin}>
-            {areasPrincipales.length > 0 && (
-              <div>
-                <p className="text-[9px] font-black uppercase tracking-wide text-primary mb-1">
-                  Área principal
-                </p>
-                <div className="flex flex-wrap gap-1">
-                  {areasPrincipales.map((area) => (
-                    <span
-                      key={area.area_id}
-                      className="rounded-md border border-primary/20 bg-primary/5 px-2 py-0.5 text-[10px] font-semibold text-primary"
-                    >
-                      {area.area_nombre}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-            {areasAdjuntas.length > 0 && (
-              <div
-                className={
-                  areasPrincipales.length > 0
-                    ? "pt-2 border-t border-border/60"
-                    : ""
-                }
-              >
-                <p className="text-[9px] font-black uppercase tracking-wide text-muted-foreground mb-1">
-                  Áreas adjuntas
-                </p>
-                <div className="flex flex-wrap gap-1">
-                  {areasAdjuntas.map((area) => (
-                    <span
-                      key={area.area_id}
-                      className="rounded-md border border-border bg-muted/40 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground"
-                    >
-                      {area.area_nombre}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-            {item.areas_activas.length === 0 && (
-              <span className="text-xs text-muted-foreground italic">
-                Sin derivación
-              </span>
-            )}
-          </SectionCard>
-        </div>
+        {/* Expediente */}
+        <SectionCard title="Expediente" icon={FileText}>
+          <FieldRow label="Asunto" value={exp.asunto} />
+          <TwoUpRow
+            left={{ label: "N.° documento", value: exp.numero_documento, mono: true }}
+            right={{
+              label: "Tipo documento",
+              value: getTipoDocumentoLabel(exp.tipo_documento),
+            }}
+          />
+          <TwoUpRow
+            left={{ label: "Folios", value: exp.numero_folios }}
+            right={{
+              label: "Archivos",
+              value: `${exp.archivos.length} adjunto${exp.archivos.length !== 1 ? "s" : ""}`,
+            }}
+          />
+          <FieldRow label="Fecha registro" value={formatDateShort(exp.fecha_registro)} />
+        </SectionCard>
 
-        {/* RIGHT column — Gestión del trámite */}
-        <div className="space-y-4">
-          <SectionCard title="Gestión del trámite" icon={Briefcase}>
-            <FieldRow label="Estado" value={estadoToken.label} />
-            <FieldRow
-              label="Fecha inicio"
-              value={
-                item.fecha_inicio_gestion
-                  ? new Date(item.fecha_inicio_gestion).toLocaleDateString(
-                      "es-PE",
-                      {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                      },
-                    )
-                  : "—"
-              }
-            />
-            <div className="flex items-start justify-between gap-2">
-              <span className="text-[10px] font-semibold text-muted-foreground shrink-0">
-                Fecha límite
-              </span>
-              <span
-                className={`text-xs font-bold ${vencida ? "text-destructive" : "text-foreground"}`}
-              >
-                {fechaLimite
-                  ? fechaLimite.toLocaleDateString("es-PE", {
-                      day: "2-digit",
-                      month: "short",
-                      year: "numeric",
-                    })
-                  : "—"}
-              </span>
-            </div>
-          </SectionCard>
-
-          {/* Counters */}
-          {(item.conteo_pendiente > 0 || item.conteo_en_gestion > 0) && (
-            <div className="flex flex-wrap gap-2">
-              {item.conteo_pendiente > 0 && (
-                <span className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-800">
-                  {item.conteo_pendiente} pendiente
-                  {item.conteo_pendiente !== 1 ? "s" : ""}
-                </span>
-              )}
-              {item.conteo_en_gestion > 0 && (
-                <span className="rounded-md border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-bold text-red-700">
-                  {item.conteo_en_gestion} en gestión
-                </span>
-              )}
+        {/* Gestión del trámite — compact metadata + team */}
+        <SectionCard title="Gestión del trámite" icon={Briefcase}>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Badge className={estadoToken.badgeClass} variant="secondary">
+              {estadoToken.label}
+            </Badge>
+            <Badge className={prioridadToken.badgeClass} variant="secondary">
+              {prioridadToken.label}
+            </Badge>
+            <Badge className={tipoPersonaToken.badgeClass} variant="secondary">
+              {tipoPersonaToken.label}
+            </Badge>
+          </div>
+          <TwoUpRow
+            left={{
+              label: "Inicio gestión",
+              value: formatDateTime(item.fecha_inicio_gestion),
+            }}
+            right={{
+              label: "Fecha límite",
+              value: formatDateShort(item.fecha_limite),
+            }}
+          />
+          {vencida && (
+            <p className="text-[10px] font-bold uppercase tracking-wider text-destructive">
+              ⚠ Solicitud vencida
+            </p>
+          )}
+          {allAreas.length > 0 && (
+            <div className="border-t border-border/60 pt-1.5">
+              <p className="mb-1 text-[9px] font-black uppercase tracking-wider text-muted-foreground">
+                Derivado a
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {areasPrincipales.map((a) => (
+                  <span
+                    key={a.area_id}
+                    className="rounded-md border border-primary/20 bg-primary/5 px-1.5 py-0.5 text-[10px] font-bold text-primary"
+                  >
+                    {a.area_nombre}
+                  </span>
+                ))}
+                {areasAdjuntas.map((a) => (
+                  <span
+                    key={a.area_id}
+                    className="rounded-md border border-border bg-muted/40 px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground"
+                  >
+                    {a.area_nombre} (Adj.)
+                  </span>
+                ))}
+              </div>
             </div>
           )}
+        </SectionCard>
 
-          {/* Áreas — PRINCIPAL vs ADJUNTA distinctly */}
-          {(areasPrincipales.length > 0 || areasAdjuntas.length > 0) && (
-            <SectionCard title="Equipo / Áreas" icon={MapPin}>
-              {areasPrincipales.length > 0 && (
-                <div className="mb-2">
-                  <p className="text-[9px] font-black uppercase tracking-wide text-primary mb-1">
-                    Principal
-                  </p>
-                  <div className="flex flex-wrap gap-1">
-                    {areasPrincipales.map((area) => (
-                      <span
-                        key={area.area_id}
-                        className="rounded-md border border-primary/20 bg-primary/5 px-2 py-1 text-xs font-semibold text-primary"
-                      >
-                        {area.area_nombre}
-                      </span>
-                    ))}
-                  </div>
+        {/* Archivos adjuntos — minimal list, 1 line per file */}
+        {exp.archivos.length > 0 && (
+          <SectionCard title="Archivos adjuntos" icon={Paperclip}>
+            <div className="space-y-0.5">
+              {exp.archivos.map((archivo) => (
+                <div
+                  key={archivo.id}
+                  className="flex items-center justify-between gap-2 text-[11px] leading-tight"
+                >
+                  <span className="truncate font-semibold text-foreground">
+                    {archivo.nombre_original}
+                  </span>
+                  <span className="shrink-0 text-[9px] uppercase tracking-wider text-muted-foreground">
+                    {archivo.tipo_archivo}
+                  </span>
                 </div>
-              )}
-              {areasAdjuntas.length > 0 && (
-                <div>
-                  <p className="text-[9px] font-black uppercase tracking-wide text-muted-foreground mb-1">
-                    Adjunta{areasPrincipales.length > 0 ? "s" : ""}
-                  </p>
-                  <div className="flex flex-wrap gap-1">
-                    {areasAdjuntas.map((area) => (
-                      <span
-                        key={area.area_id}
-                        className="rounded-md border border-border bg-muted/40 px-2 py-1 text-xs font-semibold text-muted-foreground"
-                      >
-                        {area.area_nombre}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </SectionCard>
-          )}
+              ))}
+            </div>
+          </SectionCard>
+        )}
+
+        {/* Footer with type-of-submission indicator */}
+        <div className="flex items-center justify-between border-t border-border pt-2 text-[10px] text-muted-foreground">
+          <span>
+            <Send className="mr-1 inline h-3 w-3" />
+            Documento oficial — Mesa de Partes CIP
+          </span>
+          <span>ID: {item.id.slice(0, 8)}</span>
         </div>
       </div>
     </div>

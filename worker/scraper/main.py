@@ -18,6 +18,7 @@ Respuestas de error (con código y detalle):
 import logging
 from contextlib import asynccontextmanager
 
+import requests.exceptions
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -51,6 +52,7 @@ class ConsultaResponse(BaseModel):
 class ErrorResponse(BaseModel):
     error: str        # código máquina: TIMEOUT, NOT_FOUND, FORMAT_ERROR, etc.
     detail: str       # mensaje legible para logs y debugging
+    retryable: bool | None = None
 
 
 # ──────────────────────────────────────────────
@@ -76,12 +78,12 @@ app = FastAPI(
 # Helpers de respuesta
 # ──────────────────────────────────────────────
 
-def _error(status: int, error: str, detail: str) -> JSONResponse:
+def _error(status: int, error: str, detail: str, retryable: bool | None = None) -> JSONResponse:
     logger.warning("Scraper error [%s] %s: %s", status, error, detail)
-    return JSONResponse(
-        status_code=status,
-        content={"error": error, "detail": detail},
-    )
+    content = {"error": error, "detail": detail}
+    if retryable is not None:
+        content["retryable"] = retryable
+    return JSONResponse(status_code=status, content=content)
 
 
 # ──────────────────────────────────────────────
@@ -136,22 +138,45 @@ def consultar_documento(documento: str) -> JSONResponse | ConsultaResponse:
         return _error(404, "NOT_FOUND", str(e))
 
     except ScraperTimeoutError as e:
-        return _error(504, "TIMEOUT", f"El portal de consultas no respondió a tiempo: {e}")
+        cause = f" ({e.__cause__})" if e.__cause__ else ""
+        return _error(
+            504,
+            "TIMEOUT",
+            f"El portal de consultas no respondió a tiempo{cause}",
+            retryable=e.retryable,
+        )
 
     except ScraperFormatError as e:
+        cause = f" ({e.__cause__})" if e.__cause__ else ""
+        hint = f" [parser_hint={e.parser_hint}]" if e.parser_hint else ""
         return _error(
             502,
             "FORMAT_ERROR",
-            f"El HTML del portal cambió — el scraper necesita actualización: {e}",
+            f"El HTML del portal cambió — el scraper necesita actualización{cause}{hint}",
+            retryable=e.retryable,
         )
 
     except ScraperUnavailableError as e:
-        return _error(503, "UNAVAILABLE", f"Portal de consultas no disponible: {e}")
+        cause = f" ({e.__cause__})" if e.__cause__ else ""
+        return _error(
+            503,
+            "UNAVAILABLE",
+            f"Portal de consultas no disponible{cause}",
+            retryable=e.retryable,
+        )
 
     except ValueError as e:
         return _error(422, "INVALID_DOCUMENT", str(e))
 
+    except requests.exceptions.RequestException as e:
+        # All requests library errors should have been caught earlier;
+        # if we reach here something unexpected happened in the transport layer
+        logger.exception("RequestException inesperado consultando %r: %s", documento, e)
+        return _error(503, "TRANSPORT_ERROR", f"Error de transporte no clasificado: {type(e).__name__}")
+
     except Exception as e:
+        # Genuinely unexpected: AttributeError, KeyError, OSError, etc.
+        # These indicate bugs in the scraping logic, not transient failures
         logger.exception("Error inesperado consultando %r", documento)
         return _error(500, "INTERNAL_ERROR", f"Error inesperado: {type(e).__name__}")
 

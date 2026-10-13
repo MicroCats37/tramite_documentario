@@ -7,12 +7,18 @@
 "use client";
 
 import {
-  Briefcase,
+  AlertTriangle,
+  ArrowRight,
   Calendar,
-  Eye,
+  CheckCircle2,
+  Circle,
+  Clock,
+  type LucideIcon,
   Mail,
   Paperclip,
+  PlayCircle,
   Printer,
+  XCircle,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -49,6 +55,15 @@ export function getTipoDocumentoLabel(td: unknown): string {
   return "—";
 }
 
+/** Estado Solicitud → lucide icon. Single source of truth for status iconography. */
+const ESTADO_ICON_MAP: Record<EstadoSolicitud, LucideIcon> = {
+  REGISTRADA: Circle,
+  EN_TRAMITE: Clock,
+  EN_GESTION: PlayCircle,
+  FINALIZADA: CheckCircle2,
+  ANULADA: XCircle,
+};
+
 interface SolicitudCardProps {
   item: SolicitudItem;
   onClick?: () => void;
@@ -73,6 +88,7 @@ export function SolicitudCard({ item, onClick: _onClick }: SolicitudCardProps) {
   const estadoToken = ESTADO_SOLICITUD[item.estado as EstadoSolicitud];
   const prioridadToken =
     PRIORIDAD_SOLICITUD[item.prioridad as PrioridadSolicitud];
+  const EstadoIcon = ESTADO_ICON_MAP[item.estado as EstadoSolicitud];
 
   // Areas activas principales (tipo PRINCIPAL)
   const areasPrincipales = item.areas_activas.filter(
@@ -97,15 +113,38 @@ export function SolicitudCard({ item, onClick: _onClick }: SolicitudCardProps) {
   return (
     <>
       <Card
-        className="app-card overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm cursor-pointer"
+        className={cn(
+          "app-card card-elegant-shadow overflow-hidden rounded-2xl border border-border/80 bg-card cursor-pointer",
+          vencida && "border-l-4 border-l-destructive",
+        )}
         onClick={() => setDetailOpen(true)}
       >
-        <CardHeader className="border-b border-border/70 px-4 py-2.5">
+        <CardHeader className="border-b border-border/70 px-4 py-3">
           <div className="grid gap-3 md:grid-cols-[auto_1fr_auto] md:items-center">
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <span className="inline-flex rounded-full border border-border bg-background px-3 py-1 font-mono text-[11px] font-black text-foreground">
                 {item.expediente.id_publico}
               </span>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <Badge
+                  className={cn(
+                    "gap-1 rounded-md border px-2 py-1 text-[10px] font-black uppercase tracking-wide",
+                    estadoToken.badgeClass,
+                  )}
+                >
+                  <EstadoIcon className="h-3 w-3" />
+                  {estadoToken.label}
+                </Badge>
+                {vencida && (
+                  <Badge
+                    variant="destructive"
+                    className="gap-1 rounded-md px-2 py-1 text-[10px] font-black uppercase tracking-wide"
+                  >
+                    <AlertTriangle className="h-3 w-3" />
+                    Vencida
+                  </Badge>
+                )}
+              </div>
               <p className="font-mono text-[10px] font-bold uppercase text-muted-foreground">
                 {getTipoDocumentoLabel(item.expediente.tipo_documento)}
               </p>
@@ -119,7 +158,10 @@ export function SolicitudCard({ item, onClick: _onClick }: SolicitudCardProps) {
                   {nombreCompleto}
                 </p>
                 <Badge
-                  className={prioridadToken.badgeClass}
+                  className={cn(
+                    "rounded-md px-2 py-1 text-[10px] font-black uppercase tracking-wide",
+                    prioridadToken.badgeClass,
+                  )}
                   variant="secondary"
                 >
                   {prioridadToken.label}
@@ -143,10 +185,6 @@ export function SolicitudCard({ item, onClick: _onClick }: SolicitudCardProps) {
                     {item.expediente.correo || "Sin correo"}
                   </span>
                 </p>
-                <p className="flex items-center gap-1.5 md:justify-end">
-                  <Paperclip className="h-3 w-3" />
-                  Folios: {item.expediente.numero_folios}
-                </p>
               </div>
               <Button
                 type="button"
@@ -163,143 +201,137 @@ export function SolicitudCard({ item, onClick: _onClick }: SolicitudCardProps) {
           </div>
         </CardHeader>
 
-        <CardContent className="space-y-2.5 p-4 py-3">
-          <div className="rounded-lg border border-border/80 bg-background px-3 py-2.5">
-            <p className="text-[10px] font-black uppercase tracking-wide text-muted-foreground">
-              Asunto expediente
-            </p>
-            <p className="mt-1 line-clamp-2 text-xs font-black uppercase text-foreground">
-              {item.expediente.asunto}
-            </p>
-          </div>
-
-          <div className="rounded-lg border border-border/80 bg-background px-3 py-2.5">
-            <p className="text-[10px] font-black uppercase tracking-wide text-muted-foreground">
-              Documentos expediente
-            </p>
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-semibold">
-              <span>Archivo:</span>
-              <span className="inline-flex items-center gap-1 rounded-md border border-primary/20 bg-primary/5 px-2 py-1 text-[10px] font-black text-primary">
-                <Paperclip className="h-3 w-3" />
-                Principal
-              </span>
-              <span className="text-muted-foreground">
-                Folios: {item.expediente.numero_folios}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 border-t border-border/70 pt-2.5 text-xs font-bold text-muted-foreground">
-            <Calendar className="h-3.5 w-3.5 text-primary" />
-            Creado:
-            <span className="font-mono text-foreground">
-              {new Date(item.fecha_registro).toLocaleString("es-PE", {
-                day: "2-digit",
-                month: "2-digit",
-                year: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </span>
-          </div>
-
-          <div className="rounded-lg border border-primary/25 bg-primary/[0.035] px-3 py-2.5">
-            <div className="flex flex-wrap items-center gap-2">
-              <Briefcase className="h-4 w-4 text-primary" />
-              <span className="text-[10px] font-black uppercase tracking-wide text-primary">
-                Solicitud en proceso
-              </span>
-              <Badge className={estadoToken.badgeClass} variant="secondary">
-                {estadoToken.label}
-              </Badge>
-            </div>
-
-            <div className="mt-2.5 rounded-lg border border-border/70 bg-background px-3 py-2.5">
-              <p className="text-[10px] font-black uppercase tracking-wide text-muted-foreground">
-                Área principal
-              </p>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {areasPrincipales.length > 0 ? (
-                  areasPrincipales.map((area) => (
-                    <span
-                      key={area.area_id}
-                      className="rounded-md border border-primary/20 bg-primary/5 px-2 py-1 text-xs font-bold text-primary"
-                    >
-                      {area.area_nombre}
-                    </span>
-                  ))
-                ) : (
-                  <span className="text-xs text-muted-foreground">
-                    Sin área principal
-                  </span>
-                )}
+        <CardContent className="space-y-3 p-4">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div className="space-y-3">
+              <div className="rounded-lg border border-border/80 bg-background px-3 py-2.5">
+                <p className="text-[10px] font-black uppercase tracking-wide text-muted-foreground">
+                  Asunto expediente
+                </p>
+                <p className="mt-1 line-clamp-2 text-xs font-black uppercase text-foreground">
+                  {item.expediente.asunto}
+                </p>
               </div>
-              {areasAdjuntas.length > 0 && (
-                <>
-                  <p className="mt-2 text-[10px] font-black uppercase tracking-wide text-muted-foreground">
-                    Áreas adjuntas
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {areasAdjuntas.map((area) => (
+
+              <div className="rounded-lg border border-border/80 bg-background px-3 py-2.5">
+                <p className="text-[10px] font-black uppercase tracking-wide text-muted-foreground">
+                  Documentos expediente
+                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-semibold">
+                  <span className="text-muted-foreground">
+                    Folios: {item.expediente.numero_folios}
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-md border border-primary/20 bg-primary/5 px-2 py-1 text-[10px] font-black text-primary">
+                    <Paperclip className="h-3 w-3" />
+                    Principal
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-2.5">
+                <div className="grid gap-2 md:grid-cols-2">
+                  <div className="rounded-lg border border-border/70 bg-background px-3 py-2.5">
+                    <p className="text-[10px] font-black uppercase tracking-wide text-muted-foreground">
+                      Inicio solicitud
+                    </p>
+                    <p className="mt-1 font-mono text-xs font-black text-foreground">
+                      {item.fecha_inicio_gestion
+                        ? new Date(item.fecha_inicio_gestion).toLocaleString(
+                            "es-PE",
+                            {
+                              day: "2-digit",
+                              month: "2-digit",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            },
+                          )
+                        : "Sin inicio"}
+                    </p>
+                  </div>
+                  <div
+                    className={cn(
+                      "rounded-lg border bg-background px-3 py-2.5",
+                      vencida
+                        ? "border-destructive/35 bg-destructive/5"
+                        : "border-border/70",
+                    )}
+                  >
+                    <p className="text-[10px] font-black uppercase tracking-wide text-muted-foreground">
+                      Límite solicitud
+                    </p>
+                    <p
+                      className={cn(
+                        "mt-1 font-mono text-xs font-black",
+                        vencida ? "text-destructive" : "text-foreground",
+                      )}
+                    >
+                      {fechaLimite
+                        ? fechaLimite.toLocaleString("es-PE", {
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                        : "Sin fecha límite"}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-muted-foreground">
+                  <Calendar className="h-3.5 w-3.5 text-primary" />
+                  Creado:
+                  <span className="font-mono text-foreground">
+                    {new Date(item.fecha_registro).toLocaleString("es-PE", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="rounded-lg border border-border/80 bg-background px-3 py-2.5">
+                <p className="text-[10px] font-black uppercase tracking-wide text-muted-foreground">
+                  Área principal
+                </p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {areasPrincipales.length > 0 ? (
+                    areasPrincipales.map((area) => (
                       <span
                         key={area.area_id}
-                        className="rounded-md border border-border bg-muted/40 px-2 py-1 text-xs font-semibold text-muted-foreground"
+                        className="rounded-md border border-primary/20 bg-primary/5 px-2 py-1 text-xs font-bold text-primary"
                       >
                         {area.area_nombre}
                       </span>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className="mt-2.5 grid gap-2 md:grid-cols-2">
-              <div className="rounded-lg border border-border/70 bg-background px-3 py-2.5">
-                <p className="text-[10px] font-black uppercase tracking-wide text-muted-foreground">
-                  Inicio solicitud
-                </p>
-                <p className="mt-1 font-mono text-xs font-black text-foreground">
-                  {item.fecha_inicio_gestion
-                    ? new Date(item.fecha_inicio_gestion).toLocaleString(
-                        "es-PE",
-                        {
-                          day: "2-digit",
-                          month: "2-digit",
-                          year: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        },
-                      )
-                    : "Sin inicio"}
-                </p>
-              </div>
-              <div
-                className={cn(
-                  "rounded-lg border bg-background px-3 py-2.5",
-                  vencida
-                    ? "border-destructive/35 bg-destructive/5"
-                    : "border-border/70",
-                )}
-              >
-                <p className="text-[10px] font-black uppercase tracking-wide text-muted-foreground">
-                  Límite solicitud
-                </p>
-                <p
-                  className={cn(
-                    "mt-1 font-mono text-xs font-black",
-                    vencida ? "text-destructive" : "text-foreground",
+                    ))
+                  ) : (
+                    <span className="text-xs text-muted-foreground">
+                      Sin área principal
+                    </span>
                   )}
-                >
-                  {fechaLimite
-                    ? fechaLimite.toLocaleString("es-PE", {
-                        day: "2-digit",
-                        month: "2-digit",
-                        year: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })
-                    : "Sin fecha límite"}
-                </p>
+                </div>
+                {areasAdjuntas.length > 0 && (
+                  <>
+                    <p className="mt-3 text-[10px] font-black uppercase tracking-wide text-muted-foreground">
+                      Áreas adjuntas
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {areasAdjuntas.map((area) => (
+                        <span
+                          key={area.area_id}
+                          className="rounded-md border border-border bg-muted/40 px-2 py-1 text-xs font-semibold text-muted-foreground"
+                        >
+                          {area.area_nombre}
+                        </span>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -350,7 +382,7 @@ export function SolicitudCard({ item, onClick: _onClick }: SolicitudCardProps) {
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                className="h-9 rounded-xl px-3 text-xs text-muted-foreground hover:text-foreground"
                 onClick={(e) => {
                   e.stopPropagation();
                   setObsOpen(true);
@@ -361,16 +393,14 @@ export function SolicitudCard({ item, onClick: _onClick }: SolicitudCardProps) {
               </Button>
               <Button
                 type="button"
-                variant="outline"
-                size="sm"
-                className="h-7 px-2 text-xs"
+                className="h-9 rounded-xl btn-wine-gradient-hover font-bold gap-1.5 text-primary-foreground px-4 shadow-sm"
                 onClick={(e) => {
                   e.stopPropagation();
                   router.push(`/solicitudes/${item.id}`);
                 }}
               >
-                <Eye className="h-3.5 w-3.5 mr-1" />
                 Ver solicitud
+                <ArrowRight className="h-3.5 w-3.5" />
               </Button>
             </div>
           </div>

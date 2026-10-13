@@ -24,7 +24,7 @@ export interface ConversacionPanelProps {
   currentUserId?: string;
   /** Set to true to disable the composer (e.g., conversation is closed). */
   disabled?: boolean;
-  /** Header context line, e.g. "Solicitud EXP-2026-0142" or "Asesoría Legal · Ciclo 1". */
+  /** Header context line, e.g. "Solicitud EXP-2026-0142" or "Asesoría Legal · Participación 1". */
   contextLabel?: string | null;
   /**
    * Callback to close the conversation panel.

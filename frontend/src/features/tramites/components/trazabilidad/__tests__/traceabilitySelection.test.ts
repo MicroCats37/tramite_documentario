@@ -528,7 +528,7 @@ describe("resolveSelection", () => {
     );
     assert.ok(merge && merge.type === "node");
     assert.equal(merge.kind, "global-merge");
-    assert.equal(merge.label, "Convergencia");
+    assert.equal(merge.label, "Las áreas cerraron");
   });
 
   it("returns null for unresolvable selections", () => {

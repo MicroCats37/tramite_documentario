@@ -20,10 +20,10 @@ import { Label } from "@/components/ui/label";
 import { useLogin } from "@/features/auth/hooks/useLogin";
 import {
   type LoginDniFormData,
-  type LoginEmailFormData,
-  type LoginUsernameFormData,
   LoginDniFormSchema,
+  type LoginEmailFormData,
   LoginEmailFormSchema,
+  type LoginUsernameFormData,
   LoginUsernameFormSchema,
 } from "@/features/auth/schemas";
 import { useAuthStore } from "@/features/auth/store/auth.store";
@@ -515,15 +515,15 @@ export function LoginClientShell() {
         <div className="relative z-10 animate-in fade-in slide-in-from-top-4 duration-700">
           <div className="flex flex-col items-center gap-3">
             {/* Logo with glass ring glow */}
-            <div className="relative flex h-20 w-20 items-center justify-center rounded-2xl shadow-2xl">
+            <div className="relative flex h-20 w-20 items-center justify-center rounded-full shadow-2xl">
               {/* Outer glow ring */}
               <div
-                className="absolute inset-0 rounded-2xl bg-white/10 backdrop-blur-md shadow-2xl"
+                className="absolute inset-0 rounded-full bg-white/10 backdrop-blur-md shadow-2xl"
                 aria-hidden="true"
               />
               {/* Inner ring accent */}
               <div
-                className="absolute inset-[3px] rounded-[14px] bg-white/5 backdrop-blur-sm border border-white/10"
+                className="absolute inset-[3px] rounded-full bg-white/5 backdrop-blur-sm border border-white/10"
                 aria-hidden="true"
               />
               {/* Logo image */}

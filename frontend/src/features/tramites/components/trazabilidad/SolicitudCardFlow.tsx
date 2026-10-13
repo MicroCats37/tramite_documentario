@@ -19,7 +19,7 @@ import {
   ArrowRight,
   CheckCircle2,
   Circle,
-  GitBranch,
+  GitMerge,
   LogIn,
   LogOut,
   Play,
@@ -91,7 +91,7 @@ const KIND_ICONS: Record<
 > = {
   "global-start": Play,
   "global-state": Circle,
-  "global-merge": GitBranch,
+  "global-merge": GitMerge,
   "global-terminal": CheckCircle2,
   "area-start": LogIn,
   "area-terminal": LogOut,
@@ -106,7 +106,7 @@ const KIND_ICONS: Record<
 const KIND_COLORS: Record<FlowNodeKind, string> = {
   "global-start": "text-primary",
   "global-state": "text-primary",
-  "global-merge": "text-muted-foreground",
+  "global-merge": "text-primary",
   "global-terminal": "text-primary",
   "area-start": "text-blue-600",
   "area-terminal": "text-muted-foreground",
@@ -464,22 +464,25 @@ export function SolicitudCardFlow({
   const Legend = (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-border/40 bg-muted/20 px-3 py-2 text-[10px] text-muted-foreground">
       <span className="font-semibold">Flujo operativo:</span>
-      <span>Las conexiones muestran precedencia cronologica registrada</span>
+      <span>Las líneas muestran el orden en que ocurrieron los eventos</span>
       <span className="text-muted-foreground/60">|</span>
       <span className="flex items-center gap-1">
         <span className="size-2 rounded-full bg-primary" /> Inicio / Estado
       </span>
       <span className="flex items-center gap-1">
-        <span className="size-2 rounded-full bg-blue-600" /> Area
+        <span className="size-2 rounded-full bg-blue-600" /> Área
       </span>
       <span className="flex items-center gap-1">
-        <span className="size-2 rounded-full bg-amber-600" /> Ciclo
+        <span className="size-2 rounded-full bg-amber-600" /> Participación
       </span>
       <span className="flex items-center gap-1">
         <span className="size-2 rounded-full bg-green-600" /> Participante
       </span>
       <span className="flex items-center gap-1">
         <span className="size-2 rounded-full bg-violet-600" /> Respuesta
+      </span>
+      <span className="flex items-center gap-1">
+        <span className="size-2 rounded-full bg-primary" /> Las áreas cerraron
       </span>
     </div>
   );
@@ -499,7 +502,7 @@ export function SolicitudCardFlow({
       {areaBands.length > 0 && (
         <div className="relative flex flex-col gap-2">
           <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Areas y ciclos
+            Áreas y participaciones
           </span>
           {/* Vertical connector line from global rail to area bands */}
           <div className="flex flex-col gap-2">{areaBands}</div>

@@ -11,6 +11,7 @@ from typing import Optional
 
 from django.conf import settings
 
+from core_application.storage.resolvers import resolve_public_url
 from modules.conversaciones.domain.constants import EstadoConversacion
 from modules.conversaciones.domain.models import Conversacion, Mensaje
 from modules.conversaciones.domain.results.mensaje_results import (
@@ -133,10 +134,17 @@ class ConversacionPresenter:
 
     @staticmethod
     def present_adjunto(adj) -> ArchivoAdjuntoOut:
-        """Construye un ArchivoAdjuntoOut desde una entidad MensajeArchivoAdjunto."""
-        archivo_url = None
-        if adj.archivo:
-            archivo_url = adj.archivo.url
+        """Construye un ArchivoAdjuntoOut desde una entidad MensajeArchivoAdjunto.
+
+        NOTE: adj.archivo.name puede ser un puntero SAAA (saaa/{app_id}/{archivo_id}/{nombre})
+        en lugar de un archivo local. En ese caso, adj.archivo.url devolvería un path
+        local inexistente. Se usa resolve_public_url() para distinguir ambos casos
+        y retornar la URL correcta.
+        """
+        archivo_url = resolve_public_url(
+            adj.archivo.name if adj.archivo else None,
+            adj.archivo if adj.archivo else None,
+        )
         return ArchivoAdjuntoOut(
             id=adj.id,
             nombre_original=adj.nombre_original,

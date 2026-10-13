@@ -34,6 +34,9 @@ from modules.notificaciones.domain.constants import (
     PrioridadNotificacion,
 )
 from modules.notificaciones.domain.models import Notificacion
+from modules.notificaciones.domain.services.core.notificacion_service import (
+    NotificacionService,
+)
 from modules.usuarios.domain.models import Area
 from modules.conversaciones.domain.services.flujos.conversacion_flujo import (
     ConversacionFlujo,
@@ -65,11 +68,13 @@ class SolicitudCreacionFlujo:
         asignacion_core: "AsignacionCoreService",
         expediente_flujo: ExpedienteCreacionFlujo,
         conversacion_flujo: "ConversacionFlujo",
+        notificacion_service: NotificacionService,
     ):
         self.solicitud_core = solicitud_core
         self.asignacion_core = asignacion_core
         self.expediente_flujo = expediente_flujo
         self.conversacion_flujo = conversacion_flujo
+        self.notificacion_service = notificacion_service
 
     async def _proceso_crear_solicitud(
         self,
@@ -365,19 +370,13 @@ class SolicitudCreacionFlujo:
         Returns:
             Instancia de Notificacion creada.
         """
-        # Importación local para evitar circular imports
-        from modules.notificaciones.domain.services.core.notificacion_service import (
-            NotificacionService,
-        )
-
         titulo = f"Nueva asignación - Expediente {solicitud.expediente.id_publico}"
         mensaje = (
             f"Se le ha asignado el expediente {solicitud.expediente.id_publico} "
             "para su atención."
         )
 
-        service = NotificacionService()
-        notificacion = service.crear_notificacion_area(
+        notificacion = self.notificacion_service.crear_notificacion_area(
             area=area,
             titulo=titulo,
             mensaje=mensaje,

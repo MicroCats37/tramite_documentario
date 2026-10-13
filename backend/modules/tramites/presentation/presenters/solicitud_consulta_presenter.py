@@ -22,6 +22,7 @@ from modules.tramites.presentation.schemas.solicitud_list_out import (
 from modules.conversaciones.domain.constants import EstadoConversacion
 from modules.tramites.presentation.schemas.expediente_out import ExpedienteArchivoOut
 from modules.tramites.presentation.schemas.expediente_list_out import ExpedienteItemOut, ExpedienteDetailOut, ExpedienteAntecedenteOut
+from core_application.storage.resolvers import resolve_public_url
 
 
 class SolicitudConsultaPresenter:
@@ -48,12 +49,15 @@ class SolicitudConsultaPresenter:
         exp = solicitud.expediente
 
         # Build nested expediente with archivos
+        # NOTE: SAAA pointers (saaa/{app_id}/{archivo_id}/{nombre}) are remote
+        # references — a.archivo.url would return a broken local path.
+        # Use resolve_public_url() to get the correct proxy URL for SAAA pointers.
         exp_archivos = [
             ExpedienteArchivoOut(
                 id=a.id,
                 tipo_archivo=a.tipo_archivo,
                 nombre_original=a.nombre_original,
-                url=a.archivo.url if a.archivo else "",
+                url=resolve_public_url(a.archivo.name, a.archivo if a.archivo else None),
             )
             for a in exp.archivos.all()
         ]
@@ -142,12 +146,16 @@ class SolicitudConsultaPresenter:
         exp_antecedentes = list(exp.antecedentes_vinculados.all())
 
         # Build archivos with url
+        # NOTE: SAAA pointers (saaa/{app_id}/{archivo_id}/{nombre}) are remote
+        # references — a.archivo.url would return a broken local path for them.
+        # resolve_public_url() distinguishes SAAA pointers from local files and
+        # returns the correct URL in each case.
         archivos_out = [
             ExpedienteArchivoOut(
                 id=a.id,
                 tipo_archivo=a.tipo_archivo,
                 nombre_original=a.nombre_original,
-                url=a.archivo.url if a.archivo else "",
+                url=resolve_public_url(a.archivo.name, a.archivo if a.archivo else None),
             )
             for a in exp_archivos
         ]

@@ -22,6 +22,10 @@ import type {
   CambiarParticipacionData,
   MarcarAsignacionErroneaData,
 } from "@/features/asignaciones/schemas/asignacion.schema";
+import {
+  BUTTON_PRESETS,
+  SPINNER_CLASS,
+} from "@/shared/constants/button.tokens";
 import type { TipoParticipacion } from "@/shared/constants/tramite.tokens";
 import type { PeriodoOperation } from "./PeriodoOperacionesMenu";
 
@@ -51,7 +55,7 @@ const OPERATION_CONFIGS: Record<PeriodoOperation, OperationConfig> = {
   "cambiar-participacion": {
     title: "Cambiar tipo de participación",
     description:
-      "Cerrará el ciclo actual y abrirá uno nuevo con el tipo seleccionado",
+      "Cerrará la participación actual y abrirá una nueva con el tipo seleccionado",
     icon: ArrowLeftRight,
     iconBgClass: "bg-blue-500/10 border border-blue-500/20",
     submitLabel: "Cambiar",
@@ -168,7 +172,7 @@ export function PeriodoOperacionModal({
               }),
             },
           });
-          notify.success("Ciclo cerrado. Nuevo período abierto.");
+          notify.success("Participación cerrada. Nueva participación abierta.");
           break;
       }
       resetForm();
@@ -198,45 +202,117 @@ export function PeriodoOperacionModal({
   return (
     <GenericModal open={open} onOpenChange={handleClose} preventClose={false}>
       <GenericModal.Content size="md">
-        <GenericModal.Header className="bg-primary/[0.03] border-b border-border px-6 py-5">
+        {/* ── Header — matches the form modal pattern (SolicitudFormModal:242-260) ── */}
+        <div className="bg-gradient-to-r from-primary/5 via-primary/[0.02] to-transparent border-b border-border px-6 py-5 sm:px-8">
           <div className="flex items-center gap-3 w-full">
             {getOperationIcon()}
             <div className="flex flex-col gap-0.5 min-w-0 flex-1">
               <span className="hidden sm:block text-[10px] font-bold uppercase tracking-widest text-primary leading-none">
                 Operaciones
               </span>
-              <h2 className="text-2xl font-black tracking-tight text-foreground leading-tight">
+              <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground leading-tight">
                 {config.title}
               </h2>
-              <p className="hidden sm:block text-sm text-muted-foreground leading-relaxed">
+              <p className="hidden sm:block max-w-prose text-pretty line-clamp-2 text-sm text-muted-foreground leading-relaxed">
                 {config.description}
               </p>
             </div>
-            <div className="w-9 shrink-0" aria-hidden="true" />
           </div>
-        </GenericModal.Header>
+        </div>
 
         <GenericModal.Body className="space-y-5">
           {operation === "marcar-erronea" && (
-            <div className="space-y-2">
-              <label
-                htmlFor="motivoErronea"
-                className="text-sm font-semibold text-foreground"
-              >
-                Motivo
-              </label>
-              <Textarea
-                id="motivoErronea"
-                value={motivoErronea}
-                onChange={(e) => setMotivoErronea(e.target.value)}
-                placeholder="Describe por qué la asignación fue errónea..."
-                rows={3}
-              />
-            </div>
+            <>
+              <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-5 py-4">
+                <p className="text-[10px] font-bold uppercase tracking-widest mb-3 text-destructive">
+                  Qué va a pasar
+                </p>
+                <ul className="space-y-2.5 text-sm text-foreground">
+                  <li className="flex items-start gap-2.5">
+                    <span
+                      className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-destructive"
+                      aria-hidden="true"
+                    />
+                    <span className="leading-relaxed">
+                      El período activo se cerrará y no podrá reabrirse
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2.5">
+                    <span
+                      className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-destructive"
+                      aria-hidden="true"
+                    />
+                    <span className="leading-relaxed">
+                      El área quedará fuera hasta que alguien la vuelva a
+                      incorporar
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2.5">
+                    <span
+                      className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-destructive"
+                      aria-hidden="true"
+                    />
+                    <span className="leading-relaxed">
+                      Quedará registrada en el historial de la solicitud
+                    </span>
+                  </li>
+                </ul>
+              </div>
+              <div className="space-y-2">
+                <label
+                  htmlFor="motivoErronea"
+                  className="text-sm font-semibold text-foreground"
+                >
+                  Motivo
+                </label>
+                <Textarea
+                  id="motivoErronea"
+                  value={motivoErronea}
+                  onChange={(e) => setMotivoErronea(e.target.value)}
+                  placeholder="Describe por qué la asignación fue errónea..."
+                  rows={3}
+                />
+              </div>
+            </>
           )}
 
           {operation === "cambiar-participacion" && (
             <>
+              <div className="rounded-lg border border-border bg-muted/30 px-5 py-4">
+                <p className="text-[10px] font-bold uppercase tracking-widest mb-3 text-muted-foreground">
+                  Qué va a pasar
+                </p>
+                <ul className="space-y-2.5 text-sm text-foreground">
+                  <li className="flex items-start gap-2.5">
+                    <span
+                      className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary"
+                      aria-hidden="true"
+                    />
+                    <span className="leading-relaxed">
+                      La participación actual se cerrará
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2.5">
+                    <span
+                      className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary"
+                      aria-hidden="true"
+                    />
+                    <span className="leading-relaxed">
+                      Se abrirá una nueva participación con el tipo que elijas
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2.5">
+                    <span
+                      className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary"
+                      aria-hidden="true"
+                    />
+                    <span className="leading-relaxed">
+                      Si el área pasa de principal a adjunta, otro usuario
+                      deberá encargarse
+                    </span>
+                  </li>
+                </ul>
+              </div>
               <div className="space-y-2">
                 <label
                   htmlFor="tipoParticipacion"
@@ -288,28 +364,29 @@ export function PeriodoOperacionModal({
           )}
         </GenericModal.Body>
 
-        <GenericModal.Footer className="px-6 py-4 bg-muted/30 border-t border-border">
-          <div className="flex items-center justify-end gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => handleClose(false)}
-              disabled={isMutationPending}
-              className="h-10 rounded-xl font-semibold"
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              onClick={handleSubmit}
-              disabled={isMutationPending}
-              className="h-10 rounded-xl font-bold gap-1.5"
-            >
-              {isMutationPending && (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              )}
-              {config.submitLabel}
-            </Button>
+        <GenericModal.Footer className="px-6 py-4 sm:px-8 bg-muted/30 border-t border-border">
+          <div className="flex items-center justify-between gap-2 sm:gap-3">
+            <div className="flex items-center gap-2" />
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleClose(false)}
+                disabled={isMutationPending}
+                className={BUTTON_PRESETS.modal.secondary}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                onClick={handleSubmit}
+                disabled={isMutationPending}
+                className={BUTTON_PRESETS.modal.primary}
+              >
+                {isMutationPending && <Loader2 className={SPINNER_CLASS} />}
+                {config.submitLabel}
+              </Button>
+            </div>
           </div>
         </GenericModal.Footer>
 

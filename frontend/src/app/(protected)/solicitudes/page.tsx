@@ -17,9 +17,9 @@ import { FileText, Filter, Plus, Search, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 import { Pagination } from "@/components/genericPagination/Pagination";
+import { SegmentedTabs } from "@/components/segmentedTabs/SegmentedTabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageWrapper } from "@/components-app/page";
 import type { FiltrosSolicitudesValues } from "@/features/tramites/components/FiltrosSolicitudesModal";
 import { FiltrosSolicitudesModal } from "@/features/tramites/components/FiltrosSolicitudesModal";
@@ -31,6 +31,7 @@ import {
 import { useSolicitudes } from "@/features/tramites/hooks/useTramites";
 import { useDebounce } from "@/hooks";
 import { useUrlPagination } from "@/hooks/system/useUrlPagination";
+import { BUTTON_PRESETS } from "@/shared/constants/button.tokens";
 import {
   ESTADO_SOLICITUD,
   type EstadoSolicitud,
@@ -41,7 +42,7 @@ import {
 /** Vista-tabs posibles para la bandeja de solicitudes */
 type VistaTab = "todas" | "mias_areas" | "asignadas" | "creadas";
 
-const VISTA_TABS: { value: VistaTab; label: string }[] = [
+const VISTA_TABS: ReadonlyArray<{ value: VistaTab; label: string }> = [
   { value: "todas", label: "Todas" },
   { value: "mias_areas", label: "Mis áreas" },
   { value: "asignadas", label: "Asignadas a mí" },
@@ -183,28 +184,27 @@ export default function SolicitudesPage() {
         description="Listado operativo de solicitudes registradas"
         icon={<FileText className="h-6 w-6 text-primary" />}
       >
-        {/* Vista tabs */}
-        <Tabs value={vista} onValueChange={(v) => handleVistaChange(v as VistaTab)}>
-          <TabsList className="mb-4">
-            {VISTA_TABS.map((tab) => (
-              <TabsTrigger key={tab.value} value={tab.value}>
-                {tab.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
+        {/* Vista tabs — segmented control matching the login screen */}
+        <div className="mb-4">
+          <SegmentedTabs
+            ariaLabel="Vista de solicitudes"
+            value={vista}
+            onValueChange={(v) => handleVistaChange(v as VistaTab)}
+            options={VISTA_TABS}
+          />
+        </div>
 
         {/* Filter row */}
-        <div className="app-toolbar-card space-y-3">
+        <div className="app-card card-elegant-shadow rounded-3xl p-7 space-y-3">
           <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
             {/* Search input */}
             <div className="relative min-w-0 flex-1">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Buscar por ID, documento, persona o asunto..."
                 value={searchInput}
                 onChange={(e) => handleSearchChange(e.target.value)}
-                className="h-11 rounded-xl pl-10 pr-10"
+                className="h-12 rounded-2xl pl-11 pr-10"
               />
               {searchInput && (
                 <button
@@ -222,7 +222,7 @@ export default function SolicitudesPage() {
               {/* Filter modal trigger */}
               <Button
                 variant={hasActiveFilters ? "default" : "outline"}
-                className="gap-2 h-10 rounded-xl"
+                className="gap-2 h-12 rounded-2xl px-5"
                 onClick={() => setShowFiltros(true)}
               >
                 <Filter className="h-4 w-4" />
@@ -236,7 +236,7 @@ export default function SolicitudesPage() {
               </Button>
 
               <Button
-                className="gap-2 h-10 rounded-xl font-bold btn-wine-gradient-hover shrink-0"
+                className="gap-2 h-12 rounded-2xl font-bold btn-wine-gradient-hover shrink-0 px-5"
                 onClick={() => setShowCreate(true)}
               >
                 <Plus className="h-4 w-4" />
@@ -249,7 +249,7 @@ export default function SolicitudesPage() {
                   variant="ghost"
                   size="sm"
                   onClick={clearAllFilters}
-                  className="h-9 text-destructive hover:text-destructive"
+                  className="h-10 rounded-2xl text-destructive hover:text-destructive"
                 >
                   Limpiar filtros
                 </Button>
@@ -294,7 +294,12 @@ export default function SolicitudesPage() {
                   No se pudieron obtener los datos. Intente nuevamente.
                 </p>
               </div>
-              <Button variant="outline" size="sm" onClick={() => refetch()}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => refetch()}
+                className={BUTTON_PRESETS.compact.secondary}
+              >
                 Reintentar
               </Button>
             </div>
@@ -326,7 +331,12 @@ export default function SolicitudesPage() {
                 </p>
               </div>
               {hasActiveFilters && (
-                <Button variant="outline" size="sm" onClick={clearAllFilters}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={clearAllFilters}
+                  className={BUTTON_PRESETS.compact.secondary}
+                >
                   Limpiar filtros
                 </Button>
               )}

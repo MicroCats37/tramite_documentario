@@ -16,6 +16,7 @@ import { ChevronDown, ChevronUp, History } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { BUTTON_PRESETS } from "@/shared/constants/button.tokens";
 import type { HistorialEstadoGlobalTrazabilidad } from "../../schemas/trazabilidad.schema";
 import { solicitudEstadoLabel } from "./traceabilityLabels";
 import { formatTimelineDate } from "./traceabilityTimeline";
@@ -62,7 +63,10 @@ export function ChronologicalHistory({
         size="sm"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="w-full justify-between gap-2 text-muted-foreground hover:text-foreground"
+        className={cn(
+          BUTTON_PRESETS.compact.secondary,
+          "w-full justify-between text-muted-foreground hover:text-foreground",
+        )}
       >
         <span className="flex items-center gap-2">
           <History className="size-4" aria-hidden="true" />

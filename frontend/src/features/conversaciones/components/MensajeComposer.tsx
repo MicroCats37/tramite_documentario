@@ -59,13 +59,13 @@ export function getMentionLabel(
  * Builds a human-readable context label for a mentionable user.
  * Only returns a non-empty string when period context is available
  * (i.e., when area_id is present from a solicitud_id query).
- * Format: "area · rol · ciclo N · Tipo" e.g. "Comercial · Analista · ciclo 1 · Principal"
+ * Format: "area · rol · participación N · Tipo" e.g. "Comercial · Analista · participación 1 · Principal"
  */
 export function getMentionContextLabel(u: UsuarioMencionable): string {
   const parts: string[] = [];
   if (u.area_nombre) parts.push(u.area_nombre);
   if (u.rol) parts.push(u.rol);
-  if (u.numero_ciclo != null) parts.push(`ciclo ${u.numero_ciclo}`);
+  if (u.numero_ciclo != null) parts.push(`participación ${u.numero_ciclo}`);
   if (u.tipo_participacion) {
     // Humanize tipo_participacion for display
     const label =

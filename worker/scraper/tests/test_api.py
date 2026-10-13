@@ -8,8 +8,16 @@ Incluye:
 
 import pytest
 from fastapi.testclient import TestClient
+from unittest.mock import patch
 
 from main import app
+from documento_scraper import (
+    DocumentNotFoundError,
+    ScraperFormatError,
+    ScraperTimeoutError,
+    ScraperUnavailableError,
+    TipoDocumento,
+)
 
 client = TestClient(app)
 
@@ -75,3 +83,67 @@ def test_e2e_consulta_ruc_no_existente():
     assert response.status_code == 404
     data = response.json()
     assert data["error"] == "NOT_FOUND"
+
+
+# ──────────────────────────────────────────────
+# 3. Pruebas de Caminos de Error (Mock)
+# ──────────────────────────────────────────────
+
+def test_consultar_timeout_returns_504():
+    """ScraperTimeoutError returns 504 with retryable=True."""
+    with patch("main.consultar", side_effect=ScraperTimeoutError(timeout_type="read")):
+        response = client.get("/consultar/20100047218")
+        assert response.status_code == 504
+        data = response.json()
+        assert data["error"] == "TIMEOUT"
+        assert data["retryable"] is True
+
+
+def test_consultar_unavailable_returns_503():
+    """ScraperUnavailableError returns 503 with retryable=True."""
+    with patch("main.consultar", side_effect=ScraperUnavailableError(reason="connection_error")):
+        response = client.get("/consultar/20100047218")
+        assert response.status_code == 503
+        data = response.json()
+        assert data["error"] == "UNAVAILABLE"
+        assert data["retryable"] is True
+
+
+def test_consultar_format_error_returns_502():
+    """ScraperFormatError returns 502 with retryable=False."""
+    with patch("main.consultar", side_effect=ScraperFormatError(parser_hint="h4")):
+        response = client.get("/consultar/20100047218")
+        assert response.status_code == 502
+        data = response.json()
+        assert data["error"] == "FORMAT_ERROR"
+        assert data["retryable"] is False
+
+
+def test_consultar_document_not_found_returns_404():
+    """DocumentNotFoundError returns 404."""
+    with patch(
+        "main.consultar",
+        side_effect=DocumentNotFoundError("00000000", TipoDocumento.DNI),
+    ):
+        response = client.get("/consultar/00000000")
+        assert response.status_code == 404
+        data = response.json()
+        assert data["error"] == "NOT_FOUND"
+
+
+def test_consultar_validation_error_returns_422():
+    """ValueError raised by consultar() (e.g. non-numeric internally) returns 422."""
+    with patch("main.consultar", side_effect=ValueError("no digits")):
+        response = client.get("/consultar/00000000")
+        assert response.status_code == 422
+        data = response.json()
+        assert data["error"] == "INVALID_DOCUMENT"
+
+
+def test_consultar_internal_error_returns_500():
+    """Unexpected exception (logic bug) returns 500."""
+    with patch("main.consultar", side_effect=RuntimeError("unexpected")):
+        response = client.get("/consultar/20100047218")
+        assert response.status_code == 500
+        data = response.json()
+        assert data["error"] == "INTERNAL_ERROR"

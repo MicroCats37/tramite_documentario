@@ -36,9 +36,15 @@ from modules.conversaciones.domain.services.flujos.solicitud_comentario_flujo im
     SolicitudComentarioFlujo,
 )
 from modules.notificaciones.domain.models import Notificacion, NotificacionSolicitud
+from modules.notificaciones.domain.services.core.notificacion_service import (
+    NotificacionService,
+)
+
+# Import FakeNotificationRealtimePublisher from shared conftest
+from modules.conversaciones.tests.conftest import FakeNotificationRealtimePublisher
 
 
-# ── Fixtures ───────────────────────────────────────────────────────────────
+# ── Fixtures ────────────────────────────────────────────────────────────────
 
 @pytest.fixture
 def core_service():
@@ -47,9 +53,24 @@ def core_service():
 
 
 @pytest.fixture
-def solicitud_comentario_flujo(core_service):
-    """SolicitudComentarioFlujo with injected core service."""
-    return SolicitudComentarioFlujo(mensajeria_service=core_service)
+def fake_publisher():
+    """FakeNotificationRealtimePublisher for test isolation."""
+    return FakeNotificationRealtimePublisher()
+
+
+@pytest.fixture
+def notificacion_service(fake_publisher):
+    """NotificacionService with fake publisher for test isolation."""
+    return NotificacionService(realtime_publisher=fake_publisher)
+
+
+@pytest.fixture
+def solicitud_comentario_flujo(core_service, notificacion_service):
+    """SolicitudComentarioFlujo with injected core and notification services."""
+    return SolicitudComentarioFlujo(
+        mensajeria_service=core_service,
+        notificacion_service=notificacion_service,
+    )
 
 
 @pytest.fixture

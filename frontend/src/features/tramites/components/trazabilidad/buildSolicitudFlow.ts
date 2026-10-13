@@ -210,7 +210,7 @@ export function buildSolicitudFlow(
       nodes.push({
         id: periodStartId,
         kind: "period-start",
-        label: `Ciclo ${period.numero_ciclo}`,
+        label: `Participación ${period.numero_ciclo}`,
         timestamp: period.fecha_inicio,
         areaId: area.id,
         periodId: period.id,
@@ -256,7 +256,7 @@ export function buildSolicitudFlow(
         inner.push({
           id: `area-${area.id}-period-${period.id}-state-${hIdx}`,
           kind: "period-state-change",
-          label: "Cambio de estado del ciclo",
+          label: "Participación actualizada",
           timestamp: h.fecha_cambio,
           areaId: area.id,
           periodId: period.id,
@@ -291,8 +291,8 @@ export function buildSolicitudFlow(
         id: periodTerminalId,
         kind: "period-terminal",
         label: isClosed
-          ? `Ciclo ${period.numero_ciclo} cerrado`
-          : `Ciclo ${period.numero_ciclo} en curso`,
+          ? `Participación ${period.numero_ciclo} cerrada`
+          : `Participación ${period.numero_ciclo} en curso`,
         timestamp: terminalTs,
         areaId: area.id,
         periodId: period.id,
@@ -397,9 +397,10 @@ export function buildSolicitudFlow(
     nodes.push({
       id: mergeNodeId,
       kind: "global-merge",
-      label: "Convergencia",
+      label: "Las áreas cerraron",
       timestamp: mergeTs,
-      detail: "Las ramas convergen según precedencia registrada",
+      detail:
+        "Todas las áreas completaron su parte y la solicitud está lista para el cierre",
       handles: { input: true, output: true },
     });
     for (const area of areas) {

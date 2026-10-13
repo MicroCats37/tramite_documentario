@@ -57,6 +57,9 @@ from modules.tramites.domain.services.core.solicitud_core_service import (
     SolicitudCoreService,
 )
 from modules.usuarios.domain.models import Area, Usuario
+from modules.notificaciones.domain.services.core.notificacion_service import (
+    NotificacionService,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -86,10 +89,12 @@ class SolicitudRespuestaFlujo:
         respuesta_core: SolicitudRespuestaCoreService,
         solicitud_core: SolicitudCoreService,
         mensajeria_service: MensajeriaCoreService,
+        notificacion_service: NotificacionService,
     ):
         self.respuesta_core = respuesta_core
         self.solicitud_core = solicitud_core
         self.mensajeria_service = mensajeria_service
+        self.notificacion_service = notificacion_service
 
     async def _proceso_emitir_respuesta(
         self,
@@ -459,36 +464,23 @@ class SolicitudRespuestaFlujo:
         La notificación se emite fuera de la transacción principal
         (después del commit) para no bloquear la respuesta.
         """
-        try:
-            from modules.notificaciones.domain.services.core.notificacion_service import (
-                NotificacionService,
-            )
-            from modules.notificaciones.domain.constants import (
-                AmbitoNotificacion,
-                EventoNotificacion,
-                PrioridadNotificacion,
-            )
-        except ImportError:
-            # Notification module not available — skip silently
-            logger.warning("Notification module not available, skipping RESPUESTA_FINAL")
-            return
+        from modules.notificaciones.domain.constants import (
+            AmbitoNotificacion,
+            EventoNotificacion,
+            PrioridadNotificacion,
+        )
 
-        try:
-            service = NotificacionService()
-        except Exception:
-            logger.warning("NotificacionService could not be instantiated")
-            return
+        titulo = f"Respuesta final emitida - Expediente {solicitud.expediente.id_publico}"
+        mensaje = (
+            f"El área {area.nombre} emitió una respuesta de tipo {tipo_respuesta} "
+            f"a la solicitud {solicitud.expediente.id_publico}."
+        )
 
+        # Notificar al área (AUDITORIA: el área ya sabe que emitió, pero
+        # la notificación sirve como registro formal).
+        # Non-critical: graceful degradation if notification fails
         try:
-            titulo = f"Respuesta final emitida - Expediente {solicitud.expediente.id_publico}"
-            mensaje = (
-                f"El área {area.nombre} emitió una respuesta de tipo {tipo_respuesta} "
-                f"a la solicitud {solicitud.expediente.id_publico}."
-            )
-
-            # Notificar al área (AUDITORIA: el área ya sabe que emitió, pero
-            # la notificación sirve como registro formal).
-            service.crear_notificacion_area(
+            self.notificacion_service.crear_notificacion_area(
                 area=area,
                 titulo=titulo,
                 mensaje=mensaje,
@@ -499,10 +491,15 @@ class SolicitudRespuestaFlujo:
                 ocurrido_en=ahora,
                 solicitud=solicitud,
             )
+        except Exception as e:
+            logger.warning(
+                "Failed to emit area notification for RESPUESTA_FINAL: %s", e
+            )
 
-            # Notificar al creador de la solicitud
-            if solicitud.creado_por_id != emitido_por_id:
-                service.crear_notificacion_usuario(
+        # Notificar al creador de la solicitud
+        if solicitud.creado_por_id != emitido_por_id:
+            try:
+                self.notificacion_service.crear_notificacion_usuario(
                     usuario_id=solicitud.creado_por_id,
                     titulo=titulo,
                     mensaje=mensaje,
@@ -512,9 +509,7 @@ class SolicitudRespuestaFlujo:
                     generada_por_id=emitido_por_id,
                     ocurrido_en=ahora,
                 )
-        except Exception as e:
-            # Non-critical: log and continue without failing the respuesta
-            logger.warning(
-                "Failed to emit RESPUESTA_FINAL notification: %s",
-                e,
-            )
+            except Exception as e:
+                logger.warning(
+                    "Failed to emit user notification for RESPUESTA_FINAL: %s", e
+                )

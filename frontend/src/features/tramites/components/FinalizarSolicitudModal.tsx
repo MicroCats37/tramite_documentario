@@ -13,6 +13,10 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { notify } from "@/errors";
+import {
+  BUTTON_PRESETS,
+  SPINNER_CLASS,
+} from "@/shared/constants/button.tokens";
 import { useFinalizarSolicitud } from "../hooks/useFinalizarSolicitud";
 import {
   type FinalizarSolicitudFormData,
@@ -38,7 +42,9 @@ export function FinalizarSolicitudModal({
 }: FinalizarSolicitudModalProps) {
   const finalizarMutation = useFinalizarSolicitud(solicitudId);
 
-  const [tipoRespuesta, setTipoRespuesta] = useState<TipoRespuesta | "">("CONFORMIDAD");
+  const [tipoRespuesta, setTipoRespuesta] = useState<TipoRespuesta | "">(
+    "CONFORMIDAD",
+  );
   const [contenido, setContenido] = useState("");
   const [files, setFiles] = useState<File[]>([]);
 
@@ -125,27 +131,72 @@ export function FinalizarSolicitudModal({
   return (
     <GenericModal open={open} onOpenChange={handleClose} preventClose={false}>
       <GenericModal.Content size="md">
-        <GenericModal.Header className="bg-primary/[0.03] border-b border-border px-6 py-5">
+        {/* ── Header — matches the form modal pattern (SolicitudFormModal:242-260) ── */}
+        <div className="bg-gradient-to-r from-primary/5 via-primary/[0.02] to-transparent border-b border-border px-6 py-5 sm:px-8">
           <div className="flex items-center gap-3 w-full">
-            <div className="p-2 rounded-xl border border-primary/20 shadow-sm bg-primary/10">
+            <div className="p-2 sm:p-2.5 bg-primary/10 rounded-xl sm:rounded-2xl border border-primary/20 shadow-sm shrink-0">
               <CheckCircle className="h-5 w-5 text-primary" />
             </div>
             <div className="flex flex-col gap-0.5 min-w-0 flex-1">
               <span className="hidden sm:block text-[10px] font-bold uppercase tracking-widest text-primary leading-none">
                 Respuesta Formal
               </span>
-              <h2 className="text-2xl font-black tracking-tight text-foreground leading-tight">
+              <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground leading-tight">
                 Finalizar Solicitud
               </h2>
-              <p className="hidden sm:block text-sm text-muted-foreground leading-relaxed">
+              <p className="hidden sm:block max-w-prose text-pretty line-clamp-2 text-sm text-muted-foreground leading-relaxed">
                 Registra la respuesta formal institucional y cierra la solicitud
               </p>
             </div>
-            <div className="w-9 shrink-0" aria-hidden="true" />
           </div>
-        </GenericModal.Header>
+        </div>
 
         <GenericModal.Body className="space-y-5">
+          {/* Consecuencias — bloque informativo siempre visible */}
+          <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-5 py-4">
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-3 text-destructive">
+              Qué va a pasar
+            </p>
+            <ul className="space-y-2.5 text-sm text-foreground">
+              <li className="flex items-start gap-2.5">
+                <span
+                  className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-destructive"
+                  aria-hidden="true"
+                />
+                <span className="leading-relaxed">
+                  Todos los períodos abiertos se cerrarán en cascada
+                </span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <span
+                  className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-destructive"
+                  aria-hidden="true"
+                />
+                <span className="leading-relaxed">
+                  La solicitud se marcará como finalizada
+                </span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <span
+                  className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-destructive"
+                  aria-hidden="true"
+                />
+                <span className="leading-relaxed">
+                  No se podrán incorporar más áreas ni tomar nuevos períodos
+                </span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <span
+                  className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-destructive"
+                  aria-hidden="true"
+                />
+                <span className="leading-relaxed">
+                  Esta acción no se puede revertir
+                </span>
+              </li>
+            </ul>
+          </div>
+
           {/* Tipo de respuesta */}
           <div className="space-y-2">
             <label
@@ -254,26 +305,29 @@ export function FinalizarSolicitudModal({
           </div>
         </GenericModal.Body>
 
-        <GenericModal.Footer className="px-6 py-4 bg-muted/30 border-t border-border">
-          <div className="flex items-center justify-end gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => handleClose(false)}
-              disabled={isPending}
-              className="h-10 rounded-xl font-semibold"
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              onClick={handleSubmit}
-              disabled={isPending || disabled}
-              className="h-10 rounded-xl font-bold gap-1.5"
-            >
-              {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-              Emitir Respuesta
-            </Button>
+        <GenericModal.Footer className="px-6 py-4 sm:px-8 bg-muted/30 border-t border-border">
+          <div className="flex items-center justify-between gap-2 sm:gap-3">
+            <div className="flex items-center gap-2" />
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleClose(false)}
+                disabled={isPending}
+                className={BUTTON_PRESETS.modal.secondary}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                onClick={handleSubmit}
+                disabled={isPending || disabled}
+                className={BUTTON_PRESETS.modal.primary}
+              >
+                {isPending && <Loader2 className={SPINNER_CLASS} />}
+                Emitir Respuesta
+              </Button>
+            </div>
           </div>
         </GenericModal.Footer>
 

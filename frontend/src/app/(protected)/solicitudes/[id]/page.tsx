@@ -32,6 +32,8 @@ import {
   isUserAssignedToArea,
   normalizeId,
 } from "@/features/tramites/utils/actionVisibility";
+import { cn } from "@/lib/utils";
+import { BUTTON_PRESETS } from "@/shared/constants/button.tokens";
 import {
   ESTADO_SOLICITUD,
   type EstadoSolicitud,
@@ -77,7 +79,11 @@ function EmptyState({ onBack }: { onBack: () => void }) {
             No se encontró la solicitud solicitada.
           </p>
         </div>
-        <Button variant="outline" onClick={onBack}>
+        <Button
+          variant="outline"
+          onClick={onBack}
+          className={BUTTON_PRESETS.inline.secondary}
+        >
           Volver a la bandeja
         </Button>
       </div>
@@ -244,7 +250,7 @@ export default function SolicitudDetallePage() {
               <Button
                 variant="outline"
                 size="sm"
-                className="h-7 gap-1.5 text-xs"
+                className={cn(BUTTON_PRESETS.compact.secondary, "text-xs")}
                 aria-expanded={chatOpen}
                 aria-controls="solicitud-conversacion-panel"
                 onClick={handleToggleChat}

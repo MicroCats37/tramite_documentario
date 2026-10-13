@@ -1,6 +1,7 @@
 """
 ExpedientePresenter — transforma la entidad Expediente a esquema HTTP ExpedienteItemOut.
 """
+from core_application.storage.resolvers import resolve_public_url
 from modules.tramites.domain.models.expediente import Expediente
 from modules.tramites.domain.models import ExpedienteArchivo
 from modules.tramites.presentation.schemas.expediente_out import ExpedienteArchivoOut
@@ -64,10 +65,20 @@ class ExpedientePresenter:
 
     @staticmethod
     def _map_archivo(archivo: ExpedienteArchivo) -> ExpedienteArchivoOut:
-        """Transforma un ExpedienteArchivo a ExpedienteArchivoOut."""
+        """Transforma un ExpedienteArchivo a ExpedienteArchivoOut.
+
+        Si archivo.archivo.name es un puntero SAAA (saaa/{app_id}/{archivo_id}/{nombre}),
+        retorna la URL del proxy Django en lugar de la URL local.
+        Usa resolve_public_url() para respetar FILE_PROXY_URL (absoluto o relativo).
+        """
+        url = resolve_public_url(
+            archivo_field_name=archivo.archivo.name if archivo.archivo else "",
+            archivo_url_attr=archivo.archivo,
+        )
+
         return ExpedienteArchivoOut(
             id=archivo.id,
             tipo_archivo=archivo.tipo_archivo,
             nombre_original=archivo.nombre_original,
-            url=archivo.archivo.url if archivo.archivo else "",
+            url=url,
         )

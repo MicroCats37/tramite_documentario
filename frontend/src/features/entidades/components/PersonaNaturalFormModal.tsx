@@ -10,6 +10,7 @@ import { useDocumentoLookup } from "@/features/entidades/hooks/useConsultaExtern
 import { useDistritos } from "@/features/entidades/hooks/useDistritos";
 import { usePersonaNaturalUpsert } from "@/features/entidades/hooks/useEntidad";
 import type { EntidadResult } from "@/features/entidades/types/entidad";
+import { parseDniRazonSocial } from "@/features/entidades/utils/documento-nombre";
 import type { PersonaNaturalFormModalProps } from "@/features/liquidaciones/types/liquidacion-edificaciones-form.types";
 
 const schema = z.object({
@@ -113,12 +114,13 @@ export function PersonaNaturalFormModal({
           try {
             const result = await documentoLookup.mutateAsync(dniValue);
             if (result) {
-              // razon_social = "APELLIDOS, NOMBRES" para DNI
-              const parts = result.razon_social.split(", ");
-              if (parts.length === 2) {
-                setValue("apellidos", parts[0], { shouldValidate: true });
-                setValue("nombres", parts[1], { shouldValidate: true });
-              }
+              // DNI: "APELLIDOS, NOMBRES" → apellidos + nombres.
+              // Si el worker cae al fallback sin coma, reparte por palabras.
+              const { apellidos, nombres } = parseDniRazonSocial(
+                result.razon_social,
+              );
+              setValue("apellidos", apellidos, { shouldValidate: true });
+              setValue("nombres", nombres, { shouldValidate: true });
             }
           } catch {
             // Error is handled by the hook

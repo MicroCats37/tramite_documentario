@@ -36,6 +36,9 @@ from modules.conversaciones.domain.schemas.mensaje_schemas import MensajeCreateD
 from modules.conversaciones.domain.services.core.mensajeria_service import (
     MensajeriaCoreService,
 )
+from modules.notificaciones.domain.services.core.notificacion_service import (
+    NotificacionService,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -51,8 +54,13 @@ class ConversacionFlujo:
     """
 
     @inject
-    def __init__(self, mensajeria_service: MensajeriaCoreService):
+    def __init__(
+        self,
+        mensajeria_service: MensajeriaCoreService,
+        notificacion_service: NotificacionService,
+    ):
         self.mensajeria_service = mensajeria_service
+        self.notificacion_service = notificacion_service
 
     # ── Crear conversación ─────────────────────────────────────────────────────
 
@@ -165,9 +173,8 @@ class ConversacionFlujo:
 
         Menciones (direct user notifications):
             Calls NotificacionService.crear_notificacion_usuario() for each
-            mentioned user. This may raise NotImplementedError if the service
-            method is not yet implemented; in that case the hook logs a warning
-            and continues without failing the message creation.
+            mentioned user. This may raise NotificacionEventoNoRegistradoError;
+            in that case the hook logs and re-raises to preserve consistency.
 
         Area notifications:
             DISABLED for normal comments. Normal comments create no area
@@ -180,23 +187,9 @@ class ConversacionFlujo:
             violating the design rule that "normal comments do not notify". The
             generic conversation endpoint no longer sends area notifications.
         """
-        try:
-            from modules.notificaciones.domain.services.core.notificacion_service import (
-                NotificacionService,
-            )
-        except ImportError:
-            # Notification module not available — skip silently
-            return
-
-        try:
-            notif_service = NotificacionService()
-        except Exception:
-            # DI or configuration issue — skip silently
-            return
-
         # ── Menciones: direct user notifications ───────────────────────────
         if data.menciones:
-            self._notify_menciones(notif_service, mensaje, data)
+            self._notify_menciones(self.notificacion_service, mensaje, data)
 
         # ── Area notifications (DISABLED) ──────────────────────────────────
         # NORMAL COMMENTS: no area notification.

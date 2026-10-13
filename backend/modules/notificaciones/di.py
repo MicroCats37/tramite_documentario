@@ -11,6 +11,9 @@ from modules.notificaciones.domain.services.flujos.notificacion_flujo import (
 from modules.notificaciones.domain.services.orchestrators.notificacion_orchestrator import (
     NotificacionOrchestrator,
 )
+from modules.notificaciones.infrastructure.services.notification_realtime_publisher import (
+    NotificationRealtimePublisher,
+)
 
 
 class NotificacionesModule(Module):
@@ -18,6 +21,7 @@ class NotificacionesModule(Module):
 
     def configure(self, binder: Binder) -> None:
         """Configure bindings for notificaciones module."""
+        binder.bind(NotificationRealtimePublisher, to=NotificationRealtimePublisher, scope=singleton)
         binder.bind(NotificacionService, to=NotificacionService, scope=singleton)
         binder.bind(NotificacionFlujo, to=NotificacionFlujo, scope=singleton)
         binder.bind(

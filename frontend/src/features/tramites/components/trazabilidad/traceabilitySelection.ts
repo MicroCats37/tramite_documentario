@@ -388,9 +388,10 @@ function resolveGlobalNode(
     return {
       type: "node",
       kind: "global-merge",
-      label: "Convergencia",
+      label: "Las áreas cerraron",
       timestamp: new Date(mergeMs).toISOString(),
-      detail: "Las ramas convergen según precedencia registrada",
+      detail:
+        "Todas las áreas completaron su parte y la solicitud está lista para el cierre",
     };
   }
   const label =

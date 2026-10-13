@@ -20,8 +20,13 @@ COPY . .
 # Set environment variables for build
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+ARG NEXT_PUBLIC_AUTH_STORAGE_PREFIX
+ENV NEXT_PUBLIC_AUTH_STORAGE_PREFIX=${NEXT_PUBLIC_AUTH_STORAGE_PREFIX}
 ARG NEXT_PUBLIC_COOKIE_SECURE
 ENV NEXT_PUBLIC_COOKIE_SECURE=${NEXT_PUBLIC_COOKIE_SECURE}
+# Server-side only - host:port format (e.g. backend:8000)
+ARG BACKEND_HOST
+ENV BACKEND_HOST=${BACKEND_HOST}
 ENV NEXT_TELEMETRY_DISABLED=1
 
 # Build the Next.js application
@@ -45,11 +50,11 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Expose the port (default: 70020)
-EXPOSE ${PORT:-7000}
+# Expose the port (default: 3000 — Next.js standard, overrideable via PORT env var).
+EXPOSE ${PORT:-3000}
 
 # Set environment variables with defaults
-ENV PORT=${PORT:-7000}
+ENV PORT=${PORT:-3000}
 ENV HOSTNAME=${HOSTNAME:-0.0.0.0}
 
 # Start the Next.js standalone server

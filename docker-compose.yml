@@ -1,4 +1,17 @@
 services:
+  redis:
+    image: redis:7-alpine
+    container_name: tramite_documentario_redis
+    ports:
+      - "${REDIS_EXTERNAL_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+
   db:
     image: postgres:16-alpine
     container_name: tramite_documentario_db
@@ -28,12 +41,13 @@ services:
     container_name: tramite_documentario_scraper
     environment:
       PYTHONUNBUFFERED: "1"
+      SCRAPER_INTERNAL_PORT: ${SCRAPER_INTERNAL_PORT:-8001}
     ports:
-      # Puerto externo (host): ${SCRAPER_PORT:-12002} → interno 8001
-      - "${SCRAPER_PORT:-12002}:8001"
+      # Puerto externo (host): ${SCRAPER_PORT:-12002} → interno ${SCRAPER_INTERNAL_PORT:-8001}
+      - "${SCRAPER_PORT:-12002}:${SCRAPER_INTERNAL_PORT:-8001}"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:${SCRAPER_INTERNAL_PORT:-8001}/health')"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -49,14 +63,19 @@ services:
     environment:
       # Django settings module — production por defecto, overridear en .env si es necesario
       DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-config.settings.production}
+      BACKEND_INTERNAL_PORT: ${BACKEND_INTERNAL_PORT:-8000}
+      MEDIA_URL: ${MEDIA_URL:-http://backend:8000/media/}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       scraper:
         condition: service_healthy
     ports:
-      # Puerto externo (host): ${BACKEND_PORT:-12001} → interno 8000
-      - "${BACKEND_PORT:-12001}:8000"
+      # Puerto externo (host): ${BACKEND_PORT:-8000} → interno ${BACKEND_INTERNAL_PORT:-8000}
+      - "${BACKEND_PORT:-8000}:${BACKEND_INTERNAL_PORT:-8000}"
     volumes:
       - backend_static:/app/staticfiles
     restart: unless-stopped
@@ -67,19 +86,37 @@ services:
       context: frontend
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://10.10.5.177:12001/api}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/backend}
+        NEXT_PUBLIC_AUTH_STORAGE_PREFIX: ${NEXT_PUBLIC_AUTH_STORAGE_PREFIX:-tramite_documentario_auth}
+        BACKEND_HOST: backend:${BACKEND_INTERNAL_PORT:-8000}
     container_name: tramite_documentario_frontend
     env_file:
-      - frontend/.env.local
+      - .env
     environment:
-      PORT: ${FRONTEND_PORT:-12000}
+      PORT: 3000
       HOSTNAME: ${FRONTEND_HOSTNAME:-0.0.0.0}
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://10.10.5.177:12001/api}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/backend}
+      NEXT_PUBLIC_AUTH_STORAGE_PREFIX: ${NEXT_PUBLIC_AUTH_STORAGE_PREFIX:-tramite_documentario_auth}
+      BACKEND_HOST: backend:${BACKEND_INTERNAL_PORT:-8000}
     ports:
-      # Puerto externo (host): ${FRONTEND_PORT:-12000} → interno 12000
-      - "${FRONTEND_PORT:-12000}:${FRONTEND_PORT:-12000}"
+      # Puerto externo (host): ${FRONTEND_PORT:-3000} → interno 3000
+      - "${FRONTEND_PORT:-3000}:3000"
     depends_on:
       - backend
+    restart: unless-stopped
+
+  proxy:
+    image: nginx:1.27-alpine
+    container_name: tramite_documentario_proxy
+    depends_on:
+      - frontend
+      - backend
+    ports:
+      # Único puerto público vía proxy (configurable vía PROXY_PORT).
+      # Nginx enruta /backend/* → backend/api/* y /api/auth/* → frontend.
+      - "${PROXY_PORT:-7100}:80"
+    volumes:
+      - ./proxy/nginx.conf:/etc/nginx/nginx.conf:ro
     restart: unless-stopped
 
 volumes:

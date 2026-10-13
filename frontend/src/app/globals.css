@@ -1120,12 +1120,12 @@ button {
     border: none !important;
     border-radius: 0 !important;
     box-shadow: none !important;
-    background: white !important;
+    background: var(--color-card) !important;
   }
 
   /* Modal header */
   .expediente-modal-header {
-    border-bottom: 1px solid #e5e5e5 !important;
+    border-bottom: 1px solid var(--color-border) !important;
     padding: 1rem 0 !important;
   }
 
@@ -1147,7 +1147,7 @@ button {
   .expediente-card {
     border-radius: 0 !important;
     box-shadow: none !important;
-    border: 1px solid #e5e5e5 !important;
+    border: 1px solid var(--color-border) !important;
     margin-bottom: 0.75rem !important;
     break-inside: avoid;
   }
@@ -1239,8 +1239,14 @@ button {
   }
 
   /* Modal header */
+  /* Hide the SolicitudDetailModal's own header when printing the page directly
+     (avoids duplicate "Solicitud LIMA-XXXX" — the print HTML has its own page-header) */
   .solicitud-modal-header {
-    border-bottom: 1px solid #e5e5e5 !important;
+    display: none !important;
+  }
+
+  .solicitud-modal-header-old {
+    border-bottom: 1px solid var(--color-border) !important;
     padding: 1rem 0 !important;
   }
 
@@ -1262,7 +1268,7 @@ button {
   .solicitud-modal-card {
     border-radius: 0 !important;
     box-shadow: none !important;
-    border: 1px solid #e5e5e5 !important;
+    border: 1px solid var(--color-border) !important;
     margin-bottom: 0.75rem !important;
     break-inside: avoid;
   }

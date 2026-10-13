@@ -10,3 +10,4 @@ export type {
   NotificationTabsProps,
 } from "./NotificationTabs";
 export { NotificationTabs } from "./NotificationTabs";
+export { NotificationsPanel } from "./NotificationsPanel";

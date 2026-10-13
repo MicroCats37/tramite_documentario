@@ -9,9 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { notify } from "@/errors";
 import {
-  useDocumentoLookup,
   type DocumentoConsultaData,
+  useDocumentoLookup,
 } from "@/features/entidades/hooks/useConsultaExterna";
+import { parseDniRazonSocial } from "@/features/entidades/utils/documento-nombre";
 import { cn } from "@/lib/utils";
 import type { InputComponentProps } from "./types";
 
@@ -124,25 +125,18 @@ export const InputDocumentoLookup: React.FC<InputDocumentoLookupProps> = ({
 
     if (isRUC) {
       setValue(fieldNames.razon_social, razonSocial, { shouldValidate: true });
+    } else if (fieldNames.apellidos && fieldNames.nombres) {
+      // DNI: split "APELLIDOS, NOMBRES" → apellidos y nombres.
+      // Si no viene la coma (fallback del worker), repartir por palabras
+      // siguiendo la convención peruana (apellidos primero).
+      const { apellidos, nombres } = parseDniRazonSocial(razonSocial);
+      setValue(fieldNames.apellidos, apellidos, { shouldValidate: true });
+      setValue(fieldNames.nombres, nombres, { shouldValidate: true });
     } else {
-      // DNI: split "APELLIDOS, NOMBRES" → apellidos y nombres
-      if (fieldNames.apellidos && fieldNames.nombres) {
-        const parts = razonSocial.split(", ");
-        if (parts.length === 2) {
-          setValue(fieldNames.apellidos, parts[0], { shouldValidate: true });
-          setValue(fieldNames.nombres, parts[1], { shouldValidate: true });
-        } else {
-          // Si el formato no incluye la coma, va todo a razon_social
-          setValue(fieldNames.razon_social, razonSocial, {
-            shouldValidate: true,
-          });
-        }
-      } else {
-        // Si el schema no tiene campos de nombre separados, va a razon_social
-        setValue(fieldNames.razon_social, razonSocial, {
-          shouldValidate: true,
-        });
-      }
+      // Si el schema no tiene campos de nombre separados, va a razon_social
+      setValue(fieldNames.razon_social, razonSocial, {
+        shouldValidate: true,
+      });
     }
   };
 

@@ -13,15 +13,25 @@ Patrón:
 Validación de eventos (Batch 3):
     Cada creación valida (ambito, evento) contra el registry de notificaciones.
     Los eventos no registrados son rechazados con NotificacionEventoNoRegistradoError.
+
+Realtime emission (Apply 3):
+    Después de crear las notificaciones, registra transaction.on_commit()
+    para emitir eventos realtime via NotificationRealtimePublisher.
 """
 
 from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID
 
+from django.db import transaction
+from injector import inject
+
 from modules.notificaciones.domain.registry import (
     get_event_config,
     is_registered_event,
+)
+from modules.notificaciones.infrastructure.services.notification_realtime_publisher import (
+    NotificationRealtimePublisher,
 )
 
 if TYPE_CHECKING:
@@ -46,7 +56,68 @@ class NotificacionService:
     - NotificacionAsignacion (contexto de asignación, si se provee)
     - NotificacionPeriodo (contexto de período, si se provee)
     - NotificacionUsuario (para cada usuario elegible del área)
+
+    Realtime emission:
+        Después de crear los registros NotificacionUsuario, registra
+        transaction.on_commit() para emitir notification.created via
+        NotificationRealtimePublisher. El publisher se injecta via constructor
+        (default: NotificationRealtimePublisher()).
     """
+
+    @inject
+    def __init__(
+        self,
+        realtime_publisher: NotificationRealtimePublisher | None = None,
+    ):
+        """
+        Args:
+            realtime_publisher: Publisher for real-time events. Defaults to
+                NotificationRealtimePublisher() if None (for direct instantiation).
+                When injected via DI, receives NotificationRealtimePublisher singleton.
+        """
+        self._realtime_publisher = (
+            realtime_publisher
+            if realtime_publisher is not None
+            else NotificationRealtimePublisher()
+        )
+
+    def _emitir_realtime_si_commit(
+        self,
+        user_ids: list[int],
+        notification_id: UUID,
+    ) -> None:
+        """
+        Register an on_commit hook to emit realtime notification after DB commit.
+
+        This is called AFTER all NotificacionUsuario records are created,
+        within the caller's atomic() block. The hook fires only if the
+        surrounding transaction commits successfully.
+
+        Args:
+            user_ids: List of user IDs to notify.
+            notification_id: ID of the created notification.
+        """
+        if not user_ids:
+            return
+
+        unique_user_ids = list(set(user_ids))
+
+        def _on_commit_callback():
+            try:
+                self._realtime_publisher.publish_created_batch(
+                    user_ids=unique_user_ids,
+                    notification_id=notification_id,
+                )
+            except Exception:
+                # Best-effort: log but never propagate
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.exception(
+                    "Failed to emit realtime notification for notification_id=%s",
+                    notification_id,
+                )
+
+        transaction.on_commit(_on_commit_callback)
 
     def crear_notificacion_area(
         self,
@@ -184,6 +255,10 @@ class NotificacionService:
                 usuario=usuario,
             )
 
+        # Collect user IDs and register on_commit hook for realtime emission
+        user_ids = [u.id for u in usuarios_elegibles]
+        self._emitir_realtime_si_commit(user_ids, notificacion.id)
+
         return notificacion
 
     def crear_notificacion_usuario(
@@ -285,5 +360,8 @@ class NotificacionService:
             notificacion=notificacion,
             usuario_id=usuario_id,
         )
+
+        # Register on_commit hook for realtime emission (single user)
+        self._emitir_realtime_si_commit([usuario_id], notificacion.id)
 
         return notificacion

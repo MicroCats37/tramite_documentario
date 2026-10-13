@@ -34,6 +34,9 @@ from modules.notificaciones.domain.constants import (
     PrioridadNotificacion,
 )
 from modules.notificaciones.domain.registry import get_event_config
+from modules.notificaciones.domain.services.core.notificacion_service import (
+    NotificacionService,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -55,8 +58,13 @@ class SolicitudComentarioFlujo:
     """
 
     @inject
-    def __init__(self, mensajeria_service: MensajeriaCoreService):
+    def __init__(
+        self,
+        mensajeria_service: MensajeriaCoreService,
+        notificacion_service: NotificacionService,
+    ):
         self.mensajeria_service = mensajeria_service
+        self.notificacion_service = notificacion_service
 
     async def _proceso_crear_comentario(
         self,
@@ -247,14 +255,9 @@ class SolicitudComentarioFlujo:
             Exception: re-raises any unexpected exception from notification creation
                 after logging, so comment+notification consistency is preserved.
         """
-        from modules.notificaciones.domain.services.core.notificacion_service import (
-            NotificacionService,
-        )
         from modules.notificaciones.domain.exceptions import (
             NotificacionEventoNoRegistradoError,
         )
-
-        notif_service = NotificacionService()
 
         # Get priority from registry
         config = get_event_config(
@@ -269,7 +272,7 @@ class SolicitudComentarioFlujo:
 
         for mencion in data.menciones:
             try:
-                notif_service.crear_notificacion_usuario(
+                self.notificacion_service.crear_notificacion_usuario(
                     usuario_id=mencion.usuario_id,
                     titulo="Te mencionaron en un comentario",
                     mensaje=mensaje.contenido or "(mensaje sin texto)",

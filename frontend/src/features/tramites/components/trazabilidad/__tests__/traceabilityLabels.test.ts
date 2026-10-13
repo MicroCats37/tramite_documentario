@@ -80,8 +80,11 @@ describe("traceabilityLabels", () => {
         "Estado de la solicitud",
       );
       assert.equal(eventoTipoLabel("AREA_INCORPORADA"), "Área incorporada");
-      assert.equal(eventoTipoLabel("PERIODO_INICIADO"), "Ciclo iniciado");
-      assert.equal(eventoTipoLabel("PERIODO_CERRADO"), "Ciclo cerrado");
+      assert.equal(
+        eventoTipoLabel("PERIODO_INICIADO"),
+        "Participación iniciada",
+      );
+      assert.equal(eventoTipoLabel("PERIODO_CERRADO"), "Participación cerrada");
       assert.equal(
         eventoTipoLabel("PARTICIPANTE_AGREGADO"),
         "Participante agregado",
@@ -98,7 +101,7 @@ describe("traceabilityLabels", () => {
       );
       assert.equal(
         eventoTipoLabel("ESTADO_PERIODO_CAMBIADO"),
-        "Cambio de estado del ciclo",
+        "Cambio de estado de la participación",
       );
       assert.equal(
         eventoTipoLabel("RESPUESTA_REGISTRADA"),

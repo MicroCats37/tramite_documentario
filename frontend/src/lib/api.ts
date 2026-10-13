@@ -1,8 +1,14 @@
 import axios from "axios";
 import { getCookie } from "cookies-next";
 
+import { AUTH_COOKIES } from "@/lib/auth/cookies";
+
+// baseURL:
+//   Dev (.env.local): http://localhost:8000/api  (absolute, direct backend)
+//   Docker (root .env): /backend  (relative, nginx proxy on same origin)
+//   Fallback: /backend
 export const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api",
+  baseURL: process.env.NEXT_PUBLIC_API_URL || "/backend",
   timeout: 15000,
 });
 
@@ -63,7 +69,7 @@ function isTokenExpiringSoon(): boolean {
   if (typeof window === "undefined") return false;
 
   try {
-    const expiresAt = getCookie("auth_expires_at");
+    const expiresAt = getCookie(AUTH_COOKIES.EXPIRES_AT);
     if (!expiresAt || typeof expiresAt !== "string") return true;
 
     const expiryDate = new Date(expiresAt);
@@ -86,11 +92,11 @@ api.interceptors.request.use(
 
     if (typeof window === "undefined") {
       // Server-side: read from httpOnly cookies via cookies-next (synchronous)
-      const cookieValue = getCookie("auth_access_token");
+      const cookieValue = getCookie(AUTH_COOKIES.ACCESS_TOKEN);
       token = typeof cookieValue === "string" ? cookieValue : null;
     } else {
       // Client-side: read from httpOnly cookie via cookies-next
-      const cookieValue = getCookie("auth_access_token");
+      const cookieValue = getCookie(AUTH_COOKIES.ACCESS_TOKEN);
       token = typeof cookieValue === "string" ? cookieValue : null;
 
       // Proactively refresh if token is expiring within 5 minutes
@@ -98,7 +104,7 @@ api.interceptors.request.use(
         try {
           await refreshAccessToken();
           // After refresh, re-read the new token from cookie
-          const newToken = getCookie("auth_access_token");
+          const newToken = getCookie(AUTH_COOKIES.ACCESS_TOKEN);
           token = typeof newToken === "string" ? newToken : null;
         } catch {
           // Refresh failed; proceed with existing token (may result in 401)
@@ -136,7 +142,7 @@ api.interceptors.response.use(
         await refreshAccessToken();
 
         // After successful refresh, retry the original request with new token
-        const newToken = getCookie("auth_access_token");
+        const newToken = getCookie(AUTH_COOKIES.ACCESS_TOKEN);
         if (newToken && typeof newToken === "string") {
           originalRequest.headers.Authorization = `Bearer ${newToken}`;
         }

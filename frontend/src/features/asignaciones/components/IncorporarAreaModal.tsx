@@ -13,9 +13,13 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { notify } from "@/errors";
-import { useAreas } from "@/features/tramites/hooks/useAreas";
 import { useIncorporarArea } from "@/features/asignaciones/hooks";
 import type { IncorporarAreaData } from "@/features/asignaciones/schemas/asignacion.schema";
+import { useAreas } from "@/features/tramites/hooks/useAreas";
+import {
+  BUTTON_PRESETS,
+  SPINNER_CLASS,
+} from "@/shared/constants/button.tokens";
 import type { TipoParticipacion } from "@/shared/constants/tramite.tokens";
 
 interface IncorporarAreaModalProps {
@@ -197,7 +201,7 @@ export function IncorporarAreaModal({
               variant="outline"
               onClick={() => handleClose(false)}
               disabled={incorporarMutation.isPending}
-              className="h-10 rounded-xl font-semibold"
+              className={BUTTON_PRESETS.modal.secondary}
             >
               Cancelar
             </Button>
@@ -209,10 +213,10 @@ export function IncorporarAreaModal({
                 !areaId ||
                 availableAreas.length === 0
               }
-              className="h-10 rounded-xl font-bold gap-1.5"
+              className={BUTTON_PRESETS.modal.primary}
             >
               {incorporarMutation.isPending && (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className={SPINNER_CLASS} />
               )}
               <Plus className="h-4 w-4" />
               Incorporar área

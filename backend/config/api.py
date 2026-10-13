@@ -18,6 +18,9 @@ from modules.usuarios.presentation.controllers.usuario_mencionable_controller im
 from modules.tramites.presentation.controllers.expediente_controller import ExpedienteController
 from modules.tramites.presentation.controllers.solicitud_controller import SolicitudController
 from modules.tramites.presentation.controllers.tipo_documento_controller import TipoDocumentoController
+from modules.tramites.presentation.controllers.saaa_archivo_proxy_controller import (
+    SaaaArchivoProxyController,
+)
 from modules.notificaciones.presentation.controllers.notificacion_controller import NotificacionController
 from modules.asignaciones.presentation.controllers.periodo_controller import PeriodoController
 from modules.asignaciones.presentation.controllers.participacion_usuario_controller import ParticipacionUsuarioController
@@ -90,6 +93,7 @@ api.register_controllers(IngenieroHabilitadoController)
 api.register_controllers(ExpedienteController)
 api.register_controllers(SolicitudController)
 api.register_controllers(TipoDocumentoController)
+api.register_controllers(SaaaArchivoProxyController)
 
 # ── Asignaciones Controllers ─
 api.register_controllers(NotificacionController)

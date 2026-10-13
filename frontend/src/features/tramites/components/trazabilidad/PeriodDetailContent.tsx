@@ -123,7 +123,7 @@ export function PeriodStateHistory({
 }: TraceabilitySectionProps & { period: PeriodoTrazabilidad }) {
   return (
     <section className="flex flex-col gap-2">
-      <SectionTitle>Historial de estados del ciclo</SectionTitle>
+      <SectionTitle>Historial de la participación</SectionTitle>
       {period.historial_estados.length === 0 ? (
         <p className="text-xs italic text-muted-foreground">
           Sin historial de estados

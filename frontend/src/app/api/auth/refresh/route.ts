@@ -33,8 +33,14 @@ export async function POST() {
       );
     }
 
-    const backendUrl =
-      process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+    const backendHost = process.env.BACKEND_HOST;
+    if (!backendHost) {
+      throw new Error(
+        "BACKEND_HOST env var is required (format: host:port, e.g. localhost:8000). " +
+          "Set it in frontend/.env.local (dev) or root .env (Docker).",
+      );
+    }
+    const backendUrl = `http://${backendHost}/api`;
 
     // Call backend refresh endpoint
     const response = await fetch(`${backendUrl}/token/refresh`, {

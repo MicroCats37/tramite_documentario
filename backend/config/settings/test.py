@@ -19,6 +19,10 @@ DATABASES = {
 # En tests usamos el simulador para no depender del API externo real
 CIP_USE_SIMULATOR = True
 
+# ── SAAA Client ─────────────────────────────────────────────
+# En tests usamos FakeSaaaClient en memoria (no conecta a SAAA real)
+SAAA_USE_FAKE = True
+
 # ── Notificaciones (Mock) ───────────────────────────────────
 NOTI_EMULATOR_ENABLED = True
 NOTI_URL = "http://mock-noti"
@@ -35,4 +39,14 @@ NINJA_JWT = {
     "BLACKLIST_AFTER_ROTATION": True,
     "AUTH_HEADER_TYPES": ("Bearer",),
     # Login propio en /api/auth/login/ — no usamos el built-in de ninja-jwt
+    # WS_COOKIE_NAME must match what WebsocketCommunicator tests send in headers
+    "WS_COOKIE_NAME": "access_token",
+}
+
+# ── Channels — InMemory for tests (no Redis dependency) ─────
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+        "CONFIG": {},
+    },
 }

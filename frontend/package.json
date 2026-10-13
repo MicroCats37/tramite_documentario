@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "biome check",
-    "format": "biome format --write"
+    "format": "biome format --write",
+    "test:ws": "tsx --test src/features/notificaciones/services/__tests__/notification-websocket.manager.test.ts",
+    "probe:ws": "tsx scripts/ws-probe.ts"
   },
   "dependencies": {
     "@diceui/mention": "^1.0.0",
@@ -51,7 +53,10 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/uuid": "^10.0.0",
+    "@types/ws": "^8.18.1",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "tsx": "^4.23.13",
+    "typescript": "^5",
+    "ws": "^8.21.3"
   }
 }

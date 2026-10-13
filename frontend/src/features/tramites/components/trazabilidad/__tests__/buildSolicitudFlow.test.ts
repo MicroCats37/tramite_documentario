@@ -306,7 +306,7 @@ describe("buildSolicitudFlow", () => {
       (n) => n.id === `area-${A}-period-${P2}-terminal`,
     );
     assert.equal(terminal?.open, true);
-    assert.equal(terminal?.label, "Ciclo 2 en curso");
+    assert.equal(terminal?.label, "Participación 2 en curso");
   });
 
   it("builds areaGroups with deterministic node lists", () => {

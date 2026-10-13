@@ -203,7 +203,7 @@ function DetailCard({ item }: DetailCardProps) {
 
         {item.periodo?.numero_ciclo != null && (
           <div>
-            <dt className="text-xs text-muted-foreground">Ciclo</dt>
+            <dt className="text-xs text-muted-foreground">Participación</dt>
             <dd className="font-medium">{item.periodo.numero_ciclo}</dd>
           </div>
         )}
@@ -213,7 +213,9 @@ function DetailCard({ item }: DetailCardProps) {
             <dt className="text-xs text-muted-foreground">Período</dt>
             <dd
               className={`font-medium ${
-                item.periodo.esta_abierto ? "text-green-600" : "text-muted-foreground"
+                item.periodo.esta_abierto
+                  ? "text-green-600"
+                  : "text-muted-foreground"
               }`}
             >
               {item.periodo.esta_abierto ? "Activo" : "Cerrado"}

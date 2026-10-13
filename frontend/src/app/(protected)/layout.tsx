@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { ProtectedSidebar } from "@/components-app/sidebar/ProtectedSidebar";
 import { Topbar } from "@/components-app/topbar/Topbar";
 import { getUserSession } from "@/lib/auth";
+import { NotificationRealtimeBootstrap } from "./NotificationRealtimeBootstrap";
 
 /**
  * Protected layout - wraps all authenticated routes with sidebar.
@@ -27,6 +28,8 @@ export default async function ProtectedLayout({
 
       {/* Main content area - takes remaining space */}
       <main className="relative flex flex-1 flex-col min-w-0 overflow-hidden bg-background">
+        {/* Mounts the WebSocket → TanStack Query invalidation integration once */}
+        <NotificationRealtimeBootstrap />
         <Topbar />
         <div className="flex-1 overflow-auto">{children}</div>
       </main>

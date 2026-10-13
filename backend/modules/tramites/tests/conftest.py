@@ -20,3 +20,7 @@ from modules.tramites.tests.fixtures.expediente_fixtures import (
     tipo_documento_solicitud,
     tipo_documento_oficio,
 )
+from modules.tramites.tests.fixtures.saaa_fixtures import (
+    saaa_client,
+    real_saaa_client,
+)

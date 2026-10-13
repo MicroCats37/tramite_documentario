@@ -18,6 +18,8 @@
 import { Calendar, Clock, Layers, LinkIcon, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { SolicitudDetail } from "@/features/tramites/schemas/tramite.schema";
+import { cn } from "@/lib/utils";
+import { BUTTON_PRESETS } from "@/shared/constants/button.tokens";
 import {
   ESTADO_SOLICITUD,
   type EstadoSolicitud,
@@ -158,7 +160,7 @@ export function SolicitudResumenEjecutivo({
             <Button
               variant="outline"
               size="sm"
-              className="h-7 gap-1.5 text-xs"
+              className={cn(BUTTON_PRESETS.compact.secondary, "text-xs")}
               onClick={onVerExpedienteClick}
             >
               <LinkIcon className="h-3 w-3" aria-hidden="true" />
