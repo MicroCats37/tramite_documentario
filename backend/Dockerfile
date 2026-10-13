@@ -24,7 +24,8 @@ RUN uv sync --frozen --no-install-project
 COPY backend/ .
 
 # Create non-root user for security
-RUN useradd --create-home --shell /bin/bash appuser && \
+RUN chmod +x /app/docker/entrypoint.sh && \
+    useradd --create-home --shell /bin/bash appuser && \
     chown -R appuser:appuser /app
 
 # Expose port
