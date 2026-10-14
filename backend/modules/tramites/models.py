@@ -1,6 +1,7 @@
 # Re-export models from domain/models/ — NO logic here.
 
 from .domain.models import (
+    Archivo,
     Expediente,
     ExpedienteArchivo,
     ExpedienteAntecedente,
@@ -10,6 +11,7 @@ from .domain.models import (
 )
 
 __all__ = [
+    "Archivo",
     "Expediente",
     "ExpedienteArchivo",
     "ExpedienteAntecedente",

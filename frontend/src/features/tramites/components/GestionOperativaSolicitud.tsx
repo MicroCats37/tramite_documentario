@@ -23,6 +23,7 @@ import {
   Hand,
   Info,
   Loader2,
+  Play,
   Plus,
   XCircle,
 } from "lucide-react";
@@ -57,6 +58,11 @@ export interface GestionOperativaProps {
   userAreaIds: Set<string>;
   /** Pre-wired tomar mutation from the page. */
   tomarPeriodo: {
+    mutate: (periodoId: string, options?: { onSettled?: () => void }) => void;
+    isPending: boolean;
+  };
+  /** Pre-wired iniciar gestion mutation from the page. */
+  iniciarGestion: {
     mutate: (periodoId: string, options?: { onSettled?: () => void }) => void;
     isPending: boolean;
   };
@@ -252,6 +258,7 @@ export function GestionOperativaSolicitud({
   currentUserId,
   userAreaIds,
   tomarPeriodo,
+  iniciarGestion,
   onOperationSelect,
   userCanFinalize,
   onFinalizar,
@@ -260,6 +267,9 @@ export function GestionOperativaSolicitud({
   onOperationStart,
 }: GestionOperativaProps) {
   const [tomandoPeriodoId, setTomandoPeriodoId] = useState<string | null>(null);
+  const [iniciandoPeriodoId, setIniciandoPeriodoId] = useState<string | null>(
+    null,
+  );
   const { confirm, Dialog } = useConfirmationDialog();
 
   const {
@@ -316,6 +326,32 @@ export function GestionOperativaSolicitud({
     tomarPeriodo.mutate(periodoId, {
       onSettled: () => {
         setTomandoPeriodoId(null);
+        onOperationStart("");
+      },
+    });
+  };
+
+  const handleIniciarGestion = async (periodoId: string) => {
+    const ok = await confirm({
+      title: "Iniciar gestión",
+      description:
+        "Pasarás este período a En Gestión. Después podrás finalizarlo, marcarlo como erróneo o cambiar la participación.",
+      consequences: [
+        "El período se moverá a En Gestión",
+        "Podrás registrar respuestas y operar sobre el trámite",
+        "El cambio se reflejará en la trazabilidad",
+      ],
+      confirmLabel: "Iniciar gestión",
+      cancelLabel: "Cancelar",
+      icon: Play,
+      variant: "default",
+    });
+    if (!ok) return;
+    setIniciandoPeriodoId(periodoId);
+    onOperationStart(`iniciar-gestion-${periodoId}`);
+    iniciarGestion.mutate(periodoId, {
+      onSettled: () => {
+        setIniciandoPeriodoId(null);
         onOperationStart("");
       },
     });
@@ -481,6 +517,51 @@ export function GestionOperativaSolicitud({
                           </Button>
                         )}
                       </div>
+
+                      {/* Iniciar gestion — only when user is active participant of a PENDIENTE period.
+                          Migrated data may leave a participant assigned to a PENDIENTE period
+                          without the period being moved to EN_GESTION; this action lets the user
+                          advance the period state without losing their participation. */}
+                      {periodo.isActiveParticipant &&
+                        periodo.isOperable &&
+                        periodo.estado === "PENDIENTE" && (
+                          <div className="flex flex-col gap-0.5 min-w-0">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className={cn(
+                                BUTTON_PRESETS.compact.secondary,
+                                "text-xs self-start",
+                              )}
+                              aria-label={`Iniciar gestión de participación ${periodo.numeroCiclo} de ${area.areaNombre}`}
+                              onClick={() =>
+                                handleIniciarGestion(periodo.periodoId)
+                              }
+                              disabled={
+                                iniciandoPeriodoId === periodo.periodoId ||
+                                activeOperation ===
+                                  `iniciar-gestion-${periodo.periodoId}`
+                              }
+                            >
+                              {iniciandoPeriodoId === periodo.periodoId ||
+                              activeOperation ===
+                                `iniciar-gestion-${periodo.periodoId}` ? (
+                                <Loader2 className={SPINNER_CLASS} />
+                              ) : (
+                                <Play
+                                  className="h-3.5 w-3.5"
+                                  aria-hidden="true"
+                                />
+                              )}
+                              Iniciar gestion
+                            </Button>
+                            <span className="text-[10px] text-muted-foreground leading-tight">
+                              Mueve el período a En Gestión para empezar a
+                              operar el trámite.
+                            </span>
+                          </div>
+                        )}
 
                       {/* Compact secondary actions — only when period is EN_GESTION and user is eligible */}
                       {periodo.showOperations &&

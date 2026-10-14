@@ -26,13 +26,29 @@ export type TipoRespuesta = (typeof TIPO_RESPUESTA)[number];
 
 /**
  * Archivo adjunto en la respuesta del backend.
- * Backend: ArchivoAdjuntoOut
+ * Backend: SolicitudRespuestaArchivoOut (renamed from ArchivoAdjuntoOut in Phase 1)
+ *
+ * Includes url field and nested `archivo` object for canonical representation.
+ * Legacy fields preserved for backward compat.
  */
 export const ArchivoAdjuntoOutSchema = z.object({
+  // Legacy flat fields
   id: z.string().uuid(),
   nombre_original: z.string(),
   mime_type: z.string().nullable().optional(),
   tamano_bytes: z.number().nullable().optional(),
+  url: z.string().nullable().optional(),
+  // Nested canonical representation — archivo.id is the central Archivo id
+  archivo: z
+    .object({
+      id: z.string().uuid(),
+      nombre_original: z.string(),
+      mime_type: z.string().nullable().optional(),
+      tamano_bytes: z.number().nullable().optional(),
+      url: z.string().nullable().optional(),
+    })
+    .nullable()
+    .optional(),
 });
 
 export type ArchivoAdjuntoOut = z.infer<typeof ArchivoAdjuntoOutSchema>;

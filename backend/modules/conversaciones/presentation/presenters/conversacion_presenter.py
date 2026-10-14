@@ -11,7 +11,7 @@ from typing import Optional
 
 from django.conf import settings
 
-from core_application.storage.resolvers import resolve_public_url
+from core_application.storage.resolvers import resolve_storage_url
 from modules.conversaciones.domain.constants import EstadoConversacion
 from modules.conversaciones.domain.models import Conversacion, Mensaje
 from modules.conversaciones.domain.results.mensaje_results import (
@@ -28,6 +28,7 @@ from modules.conversaciones.presentation.schemas.conversacion_schemas import (
     MencionOut,
     MensajeOut,
 )
+from modules.tramites.presentation.presenters.archivo_presenter import map_archivo_to_out
 
 
 class ConversacionPresenter:
@@ -134,24 +135,37 @@ class ConversacionPresenter:
 
     @staticmethod
     def present_adjunto(adj) -> ArchivoAdjuntoOut:
-        """Construye un ArchivoAdjuntoOut desde una entidad MensajeArchivoAdjunto.
-
-        NOTE: adj.archivo.name puede ser un puntero SAAA (saaa/{app_id}/{archivo_id}/{nombre})
-        en lugar de un archivo local. En ese caso, adj.archivo.url devolvería un path
-        local inexistente. Se usa resolve_public_url() para distinguir ambos casos
-        y retornar la URL correcta.
         """
-        archivo_url = resolve_public_url(
-            adj.archivo.name if adj.archivo else None,
-            adj.archivo if adj.archivo else None,
-        )
+        Construye un ArchivoAdjuntoOut desde una entidad MensajeArchivoAdjunto.
+
+        Wrapper `id` is the row id; `archivo.id` is the central Archivo id.
+        No redundant archivo_id field — use archivo.id instead.
+        Uses map_archivo_to_out() for the canonical nested representation.
+        Uses resolve_storage_url() for the legacy archivo_url field.
+        """
+        if adj.archivo:
+            archivo_out = map_archivo_to_out(adj.archivo)
+            archivo_url = resolve_storage_url(
+                storage_backend=adj.archivo.storage_backend,
+                storage_reference=adj.archivo.storage_reference,
+            )
+            nombre_original = adj.archivo.nombre_original or ""
+            mime_type = adj.archivo.mime_type
+            tamano_bytes = adj.archivo.tamano_bytes
+        else:
+            archivo_out = None
+            archivo_url = ""
+            nombre_original = ""
+            mime_type = None
+            tamano_bytes = None
         return ArchivoAdjuntoOut(
             id=adj.id,
-            nombre_original=adj.nombre_original,
-            mime_type=adj.mime_type,
-            tamano_bytes=adj.tamano_bytes,
+            nombre_original=nombre_original,
+            mime_type=mime_type,
+            tamano_bytes=tamano_bytes,
             archivo_url=archivo_url,
             descripcion=adj.descripcion if hasattr(adj, "descripcion") else None,
+            archivo=archivo_out,
         )
 
     @staticmethod

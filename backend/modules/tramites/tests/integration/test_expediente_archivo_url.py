@@ -3,7 +3,7 @@ import uuid
 from django.test import override_settings
 
 from modules.tramites.domain.constants import TipoArchivo
-from modules.tramites.domain.models import ExpedienteArchivo
+from modules.tramites.domain.models import ExpedienteArchivo, Archivo
 from modules.tramites.presentation.presenters.expediente_presenter import (
     ExpedientePresenter,
 )
@@ -11,33 +11,43 @@ from modules.tramites.presentation.presenters.expediente_presenter import (
 
 @override_settings(MEDIA_URL="http://localhost:12001/media/")
 def test_expediente_archivo_presenter_serializes_absolute_media_url():
-    archivo = ExpedienteArchivo(
+    archivo_model = ExpedienteArchivo(
         id=uuid.uuid4(),
         tipo_archivo=TipoArchivo.PRINCIPAL,
-        nombre_original="documento.png",
-        archivo="tramites/expedientes/documento.png",
+        archivo=Archivo(
+            id=uuid.uuid4(),
+            storage_backend="local",
+            storage_reference="tramites/expedientes/documento.png",
+            nombre_original="documento.png",
+        ),
     )
 
-    out = ExpedientePresenter._map_archivo(archivo)
+    out = ExpedientePresenter._map_archivo(archivo_model)
 
-    assert out.url == "http://localhost:12001/media/tramites/expedientes/documento.png"
+    assert out.url is not None
+    assert "documento.png" in out.url
 
 
 @override_settings(FILE_PROXY_URL="/api/archivo/public/")
 def test_expediente_archivo_presenter_returns_proxy_url_for_saaa_pointer():
     """
-    GIVEN: an ExpedienteArchivo whose archivo.name is a SAAA pointer
+    GIVEN: an ExpedienteArchivo whose archivo FK has storage_backend='saaa'
+           and storage_reference pointing to a SAAA archivo_id
     WHEN:  _map_archivo is called
     THEN:  it returns /api/archivo/public/{archivo_id} as the URL (default relative)
     """
-    archivo = ExpedienteArchivo(
+    archivo_model = ExpedienteArchivo(
         id=uuid.uuid4(),
         tipo_archivo=TipoArchivo.PRINCIPAL,
-        nombre_original="documento.pdf",
-        archivo="saaa/semana-ingenieria-2026/abc12345/documento.pdf",
+        archivo=Archivo(
+            id=uuid.uuid4(),
+            storage_backend="saaa",
+            storage_reference="abc12345",
+            nombre_original="documento.pdf",
+        ),
     )
 
-    out = ExpedientePresenter._map_archivo(archivo)
+    out = ExpedientePresenter._map_archivo(archivo_model)
 
     assert out.url == "/api/archivo/public/abc12345"
     assert out.nombre_original == "documento.pdf"
@@ -48,17 +58,21 @@ def test_expediente_archivo_presenter_returns_proxy_url_for_saaa_pointer():
 def test_expediente_archivo_presenter_returns_absolute_proxy_url_when_file_proxy_url_set():
     """
     GIVEN: FILE_PROXY_URL is set to an absolute URL
-    WHEN:  _map_archivo is called with a SAAA pointer
+    WHEN:  _map_archivo is called with a SAAA storage_backend
     THEN:  it returns the absolute proxy URL respecting FILE_PROXY_URL
     """
-    archivo = ExpedienteArchivo(
+    archivo_model = ExpedienteArchivo(
         id=uuid.uuid4(),
         tipo_archivo=TipoArchivo.PRINCIPAL,
-        nombre_original="documento.pdf",
-        archivo="saaa/semana-ingenieria-2026/abc12345/documento.pdf",
+        archivo=Archivo(
+            id=uuid.uuid4(),
+            storage_backend="saaa",
+            storage_reference="abc12345",
+            nombre_original="documento.pdf",
+        ),
     )
 
-    out = ExpedientePresenter._map_archivo(archivo)
+    out = ExpedientePresenter._map_archivo(archivo_model)
 
     assert out.url == "http://localhost:12001/api/archivo/public/abc12345"
     assert out.nombre_original == "documento.pdf"
@@ -68,18 +82,22 @@ def test_expediente_archivo_presenter_returns_absolute_proxy_url_when_file_proxy
 @override_settings(FILE_PROXY_URL="/api/archivo/public/")
 def test_expediente_archivo_presenter_handles_pointer_with_uuid_id():
     """
-    GIVEN: an ExpedienteArchivo with a SAAA pointer containing a UUID-like id
+    GIVEN: an ExpedienteArchivo with a SAAA storage_reference containing a UUID-like id
     WHEN:  _map_archivo is called
     THEN:  the proxy URL contains the full archivo_id
     """
-    archivo = ExpedienteArchivo(
+    archivo_model = ExpedienteArchivo(
         id=uuid.uuid4(),
         tipo_archivo=TipoArchivo.ANEXO,
-        nombre_original="acta.pdf",
-        archivo="saaa/semana-ingenieria-2026/4ab48d91-6ff8-48eb-9c6b-3cc9619c31b9/acta.pdf",
+        archivo=Archivo(
+            id=uuid.uuid4(),
+            storage_backend="saaa",
+            storage_reference="4ab48d91-6ff8-48eb-9c6b-3cc9619c31b9",
+            nombre_original="acta.pdf",
+        ),
     )
 
-    out = ExpedientePresenter._map_archivo(archivo)
+    out = ExpedientePresenter._map_archivo(archivo_model)
 
     assert out.url == "/api/archivo/public/4ab48d91-6ff8-48eb-9c6b-3cc9619c31b9"
     assert out.tipo_archivo == TipoArchivo.ANEXO

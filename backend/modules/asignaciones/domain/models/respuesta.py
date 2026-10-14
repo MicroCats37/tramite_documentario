@@ -40,12 +40,15 @@ class SolicitudAsignacionRespuesta(BaseModel):
         verbose_name="Contenido",
         help_text="Texto de respuesta.",
     )
-    archivo = models.FileField(
+    # Nullable FK to central Archivo model.
+    # The FK is nullable because a response can exist without a file.
+    archivo = models.ForeignKey(
+        "tramites.Archivo",
+        on_delete=models.PROTECT,
+        related_name="respuesta_archivos",
         null=True,
         blank=True,
-        upload_to="asignaciones/respuestas/",
         verbose_name="Archivo",
-        help_text="Documento oficial.",
     )
     estado = models.CharField(
         max_length=20,

@@ -34,15 +34,6 @@ class ExpedienteArchivo(BaseModel):
         choices=TipoArchivo.choices,
         verbose_name="Tipo de Archivo",
     )
-    archivo = models.FileField(
-        max_length=1024,
-        upload_to="tramites/expedientes/",
-        verbose_name="Archivo",
-    )
-    nombre_original = models.CharField(
-        max_length=255,
-        verbose_name="Nombre Original",
-    )
     descripcion = models.TextField(
         null=True,
         blank=True,
@@ -53,6 +44,15 @@ class ExpedienteArchivo(BaseModel):
         on_delete=models.PROTECT,
         related_name="archivos_expediente_creados",
         verbose_name="Creado por",
+    )
+    # Direct FK to central Archivo model — replaces legacy FileField.
+    archivo = models.ForeignKey(
+        "tramites.Archivo",
+        on_delete=models.PROTECT,
+        related_name="expediente_archivos",
+        null=True,
+        blank=True,
+        verbose_name="Archivo",
     )
 
     class Meta:
@@ -69,4 +69,5 @@ class ExpedienteArchivo(BaseModel):
         ]
 
     def __str__(self):
-        return f"{self.tipo_archivo} — {self.nombre_original}"
+        nombre = self.archivo.nombre_original if self.archivo else "Sin archivo"
+        return f"{self.tipo_archivo} — {nombre}"

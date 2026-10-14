@@ -22,7 +22,7 @@ class RespuestaOut(BaseSchema):
     periodo_id: uuid_lib.UUID = Field(..., description="ID del período asociado")
     tipo_respuesta: TipoRespuesta = Field(..., description="Tipo de respuesta")
     contenido: Optional[str] = Field(None, description="Contenido o texto de la respuesta")
-    archivo: Optional[str] = Field(None, description="Ruta del archivo adjunto")
+    archivo: Optional[str] = Field(None, description="Ruta/URL del archivo adjunto")
     estado: EstadoRespuesta = Field(..., description="Estado de la respuesta (siempre BORRADOR al crear)")
     version: int = Field(..., description="Número de versión")
     observacion: Optional[str] = Field(None, description="Observación adicional")

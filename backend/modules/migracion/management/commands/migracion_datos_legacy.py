@@ -3,10 +3,22 @@ ETL command to migrate data from legacy mesa_partes database.
 
 Usage:
     python manage.py migracion_datos_legacy
+    python manage.py migracion_datos_legacy --files-backend local
+    python manage.py migracion_datos_legacy --files-backend saaa-dry --dry-run
+
+Environment variables:
+    LEGACY_DB_HOST, LEGACY_DB_PORT, LEGACY_DB_NAME, LEGACY_DB_USER, LEGACY_DB_PASSWORD
+    LEGACY_MEDIA_ROOT  (default: data-new/media_local relative to backend root)
+    SAAA_USE_FAKE     (default: true in DEBUG mode)
 """
 
+import hashlib
+import json
+import mimetypes
+import os
 import uuid
 from datetime import date, datetime, timedelta
+from pathlib import Path
 
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -23,26 +35,35 @@ from modules.asignaciones.domain.constants import (
     EstadoPeriodo, TipoCierre, TipoParticipacion, TipoRespuesta,
 )
 from modules.conversaciones.domain.constants import TipoMensaje
-from modules.conversaciones.domain.models import Conversacion, Mensaje, SolicitudConversacion
+from modules.conversaciones.domain.models import Conversacion, Mensaje, MensajeArchivoAdjunto, SolicitudConversacion
 from modules.tramites.domain.models import (
-    Expediente, Solicitud, TipoDocumento,
-    ExpedienteArchivo, SolicitudArchivo, SolicitudEstadoHistorial, SolicitudRespuesta,
+    Archivo, Expediente, Solicitud, TipoDocumento,
+    ExpedienteArchivo, SolicitudEstadoHistorial, SolicitudRespuesta,
 )
 from modules.tramites.domain.constants import EstadoSolicitud, Prioridad, TipoPersona, TipoArchivo
 from modules.tramites.domain.models.solicitud_historial import OrigenCambio
+from modules.tramites.infrastructure.saaa_client import RealSaaaClient
 
 
-# Legacy database connection
+# ── Legacy database connection ─────────────────────────────────────────────────
+
 LEGACY_DB = {
-    'host': 'localhost',
-    'port': 15433,
-    'dbname': 'mesa_partes_db',
-    'user': 'postgres',
-    'password': 'postgres',
+    'host': os.environ.get('LEGACY_DB_HOST', 'localhost'),
+    'port': int(os.environ.get('LEGACY_DB_PORT', '15433')),
+    'dbname': os.environ.get('LEGACY_DB_NAME', 'mesa_partes_db'),
+    'user': os.environ.get('LEGACY_DB_USER', 'postgres'),
+    'password': os.environ.get('LEGACY_DB_PASSWORD', 'postgres'),
 }
 
-# Legacy media path (where files are stored)
-LEGACY_MEDIA_PATH = '/var/lib/postgresql/mesa_partes_media'
+
+def _get_legacy_media_root() -> Path:
+    """Resolve LEGACY_MEDIA_ROOT, defaulting to data-new/media_local at project root."""
+    # Walk up from this file to find project root.
+    # __file__ is backend/modules/migracion/management/commands/migracion_datos_legacy.py
+    # 6 parents up: commands -> management -> migracion -> modules -> backend -> project root
+    project_root = Path(__file__).resolve().parents[5]
+    default_root = project_root / "data-new" / "media_local"
+    return Path(os.environ.get("LEGACY_MEDIA_ROOT", str(default_root)))
 
 
 class Command(BaseCommand):
@@ -59,10 +80,28 @@ class Command(BaseCommand):
             action="store_true",
             help="Skip file migration.",
         )
+        parser.add_argument(
+            "--files-backend",
+            choices=["local", "saaa", "saaa-dry"],
+            default="local",
+            help=(
+                "File storage backend for migrated files. "
+                "'local' (default): store the legacy path as storage_reference. "
+                "'saaa': upload each file to the configured SAAA service. "
+                "'saaa-dry': simulate SAAA upload without actual upload (dry-run only for SAAA)."
+            ),
+        )
+        parser.add_argument(
+            "--analyze-only",
+            action="store_true",
+            help="Analyze legacy files and print report without migrating anything.",
+        )
 
     def handle(self, *args, **options) -> None:
         dry_run: bool = options["dry_run"]
         skip_files: bool = options["skip_files"]
+        files_backend: str = options["files_backend"]
+        analyze_only: bool = options["analyze_only"]
 
         self.stdout.write(self.style.WARNING("=" * 60))
         self.stdout.write(self.style.WARNING("MIGRATION: migracion_datos_legacy"))
@@ -71,6 +110,16 @@ class Command(BaseCommand):
         if dry_run:
             self.stdout.write(self.style.WARNING("[DRY RUN MODE]"))
 
+        # Resolve media root
+        legacy_media_root = _get_legacy_media_root()
+        self.stdout.write(self.style.SUCCESS(f"Legacy media root: {legacy_media_root}"))
+        if not legacy_media_root.exists():
+            self.stdout.write(self.style.ERROR(f"Legacy media root does not exist: {legacy_media_root}"))
+            self.stdout.write(self.style.WARNING("Set LEGACY_MEDIA_ROOT env var to point to the legacy media directory."))
+            if not analyze_only:
+                self.stdout.write(self.style.ERROR("Cannot proceed without media root. Use --analyze-only to just analyze."))
+                return
+
         # Connect to legacy database
         try:
             legacy_conn = psycopg2.connect(**LEGACY_DB)
@@ -78,6 +127,13 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS(f"Connected to legacy DB: {LEGACY_DB['dbname']}"))
         except Exception as e:
             self.stdout.write(self.style.ERROR(f"Failed to connect to legacy DB: {e}"))
+            return
+
+        if analyze_only:
+            self.stdout.write(self.style.WARNING("\n[ANALYZE MODE]"))
+            self._analyze_legacy_files(legacy_conn, legacy_media_root)
+            legacy_conn.close()
+            self.stdout.write(self.style.SUCCESS("\nAnalysis complete."))
             return
 
         # Run migration in atomic transaction
@@ -116,12 +172,42 @@ class Command(BaseCommand):
             respuestas_count = self._migrate_respuestas_finales(legacy_conn, dry_run)
             self.stdout.write(self.style.SUCCESS(f"  Respuestas finales migrated: {respuestas_count}"))
 
-            # 8. Migrate files (ExpedienteArchivo and SolicitudArchivo)
+            # 8. Migrate files
             if not skip_files:
-                archivos_count = self._migrate_archivos(legacy_conn, dry_run)
-                self.stdout.write(self.style.SUCCESS(f"  Archivos migrated: {archivos_count}"))
+                self.stdout.write(self.style.SUCCESS(f"  File backend: {files_backend}"))
+                # 8a. Expediente principal files
+                princ_count = self._migrate_expediente_principal_archivos(
+                    legacy_conn, dry_run, files_backend, legacy_media_root
+                )
+                self.stdout.write(self.style.SUCCESS(f"  ExpedientePrincipal archivos migrated: {princ_count}"))
+                # 8b. Expediente anexo files (existing method, enhanced)
+                anexos_count = self._migrate_expediente_anexo_archivos(
+                    legacy_conn, dry_run, files_backend, legacy_media_root
+                )
+                self.stdout.write(self.style.SUCCESS(f"  ExpedienteAnexo archivos migrated: {anexos_count}"))
+                # 8c. Comment messages
+                msg_count = self._migrate_comentarios_to_mensajes(
+                    legacy_conn, dry_run, files_backend, legacy_media_root
+                )
+                self.stdout.write(self.style.SUCCESS(f"  Comentarios -> Mensajes migrated: {msg_count}"))
+                # 8d. Solicitud anexo files -> attach to conversation
+                sol_arch_count = self._migrate_solicitud_archivo_anexos(
+                    legacy_conn, dry_run, files_backend, legacy_media_root
+                )
+                self.stdout.write(self.style.SUCCESS(f"  SolicitudArchivoAnexo migrated: {sol_arch_count}"))
             else:
                 self.stdout.write(self.style.WARNING("  Skipping files (--skip-files)"))
+
+            # 9. Backfill empty Conversacion + SolicitudConversacion for
+            #    every Solicitud that does not yet have one. The legacy
+            #    system did not have conversaciones; the new flow creates
+            #    one on every solicitud creation, so we mirror that here.
+            conv_count = self._backfill_conversaciones(
+                dry_run=dry_run,
+            )
+            self.stdout.write(self.style.SUCCESS(
+                f"  Conversaciones backfilled: {conv_count}"
+            ))
 
         legacy_conn.close()
 
@@ -274,11 +360,14 @@ class Command(BaseCommand):
 
             # Map tipo_documento
             tipo_doc_nombre = row['tipo_documento']
-            try:
-                tipo_documento = TipoDocumento.objects.get(nombre=tipo_doc_nombre)
-            except TipoDocumento.DoesNotExist:
-                self.stdout.write(self.style.WARNING(f"    TipoDocumento not found: {tipo_doc_nombre}"))
-                continue
+            tipo_documento, tipo_doc_created = TipoDocumento.objects.get_or_create(
+                nombre=tipo_doc_nombre,
+                defaults={
+                    "descripcion": tipo_doc_nombre.replace("_", " ").title(),
+                },
+            )
+            if tipo_doc_created:
+                self.stdout.write(self.style.WARNING(f"    TipoDocumento legacy created: {tipo_doc_nombre}"))
 
             # Map tipo_persona
             tipo_persona = row['tipo_persona'] or 'NATURAL'
@@ -680,107 +769,911 @@ class Command(BaseCommand):
 
         return count
 
-    def _migrate_archivos(self, legacy_conn, dry_run: bool) -> int:
-        """Migrate 4 ExpedienteArchivos and 6 SolicitudArchivos."""
-        count = 0
+    # ── File analysis helpers ─────────────────────────────────────────────────────
 
-        # Migrate ExpedienteArchivos
+    def _resolve_legacy_file(self, legacy_path: str, media_root: Path) -> Path | None:
+        """
+        Resolve a legacy file path to a physical file under media_root.
+
+        Handles both absolute-looking paths (starting with /) and relative paths.
+        Returns None if the file does not exist.
+        """
+        if not legacy_path:
+            return None
+        # Strip leading slash for Path() — treat as relative within media_root
+        clean = legacy_path.lstrip("/")
+        full_path = media_root / clean
+        if full_path.exists() and full_path.is_file():
+            return full_path
+        return None
+
+    def _compute_file_metadata(self, local_path: Path) -> dict:
+        """
+        Compute metadata for a local file: size, mime_type, sha256.
+        """
+        size = local_path.stat().st_size
+        mime_type, _ = mimetypes.guess_type(str(local_path))
+        sha256_hash = hashlib.sha256()
+        with open(local_path, "rb") as f:
+            for chunk in iter(lambda: f.read(65536), b""):
+                sha256_hash.update(chunk)
+        return {
+            "size": size,
+            "mime_type": mime_type,
+            "sha256": sha256_hash.hexdigest(),
+        }
+
+    def _get_or_create_archivo(
+        self,
+        storage_backend: str,
+        storage_reference: str,
+        nombre_original: str | None,
+        extension: str | None,
+        mime_type: str | None,
+        tamano_bytes: int | None,
+        sha256: str | None,
+        storage_metadata: dict,
+        subido_por: Usuario | None,
+        dry_run: bool,
+        physical_path: Path | None = None,
+    ) -> tuple[Archivo | None, bool]:
+        """
+        Get or create an Archivo record idempotently.
+
+        Idempotency is based on storage_backend + storage_reference.
+        If the record already exists, returns (existing, False).
+        If created, returns (new, True).
+
+        In dry-run mode, returns (None, True) for new records.
+
+        When storage_backend == "saaa", a real upload is performed against
+        the configured SAAA service using physical_path content; the returned
+        archivo_id becomes the storage_reference and the configured SAAA_APP_ID
+        becomes the storage_namespace.
+        """
+        if not storage_reference and storage_backend != "saaa":
+            return None, False
+
+        # For SAAA we need a real upload before we can know the archivo_id.
+        # We use a per-call cache to dedupe uploads when many legacy rows
+        # point to the same physical file (by SHA-256).
+        if storage_backend == "saaa":
+            if not physical_path or not physical_path.exists():
+                self.stdout.write(self.style.WARNING(
+                    f"    [SAAA SKIP] Physical file missing: {physical_path}"
+                ))
+                return None, False
+
+            file_meta = self._compute_file_metadata(physical_path)
+            cache_key = f"saaa::{file_meta['sha256']}::{nombre_original}"
+            if not hasattr(self, "_saaa_upload_cache"):
+                self._saaa_upload_cache = {}
+
+            if cache_key in self._saaa_upload_cache:
+                cached = self._saaa_upload_cache[cache_key]
+                if dry_run:
+                    return None, True
+                existing = Archivo.objects.filter(
+                    storage_backend="saaa",
+                    storage_reference=cached["archivo_id"],
+                ).select_related("subido_por").first()
+                if existing:
+                    return existing, False
+                archivo = Archivo(
+                    storage_backend="saaa",
+                    storage_reference=cached["archivo_id"],
+                    storage_namespace=cached["app_id"],
+                    nombre_original=nombre_original,
+                    extension=extension or cached.get("extension"),
+                    mime_type=mime_type or file_meta["mime_type"],
+                    tamano_bytes=tamano_bytes or file_meta["size"],
+                    checksum_sha256=sha256 or file_meta["sha256"],
+                    storage_metadata={**(storage_metadata or {}), "path_relativo": cached["path_relativo"]},
+                    subido_por=subido_por,
+                )
+                archivo.save()
+                return archivo, True
+
+            if dry_run:
+                return None, True
+
+            with open(physical_path, "rb") as fh:
+                file_content = fh.read()
+
+            saaa_client = RealSaaaClient()
+            upload = saaa_client.subir_archivo(
+                file_content=file_content,
+                nombre_original=nombre_original or os.path.basename(physical_path),
+            )
+            self._saaa_upload_cache[cache_key] = {
+                "archivo_id": upload.id,
+                "path_relativo": upload.path_relativo,
+                "app_id": saaa_client.app_id,
+                "extension": upload.extension,
+            }
+
+            existing = Archivo.objects.filter(
+                storage_backend="saaa",
+                storage_reference=upload.id,
+            ).first()
+            if existing:
+                return existing, False
+
+            archivo = Archivo(
+                storage_backend="saaa",
+                storage_reference=upload.id,
+                storage_namespace=saaa_client.app_id,
+                nombre_original=nombre_original or os.path.basename(physical_path),
+                extension=extension or upload.extension,
+                mime_type=mime_type or file_meta["mime_type"],
+                tamano_bytes=tamano_bytes or file_meta["size"],
+                checksum_sha256=sha256 or file_meta["sha256"],
+                storage_metadata={**(storage_metadata or {}), "path_relativo": upload.path_relativo},
+                subido_por=subido_por,
+            )
+            archivo.save()
+            return archivo, True
+
+        existing = Archivo.objects.filter(
+            storage_backend=storage_backend,
+            storage_reference=storage_reference,
+        ).first()
+
+        if existing:
+            return existing, False
+
+        if dry_run:
+            return None, True
+
+        archivo = Archivo(
+            storage_backend=storage_backend,
+            storage_reference=storage_reference,
+            storage_namespace=None,
+            nombre_original=nombre_original,
+            extension=extension,
+            mime_type=mime_type,
+            tamano_bytes=tamano_bytes,
+            checksum_sha256=sha256,
+            storage_metadata=storage_metadata,
+            subido_por=subido_por,
+        )
+        archivo.save()
+        return archivo, True
+
+    # ── Legacy file analysis ─────────────────────────────────────────────────────
+
+    def _analyze_legacy_files(self, legacy_conn, media_root: Path) -> None:
+        """
+        Analyze all referenced legacy files and print a report of found/missing.
+        Does NOT write any database records.
+        """
+        self.stdout.write(self.style.WARNING("\n=== LEGACY FILE ANALYSIS ==="))
+
+        reports = []
+
+        # 1. Expediente principal files
+        cursor = legacy_conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute("SELECT id, archivo_principal FROM expedientes_expediente WHERE archivo_principal IS NOT NULL AND archivo_principal != ''")
+        rows = cursor.fetchall()
+        cursor.close()
+
+        principal_found = principal_missing = 0
+        for row in rows:
+            path = self._resolve_legacy_file(row["archivo_principal"], media_root)
+            status = "FOUND" if path else "MISSING"
+            if path:
+                principal_found += 1
+            else:
+                principal_missing += 1
+                self.stdout.write(f"  [PRINCIPAL MISSING] expediente={row['id']} path={row['archivo_principal']}")
+        reports.append(f"  Expediente principal: {principal_found} found, {principal_missing} missing (total={len(rows)})")
+
+        # 2. Expediente anexo files
+        cursor = legacy_conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute("SELECT archivo_anexo FROM expedientes_expedientearchivoanexo WHERE archivo_anexo IS NOT NULL AND archivo_anexo != ''")
+        rows = cursor.fetchall()
+        cursor.close()
+
+        anexo_found = anexo_missing = 0
+        for row in rows:
+            path = self._resolve_legacy_file(row["archivo_anexo"], media_root)
+            if path:
+                anexo_found += 1
+            else:
+                anexo_missing += 1
+                self.stdout.write(f"  [ANEXO MISSING] path={row['archivo_anexo']}")
+        reports.append(f"  Expediente anexo: {anexo_found} found, {anexo_missing} missing (total={len(rows)})")
+
+        # 3. Comment files
+        cursor = legacy_conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute("SELECT DISTINCT ca.archivo_anexo, ca.comentario_id FROM solicitudes_comentariosolicitudarchivoanexo ca WHERE ca.archivo_anexo IS NOT NULL AND ca.archivo_anexo != ''")
+        rows = cursor.fetchall()
+        cursor.close()
+
+        comment_found = comment_missing = 0
+        for row in rows:
+            path = self._resolve_legacy_file(row["archivo_anexo"], media_root)
+            if path:
+                comment_found += 1
+            else:
+                comment_missing += 1
+                self.stdout.write(f"  [COMENTARIO MISSING] path={row['archivo_anexo']}")
+        reports.append(f"  Comentario archivos: {comment_found} found, {comment_missing} missing (total={len(rows)})")
+
+        # 4. Solicitud anexo files
+        cursor = legacy_conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute("SELECT DISTINCT sa.archivo_anexo, sa.solicitud_id FROM solicitudes_solicitudarchivoanexo sa WHERE sa.archivo_anexo IS NOT NULL AND sa.archivo_anexo != ''")
+        rows = cursor.fetchall()
+        cursor.close()
+
+        sol_found = sol_missing = 0
+        for row in rows:
+            path = self._resolve_legacy_file(row["archivo_anexo"], media_root)
+            if path:
+                sol_found += 1
+            else:
+                sol_missing += 1
+                self.stdout.write(f"  [SOLICITUD MISSING] path={row['archivo_anexo']}")
+        reports.append(f"  Solicitud anexo: {sol_found} found, {sol_missing} missing (total={len(rows)})")
+
+        self.stdout.write(self.style.WARNING("\n--- Summary ---"))
+        for r in reports:
+            self.stdout.write(self.style.SUCCESS(r))
+
+    # ── Expediente principal file migration ─────────────────────────────────────
+
+    def _migrate_expediente_principal_archivos(
+        self, legacy_conn, dry_run: bool, files_backend: str, media_root: Path
+    ) -> int:
+        """
+        Migrate expedientes_expediente.archivo_principal -> ExpedienteArchivo tipo PRINCIPAL.
+
+        Each expediente can have only one principal file (enforced by UniqueConstraint).
+        """
         cursor = legacy_conn.cursor(cursor_factory=RealDictCursor)
         cursor.execute("""
-            SELECT ea.*, e.id as expediente_uuid, u.username as creado_por_username
+            SELECT e.id AS expediente_uuid,
+                   e.archivo_principal,
+                   e.fecha_creacion,
+                   u.username AS creado_por_username
+            FROM expedientes_expediente e
+            JOIN auth_user u ON e.creado_por_id = u.id
+            WHERE e.archivo_principal IS NOT NULL AND e.archivo_principal != ''
+            ORDER BY e.fecha_creacion
+        """)
+        rows = cursor.fetchall()
+        cursor.close()
+
+        count = 0
+        for row in rows:
+            try:
+                expediente = Expediente.objects.get(id=row["expediente_uuid"])
+            except Expediente.DoesNotExist:
+                continue
+
+            try:
+                creado_por = Usuario.objects.get(username=row["creado_por_username"])
+            except Usuario.DoesNotExist:
+                try:
+                    creado_por = Usuario.objects.get(username="admin")
+                except Usuario.DoesNotExist:
+                    continue
+
+            legacy_path = row["archivo_principal"]
+            nombre_original = os.path.basename(legacy_path) or "documento-principal"
+            ext = nombre_original.rsplit(".", 1)[-1].lower() if "." in nombre_original else None
+
+            # Resolve physical file
+            physical_path = self._resolve_legacy_file(legacy_path, media_root)
+            if physical_path is None:
+                self.stdout.write(self.style.WARNING(
+                    f"    [SKIP] Physical file not found for expediente {expediente.id_publico}: {legacy_path}"
+                ))
+                continue
+
+            metadata = self._compute_file_metadata(physical_path)
+
+            # storage_reference = legacy path (relative to media_root)
+            # For local backend: store the legacy path as-is in storage_reference
+            storage_ref = legacy_path.lstrip("/")
+            storage_meta = {
+                "legacy_path": legacy_path,
+                "migrated_from": "expediente_principal",
+                "original_checksum": metadata["sha256"],
+            }
+
+            if dry_run:
+                self.stdout.write(
+                    f"    [DRY] ExpedientePrincipal: {expediente.id_publico} -> {nombre_original} "
+                    f"({metadata['size']} bytes, backend={files_backend})"
+                )
+                count += 1
+                continue
+
+            # Idempotency: check if Expediente already has a PRINCIPAL archivo
+            if ExpedienteArchivo.objects.filter(
+                expediente=expediente, tipo_archivo=TipoArchivo.PRINCIPAL
+            ).exists():
+                continue
+
+            archivo, _ = self._get_or_create_archivo(
+                storage_backend=files_backend if files_backend in ("saaa", "saaa-dry") else "local",
+                storage_reference=storage_ref,
+                nombre_original=nombre_original,
+                extension=ext,
+                mime_type=metadata["mime_type"],
+                tamano_bytes=metadata["size"],
+                sha256=metadata["sha256"],
+                storage_metadata=storage_meta,
+                subido_por=creado_por,
+                dry_run=dry_run,
+                physical_path=physical_path,
+            )
+            if archivo is None:
+                continue
+
+            ExpedienteArchivo.objects.create(
+                expediente=expediente,
+                tipo_archivo=TipoArchivo.PRINCIPAL,
+                archivo=archivo,
+                descripcion="Documento principal migrado desde sistema legacy",
+                creado_por=creado_por,
+            )
+            count += 1
+
+        return count
+
+    # ── Expediente anexo file migration ─────────────────────────────────────────
+
+    def _migrate_expediente_anexo_archivos(
+        self, legacy_conn, dry_run: bool, files_backend: str, media_root: Path
+    ) -> int:
+        """
+        Migrate expedientes_expedientearchivoanexo -> ExpedienteArchivo tipo ANEXO.
+        Replaces the old _migrate_archivos with an improved idempotent version.
+        """
+        cursor = legacy_conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute("""
+            SELECT ea.id AS anexo_row_id,
+                   ea.archivo_anexo,
+                   ea.nombre_original,
+                   ea.descripcion,
+                   e.id AS expediente_uuid,
+                   u.username AS creado_por_username
             FROM expedientes_expedientearchivoanexo ea
             JOIN expedientes_expediente e ON ea.expediente_id = e.id
             JOIN auth_user u ON e.creado_por_id = u.id
+            ORDER BY e.fecha_creacion
         """)
-        exp_archivos = cursor.fetchall()
+        rows = cursor.fetchall()
         cursor.close()
 
-        for row in exp_archivos:
+        count = 0
+        for row in rows:
             try:
-                expediente = Expediente.objects.get(id=row['expediente_uuid'])
+                expediente = Expediente.objects.get(id=row["expediente_uuid"])
             except Expediente.DoesNotExist:
-                self.stdout.write(self.style.WARNING(f"    Expediente not found for archivo: {row['expediente_uuid']}"))
+                self.stdout.write(self.style.WARNING(
+                    f"    [SKIP] Expediente not found: {row['expediente_uuid']}"
+                ))
                 continue
 
             try:
-                creado_por = Usuario.objects.get(username=row['creado_por_username'])
+                creado_por = Usuario.objects.get(username=row["creado_por_username"])
             except Usuario.DoesNotExist:
                 try:
-                    creado_por = Usuario.objects.get(username='admin')
+                    creado_por = Usuario.objects.get(username="admin")
                 except Usuario.DoesNotExist:
                     continue
 
+            legacy_path = row["archivo_anexo"]
+            nombre_original = row["nombre_original"] or os.path.basename(legacy_path) or "anexo"
+            ext = nombre_original.rsplit(".", 1)[-1].lower() if "." in nombre_original else None
+
+            physical_path = self._resolve_legacy_file(legacy_path, media_root)
+            if physical_path is None:
+                self.stdout.write(self.style.WARNING(
+                    f"    [SKIP] Physical file not found: {legacy_path}"
+                ))
+                continue
+
+            metadata = self._compute_file_metadata(physical_path)
+            storage_ref = legacy_path.lstrip("/")
+            storage_meta = {
+                "legacy_path": legacy_path,
+                "migrated_from": "expediente_anexo",
+                "legacy_row_id": str(row["anexo_row_id"]),
+                "original_checksum": metadata["sha256"],
+            }
+
             if dry_run:
-                self.stdout.write(f"    [DRY] ExpedienteArchivo: {row['archivo_anexo']}")
+                self.stdout.write(
+                    f"    [DRY] ExpedienteAnexo: {expediente.id_publico} -> {nombre_original} "
+                    f"({metadata['size']} bytes)"
+                )
                 count += 1
                 continue
 
-            # Get or create the file record
-            archivo_name = row['archivo_anexo']
-            nombre_original = row['nombre_original'] or 'anexo'
-            descripcion = row['descripcion'] or ''
-
-            # For the FileField, we store the path but don't actually copy the file
-            # The file path will be used to verify physical file existence
-            archivo_path = archivo_name  # This would be the relative path
-
-            archivo, created = ExpedienteArchivo.objects.get_or_create(
+            # Idempotency: check if this exact archivo already linked
+            existing = ExpedienteArchivo.objects.filter(
                 expediente=expediente,
-                defaults={
-                    'tipo_archivo': TipoArchivo.ANEXO,  # All migrated files are ANEXO
-                    'archivo': archivo_path,  # Path reference
-                    'nombre_original': nombre_original,
-                    'descripcion': descripcion,
-                    'creado_por': creado_por,
-                }
-            )
-            if created:
-                count += 1
+                archivo__storage_backend="local",
+                archivo__storage_reference=storage_ref,
+            ).select_related("archivo").first()
+            if existing:
+                continue
 
-        # Migrate SolicitudArchivos
+            archivo, _ = self._get_or_create_archivo(
+                storage_backend=files_backend if files_backend in ("saaa", "saaa-dry") else "local",
+                storage_reference=storage_ref,
+                nombre_original=nombre_original,
+                extension=ext,
+                mime_type=metadata["mime_type"],
+                tamano_bytes=metadata["size"],
+                sha256=metadata["sha256"],
+                storage_metadata=storage_meta,
+                subido_por=creado_por,
+                dry_run=dry_run,
+                physical_path=physical_path,
+            )
+            if archivo is None:
+                continue
+
+            ExpedienteArchivo.objects.create(
+                expediente=expediente,
+                tipo_archivo=TipoArchivo.ANEXO,
+                archivo=archivo,
+                descripcion=row["descripcion"] or "",
+                creado_por=creado_por,
+            )
+            count += 1
+
+        return count
+
+    # ── Comentario -> Mensaje migration ─────────────────────────────────────────
+
+    def _migrate_comentarios_to_mensajes(
+        self, legacy_conn, dry_run: bool, files_backend: str, media_root: Path
+    ) -> int:
+        """
+        Migrate solicitudes_comentariosolicitud -> Mensaje rows.
+
+        For each legacy comment, finds or creates a Conversacion linked to the
+        Solicitud (via SolicitudConversacion), then creates a Mensaje in it.
+
+        Idempotency: skips if a Mensaje with the same legacy comentario_id already
+        exists (tracked via storage_metadata on the first Archivo in the conversation,
+        or by checking if any MensajeArchivoAdjunto references the legacy path).
+
+        Files from solicitudes_comentariosolicitudarchivoanexo are migrated as
+        MensajeArchivoAdjunto entries attached to the created Mensaje.
+        """
+        # First, ensure all solicitudes have a Conversacion
         cursor = legacy_conn.cursor(cursor_factory=RealDictCursor)
         cursor.execute("""
-            SELECT sa.*, s.id as solicitud_uuid, u.username as creado_por_username
+            SELECT DISTINCT s.id AS solicitud_uuid,
+                   e.id AS expediente_uuid,
+                   s.fecha_creacion
+            FROM solicitudes_comentariosolicitud c
+            JOIN solicitudes_solicitud s ON c.solicitud_id = s.id
+            JOIN expedientes_expediente e ON s.expediente_id = e.id
+            ORDER BY s.fecha_creacion
+        """)
+        solicitud_rows = cursor.fetchall()
+        cursor.close()
+
+        # Build solicitud -> expediente map
+        for srow in solicitud_rows:
+            try:
+                solicitud = Solicitud.objects.get(id=srow["solicitud_uuid"])
+            except Solicitud.DoesNotExist:
+                continue
+
+            # Ensure a conversacion exists for this solicitud
+            if not hasattr(self, "_solicitud_conversacion_cache"):
+                self._solicitud_conversacion_cache = {}
+
+            if solicitud.id not in self._solicitud_conversacion_cache:
+                conv, _ = Conversacion.objects.get_or_create(
+                    titulo=f"Conversación migrated - {solicitud.expediente.id_publico}",
+                    defaults={
+                        "creada_por": solicitud.creado_por,
+                        "fecha_inicio": solicitud.fecha_registro,
+                    },
+                )
+                SolicitudConversacion.objects.get_or_create(solicitud=solicitud, conversacion=conv)
+                self._solicitud_conversacion_cache[solicitud.id] = conv
+
+        # Now migrate comments
+        cursor = legacy_conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute("""
+            SELECT c.id AS legado_id,
+                   c.solicitud_id,
+                   c.texto,
+                   c.fecha_creacion,
+                   u.username AS autor_username
+            FROM solicitudes_comentariosolicitud c
+            JOIN auth_user u ON c.usuario_id = u.id
+            ORDER BY c.fecha_creacion
+        """)
+        comment_rows = cursor.fetchall()
+        cursor.close()
+
+        count = 0
+        if not hasattr(self, "_solicitud_conversacion_cache"):
+            self._solicitud_conversacion_cache = {}
+
+        for row in comment_rows:
+            try:
+                solicitud = Solicitud.objects.get(id=row["solicitud_id"])
+            except Solicitud.DoesNotExist:
+                continue
+
+            conv = self._solicitud_conversacion_cache.get(solicitud.id)
+            if conv is None:
+                # Create conversacion now
+                conv, _ = Conversacion.objects.get_or_create(
+                    titulo=f"Conversación migrated - {solicitud.expediente.id_publico}",
+                    defaults={
+                        "creada_por": solicitud.creado_por,
+                        "fecha_inicio": solicitud.fecha_registro,
+                    },
+                )
+                SolicitudConversacion.objects.get_or_create(solicitud=solicitud, conversacion=conv)
+                self._solicitud_conversacion_cache[solicitud.id] = conv
+
+            autor = None
+            if row["autor_username"]:
+                try:
+                    autor = Usuario.objects.get(username=row["autor_username"])
+                except Usuario.DoesNotExist:
+                    pass
+
+            if dry_run:
+                self.stdout.write(
+                    f"    [DRY] Mensaje: legacy_id={row['legado_id']} "
+                    f"content={str(row['texto'] or '')[:40]}"
+                )
+                count += 1
+                continue
+
+            # Idempotency: check if mensaje with this legacy id exists
+            # We use storage_metadata on the first archivo as a marker since there's
+            # no direct legacy_id field on Mensaje.
+            # Alternative: check via MensajeArchivoAdjunto linked to legacy path.
+            existing_mensaje = None
+            # Scan existing mensajes in this conversation for a match
+            for msg in conv.mensajes.all():
+                if msg.archivos_adjuntos.exists():
+                    first_adj = msg.archivos_adjuntos.first()
+                    if first_adj and first_adj.archivo:
+                        meta = first_adj.archivo.storage_metadata or {}
+                        if meta.get("legacy_comentario_id") == str(row["legado_id"]):
+                            existing_mensaje = msg
+                            break
+
+            if existing_mensaje is not None:
+                continue
+
+            mensaje = Mensaje.objects.create(
+                conversacion=conv,
+                autor_usuario=autor,
+                contenido=row["texto"] or "",
+                tipo=TipoMensaje.MENSAJE,
+                fecha_envio=row["fecha_creacion"],
+            )
+
+            # Migrate attached files for this comment
+            self._migrate_legacy_comentario_archivos(
+                legacy_conn, mensaje, row["legado_id"], media_root, dry_run, files_backend
+            )
+            count += 1
+
+        return count
+
+    # ── SolicitudArchivoAnexo migration ─────────────────────────────────────────
+
+    def _migrate_solicitud_archivo_anexos(
+        self, legacy_conn, dry_run: bool, files_backend: str, media_root: Path
+    ) -> int:
+        """
+        Migrate solicitudes_solicitudarchivoanexo -> MensajeArchivoAdjunto.
+
+        Since there is no direct SolicitudArchivo model, these files are attached
+        to a migration/system Mensaje in the solicitud's conversation.
+
+        For each solicitud with anexo files, creates a single system Mensaje
+        (if not already created for this solicitud) and attaches all files to it.
+        """
+        cursor = legacy_conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute("""
+            SELECT sa.id AS legado_id,
+                   sa.solicitud_id,
+                   sa.archivo_anexo,
+                   sa.descripcion,
+                   sa.fecha_creacion,
+                   u.username AS subido_por_username
             FROM solicitudes_solicitudarchivoanexo sa
             JOIN solicitudes_solicitud s ON sa.solicitud_id = s.id
             JOIN auth_user u ON s.creado_por_id = u.id
+            ORDER BY sa.fecha_creacion
         """)
-        sol_archivos = cursor.fetchall()
+        rows = cursor.fetchall()
         cursor.close()
 
-        for row in sol_archivos:
+        count = 0
+        # Cache of migration mensaje per solicitud
+        solicitud_mensaje_cache = {}
+
+        for row in rows:
             try:
-                solicitud = Solicitud.objects.get(id=row['solicitud_uuid'])
+                solicitud = Solicitud.objects.get(id=row["solicitud_id"])
             except Solicitud.DoesNotExist:
-                self.stdout.write(self.style.WARNING(f"    Solicitud not found for archivo: {row['solicitud_uuid']}"))
                 continue
 
-            try:
-                creado_por = Usuario.objects.get(username=row['creado_por_username'])
-            except Usuario.DoesNotExist:
+            legacy_path = row["archivo_anexo"]
+            if not legacy_path:
+                continue
+
+            nombre_original = os.path.basename(legacy_path) or "anexo"
+            ext = nombre_original.rsplit(".", 1)[-1].lower() if "." in nombre_original else None
+
+            physical_path = self._resolve_legacy_file(legacy_path, media_root)
+            if physical_path is None:
+                self.stdout.write(self.style.WARNING(
+                    f"    [SKIP] Solicitud anexo file not found: {legacy_path}"
+                ))
+                continue
+
+            metadata = self._compute_file_metadata(physical_path)
+            storage_ref = legacy_path.lstrip("/")
+            storage_meta = {
+                "legacy_path": legacy_path,
+                "migrated_from": "solicitud_archivo_anexo",
+                "legacy_row_id": str(row["legado_id"]),
+                "original_checksum": metadata["sha256"],
+            }
+
+            subido_por = None
+            if row["subido_por_username"]:
                 try:
-                    creado_por = Usuario.objects.get(username='admin')
+                    subido_por = Usuario.objects.get(username=row["subido_por_username"])
                 except Usuario.DoesNotExist:
-                    continue
+                    pass
 
             if dry_run:
-                self.stdout.write(f"    [DRY] SolicitudArchivo: {row['archivo_anexo']}")
+                self.stdout.write(
+                    f"    [DRY] SolicitudArchivoAnexo: solicitud={solicitud.id} -> {nombre_original} "
+                    f"({metadata['size']} bytes)"
+                )
                 count += 1
                 continue
 
-            archivo_name = row['archivo_anexo']
-            descripcion = row['descripcion'] or ''
+            # Get or create the system migration mensaje for this solicitud
+            if solicitud.id not in solicitud_mensaje_cache:
+                puente = SolicitudConversacion.objects.filter(
+                    solicitud=solicitud
+                ).select_related("conversacion").first()
+                conv = puente.conversacion if puente else None
+                if conv is None:
+                    # Create a minimal conversacion
+                    conv = Conversacion.objects.create(
+                        titulo=f"Sistema - {solicitud.expediente.id_publico}",
+                        creada_por=solicitud.creado_por,
+                        fecha_inicio=solicitud.fecha_registro,
+                    )
+                    SolicitudConversacion.objects.create(solicitud=solicitud, conversacion=conv)
 
-            archivo, created = SolicitudArchivo.objects.get_or_create(
-                solicitud=solicitud,
-                defaults={
-                    'archivo': archivo_name,
-                    'nombre_original': archivo_name.split('/')[-1] if '/' in archivo_name else archivo_name,
-                    'descripcion': descripcion,
-                    'creado_por': creado_por,
-                }
+                # Check if a migration mensaje already exists for this solicitud
+                existing_sys_msg = Mensaje.objects.filter(
+                    conversacion=conv,
+                    tipo=TipoMensaje.SISTEMA,
+                    contenido__startswith="Archivos migrados desde sistema legacy",
+                ).first()
+
+                if existing_sys_msg:
+                    msg = existing_sys_msg
+                else:
+                    msg = Mensaje.objects.create(
+                        conversacion=conv,
+                        autor_usuario=None,
+                        contenido="Archivos migrados desde sistema legacy",
+                        tipo=TipoMensaje.SISTEMA,
+                        fecha_envio=solicitud.fecha_registro,
+                    )
+                solicitud_mensaje_cache[solicitud.id] = msg
+            else:
+                msg = solicitud_mensaje_cache[solicitud.id]
+
+            # Idempotency: check if archivo already attached to this mensaje
+            existing_adj = MensajeArchivoAdjunto.objects.filter(
+                mensaje=msg,
+                archivo__storage_backend="local",
+                archivo__storage_reference=storage_ref,
+            ).select_related("archivo").first()
+            if existing_adj:
+                continue
+
+            archivo, _ = self._get_or_create_archivo(
+                storage_backend=files_backend if files_backend in ("saaa", "saaa-dry") else "local",
+                storage_reference=storage_ref,
+                nombre_original=nombre_original,
+                extension=ext,
+                mime_type=metadata["mime_type"],
+                tamano_bytes=metadata["size"],
+                sha256=metadata["sha256"],
+                storage_metadata=storage_meta,
+                subido_por=subido_por,
+                dry_run=False,
+                physical_path=physical_path,
             )
-            if created:
+            if archivo is None:
+                continue
+
+            MensajeArchivoAdjunto.objects.create(
+                mensaje=msg,
+                archivo=archivo,
+                subido_por=subido_por or msg.conversacion.creada_por,
+                fecha_archivo=row["fecha_creacion"],
+                descripcion=row["descripcion"] or "",
+            )
+            count += 1
+
+        return count
+
+    # ── Legacy comentario archivo migration (used by _migrate_comentarios_to_mensajes) ───
+
+    def _migrate_legacy_comentario_archivos(
+        self,
+        legado_conn,
+        mensaje: Mensaje,
+        legado_comentario_id: int,
+        media_root: Path,
+        dry_run: bool,
+        files_backend: str = "local",
+    ) -> int:
+        """
+        Migrate archivos for a specific legacy comment (solicitudes_comentariosolicitudarchivoanexo).
+        Attaches files as MensajeArchivoAdjunto to the given Mensaje.
+        """
+        cursor = legado_conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute("""
+            SELECT ca.id AS legado_row_id,
+                   ca.archivo_anexo,
+                   ca.descripcion,
+                   ca.fecha_creacion,
+                   u.username AS subido_por_username
+            FROM solicitudes_comentariosolicitudarchivoanexo ca
+            JOIN solicitudes_comentariosolicitud c ON ca.comentario_id = c.id
+            JOIN auth_user u ON c.usuario_id = u.id
+            WHERE ca.comentario_id = %s
+            ORDER BY ca.fecha_creacion
+        """, (legado_comentario_id,))
+        rows = cursor.fetchall()
+        cursor.close()
+
+        count = 0
+        for row in rows:
+            legacy_path = row["archivo_anexo"]
+            if not legacy_path:
+                continue
+
+            nombre_original = os.path.basename(legacy_path) or "anexo"
+            ext = nombre_original.rsplit(".", 1)[-1].lower() if "." in nombre_original else None
+
+            physical_path = self._resolve_legacy_file(legacy_path, media_root)
+            if physical_path is None:
+                self.stdout.write(self.style.WARNING(
+                    f"    [SKIP] Comment archivo not found: {legacy_path}"
+                ))
+                continue
+
+            metadata = self._compute_file_metadata(physical_path)
+            storage_ref = legacy_path.lstrip("/")
+            storage_meta = {
+                "legacy_path": legacy_path,
+                "migrated_from": "comentario_archivo_anexo",
+                "legacy_comentario_id": str(legado_comentario_id),
+                "legacy_row_id": str(row["legado_row_id"]),
+                "original_checksum": metadata["sha256"],
+            }
+
+            subido_por = None
+            if row["subido_por_username"]:
+                try:
+                    subido_por = Usuario.objects.get(username=row["subido_por_username"])
+                except Usuario.DoesNotExist:
+                    pass
+
+            if dry_run:
+                self.stdout.write(
+                    f"    [DRY] ComentarioArchivo: mensaje={mensaje.id} -> {nombre_original} "
+                    f"({metadata['size']} bytes)"
+                )
                 count += 1
+                continue
+
+            # Idempotency
+            existing = MensajeArchivoAdjunto.objects.filter(
+                mensaje=mensaje,
+                archivo__storage_backend="local",
+                archivo__storage_reference=storage_ref,
+            ).select_related("archivo").first()
+            if existing:
+                continue
+
+            archivo, _ = self._get_or_create_archivo(
+                storage_backend=files_backend if files_backend in ("saaa", "saaa-dry") else "local",
+                storage_reference=storage_ref,
+                nombre_original=nombre_original,
+                extension=ext,
+                mime_type=metadata["mime_type"],
+                tamano_bytes=metadata["size"],
+                sha256=metadata["sha256"],
+                storage_metadata=storage_meta,
+                subido_por=subido_por,
+                dry_run=False,
+                physical_path=physical_path,
+            )
+            if archivo is None:
+                continue
+
+            MensajeArchivoAdjunto.objects.create(
+                mensaje=mensaje,
+                archivo=archivo,
+                subido_por=subido_por or mensaje.autor_usuario or mensaje.conversacion.creada_por,
+                fecha_archivo=row["fecha_creacion"],
+                descripcion=row["descripcion"] or "",
+            )
+            count += 1
+
+        return count
+
+    # ── Conversacion backfill ──────────────────────────────────────────────────────
+
+    def _backfill_conversaciones(self, dry_run: bool) -> int:
+        """
+        Create an empty Conversacion (and SolicitudConversacion bridge) for
+        every Solicitud that does not yet have one.
+
+        Mirrors the behavior of the new SolicitudFlujo._crear_conversacion_vinculada
+        which runs as part of the solicitud creation flow. The legacy migration
+        copied historical data without triggering that flow, so previously
+        migrated solicitudes may have no conversation at all.
+
+        Idempotency: uses get_or_create on SolicitudConversacion, so re-running
+        is safe.
+
+        Returns the number of conversaciones actually created.
+        """
+        admin_user = Usuario.objects.filter(username="admin").first()
+        if admin_user is None:
+            self.stdout.write(self.style.WARNING(
+                "    No admin user found, skipping conversacion backfill."
+            ))
+            return 0
+
+        qs = Solicitud.objects.exclude(
+            id__in=SolicitudConversacion.objects.values_list(
+                "solicitud_id", flat=True
+            )
+        ).select_related("expediente")
+
+        count = 0
+        for solicitud in qs.iterator():
+            if dry_run:
+                count += 1
+                continue
+
+            conv = Conversacion.objects.create(
+                titulo=f"Conversación - {solicitud.expediente.id_publico}",
+                creada_por=admin_user,
+                fecha_inicio=solicitud.fecha_registro,
+            )
+            SolicitudConversacion.objects.create(
+                solicitud=solicitud,
+                conversacion=conv,
+            )
+            count += 1
 
         return count

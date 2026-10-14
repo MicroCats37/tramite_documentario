@@ -214,8 +214,8 @@ class SolicitudRespuestaFlujo:
         # ── 7. Crear MensajeArchivoAdjunto para cada archivo ───────────────
         mensaje_archivos = []
         for archivo_dict in archivos_data:
-            adjunto = MensajeArchivoAdjunto.objects.create(
-                mensaje=mensaje,
+            # Build MensajeArchivoAdjuntoData with the uploaded file
+            adjunto_data = MensajeArchivoAdjuntoData(
                 archivo=archivo_dict.get("archivo"),
                 nombre_original=archivo_dict["nombre_original"],
                 mime_type=archivo_dict.get("mime_type"),
@@ -224,11 +224,13 @@ class SolicitudRespuestaFlujo:
                 fecha_archivo=ahora,
                 descripcion=archivo_dict.get("descripcion"),
             )
+            # Use service to handle two-step: save file → create Archivo → create link
+            adjunto = self.mensajeria_service._crear_archivo_adjunto(mensaje, adjunto_data)
             mensaje_archivos.append({
                 "id": str(adjunto.id),
-                "nombre_original": adjunto.nombre_original,
-                "mime_type": adjunto.mime_type,
-                "tamano_bytes": adjunto.tamano_bytes,
+                "nombre_original": adjunto.archivo.nombre_original if adjunto.archivo else "",
+                "mime_type": adjunto.archivo.mime_type if adjunto.archivo else None,
+                "tamano_bytes": adjunto.archivo.tamano_bytes if adjunto.archivo else None,
             })
 
         # ── 8. Crear SolicitudRespuesta ────────────────────────────────────

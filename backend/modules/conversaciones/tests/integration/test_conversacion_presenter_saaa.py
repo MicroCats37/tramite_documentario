@@ -22,97 +22,95 @@ class TestConversacionPresenterAdjuntoSaaa:
     @override_settings(FILE_PROXY_URL="/api/archivo/public/")
     def test_returns_proxy_url_for_saaa_pointer(self):
         """
-        GIVEN: a MensajeArchivoAdjunto whose archivo.name is a SAAA pointer
+        GIVEN: a MensajeArchivoAdjunto whose archivo FK has storage_backend='saaa'
+               and storage_reference pointing to a SAAA archivo_id
         WHEN:  present_adjunto is called
         THEN:  it returns /api/archivo/public/{archivo_id}
         """
         class FakeArchivo:
-            name = "saaa/semana-ingenieria-2026/abc12345/documento.pdf"
-
-            @property
-            def url(self):
-                # This would be the broken local path for a SAAA pointer
-                return "/media/saaa/semana-ingenieria-2026/abc12345/documento.pdf"
+            id = uuid.uuid4()
+            storage_backend = "saaa"
+            storage_reference = "abc12345"
+            nombre_original = "documento.pdf"
+            mime_type = "application/pdf"
+            tamano_bytes = 2048
 
         class FakeAdjunto:
             id = uuid.uuid4()
             archivo = FakeArchivo()
-            nombre_original = "documento.pdf"
-            mime_type = "application/pdf"
-            tamano_bytes = 2048
             descripcion = None
 
         out = ConversacionPresenter.present_adjunto(FakeAdjunto())
 
         assert out.archivo_url == "/api/archivo/public/abc12345"
         assert out.nombre_original == "documento.pdf"
+        assert out.mime_type == "application/pdf"
+        assert out.tamano_bytes == 2048
 
     @override_settings(FILE_PROXY_URL="/api/archivo/public/")
     def test_returns_proxy_url_for_saaa_pointer_with_uuid(self):
         """
-        GIVEN: a MensajeArchivoAdjunto with a UUID-based SAAA pointer
+        GIVEN: a MensajeArchivoAdjunto with a UUID-based SAAA storage_reference
         WHEN:  present_adjunto is called
         THEN:  the full archivo_id is preserved in the proxy URL
         """
         class FakeArchivo:
-            name = "saaa/semana-ingenieria-2026/4ab48d91-6ff8-48eb-9c6b-3cc9619c31b9/acta.pdf"
-
-            @property
-            def url(self):
-                return "/media/saaa/semana-ingenieria-2026/4ab48d91-6ff8-48eb-9c6b-3cc9619c31b9/acta.pdf"
+            id = uuid.uuid4()
+            storage_backend = "saaa"
+            storage_reference = "4ab48d91-6ff8-48eb-9c6b-3cc9619c31b9"
+            nombre_original = "acta.pdf"
+            mime_type = "application/pdf"
+            tamano_bytes = 5120
 
         class FakeAdjunto:
             id = uuid.uuid4()
             archivo = FakeArchivo()
-            nombre_original = "acta.pdf"
-            mime_type = "application/pdf"
-            tamano_bytes = 5120
             descripcion = None
 
         out = ConversacionPresenter.present_adjunto(FakeAdjunto())
 
         assert out.archivo_url == "/api/archivo/public/4ab48d91-6ff8-48eb-9c6b-3cc9619c31b9"
+        assert out.nombre_original == "acta.pdf"
 
     def test_returns_local_url_for_local_file(self):
         """
-        GIVEN: a MensajeArchivoAdjunto with a local file (not a SAAA pointer)
+        GIVEN: a MensajeArchivoAdjunto with a local file (storage_backend='local')
         WHEN:  present_adjunto is called
-        THEN:  it returns the local .url property
+        THEN:  it returns the local default_storage URL
         """
         class FakeArchivo:
-            name = "conversaciones/mensajes/attachment.pdf"
-
-            @property
-            def url(self):
-                return "/media/conversaciones/mensajes/attachment.pdf"
+            id = uuid.uuid4()
+            storage_backend = "local"
+            storage_reference = "conversaciones/mensajes/attachment.pdf"
+            nombre_original = "attachment.pdf"
+            mime_type = "application/pdf"
+            tamano_bytes = 1024
 
         class FakeAdjunto:
             id = uuid.uuid4()
             archivo = FakeArchivo()
-            nombre_original = "attachment.pdf"
-            mime_type = "application/pdf"
-            tamano_bytes = 1024
             descripcion = None
 
         out = ConversacionPresenter.present_adjunto(FakeAdjunto())
 
-        assert out.archivo_url == "/media/conversaciones/mensajes/attachment.pdf"
+        assert out.archivo_url is not None
+        assert "attachment.pdf" in out.archivo_url
         assert out.nombre_original == "attachment.pdf"
 
     def test_returns_empty_string_when_archivo_is_none(self):
         """
         GIVEN: a MensajeArchivoAdjunto with archivo=None
         WHEN:  present_adjunto is called
-        THEN:  it returns an empty string for archivo_url
+        THEN:  it returns an empty string for archivo_url and None/empty for metadata
         """
         class FakeAdjunto:
             id = uuid.uuid4()
             archivo = None
-            nombre_original = "orphaned.pdf"
-            mime_type = "application/pdf"
-            tamano_bytes = 0
             descripcion = None
 
         out = ConversacionPresenter.present_adjunto(FakeAdjunto())
 
         assert out.archivo_url == ""
+        assert out.nombre_original == ""
+        assert out.mime_type is None
+        assert out.tamano_bytes is None

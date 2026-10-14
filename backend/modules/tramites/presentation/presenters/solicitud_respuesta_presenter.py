@@ -9,7 +9,7 @@ from modules.tramites.domain.results.solicitud_respuesta_result import (
 )
 from modules.tramites.domain.constants import EstadoSolicitud
 from modules.tramites.presentation.schemas.solicitud_respuesta_out import (
-    ArchivoAdjuntoOut,
+    SolicitudRespuestaArchivoOut,
     SolicitudRespuestaFinalizarOut,
     SolicitudRespuestaOut,
 )
@@ -37,15 +37,21 @@ class SolicitudRespuestaPresenter:
         Returns:
             SolicitudRespuestaFinalizarOut con todos los campos.
         """
-        archivos_out = [
-            ArchivoAdjuntoOut(
-                id=archivo["id"],
-                nombre_original=archivo["nombre_original"],
-                mime_type=archivo.get("mime_type"),
-                tamano_bytes=archivo.get("tamano_bytes"),
+        archivos_out = []
+        for archivo in resultado.mensaje_archivos:
+            # archivo_url requires storage info not available in current result dict
+            # Will be populated when flujo is enhanced to pass full archivo data
+            url = archivo.get("url")
+            archivos_out.append(
+                SolicitudRespuestaArchivoOut(
+                    id=archivo["id"],
+                    nombre_original=archivo["nombre_original"],
+                    mime_type=archivo.get("mime_type"),
+                    tamano_bytes=archivo.get("tamano_bytes"),
+                    url=url,
+                    archivo=None,  # populated by flujo with full archivo data when available
+                )
             )
-            for archivo in resultado.mensaje_archivos
-        ]
 
         respuesta_out = SolicitudRespuestaOut(
             id=resultado.respuesta_id,

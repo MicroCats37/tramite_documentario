@@ -6,29 +6,15 @@ obtener_expediente, siguiendo el contrato de controllers-delgados (薄).
 """
 from uuid import UUID
 
-from core_application.storage.resolvers import resolve_public_url
 from modules.tramites.domain.models.expediente import Expediente
 from modules.tramites.domain.constants import TipoPersona
+from modules.tramites.presentation.presenters.archivo_presenter import map_archivo_to_out
 from modules.tramites.presentation.schemas.expediente_out import ExpedienteArchivoOut
 from modules.tramites.presentation.schemas.expediente_list_out import (
     ExpedienteItemOut,
     ExpedienteDetailOut,
     ExpedienteAntecedenteOut,
 )
-
-
-def _archivo_url(archivo) -> str:
-    """
-    Construye la URL de un archivo, detectando punteros SAAA.
-
-    Si archivo.archivo.name es un puntero SAAA, retorna /api/archivo/public/{archivo_id}.
-    Si no, retorna la URL local del archivo.
-    Usa resolve_public_url() para respetar FILE_PROXY_URL (absoluto o relativo).
-    """
-    return resolve_public_url(
-        archivo_field_name=archivo.archivo.name if archivo.archivo else "",
-        archivo_url_attr=archivo.archivo,
-    )
 
 
 class ExpedienteConsultaPresenter:
@@ -45,6 +31,7 @@ class ExpedienteConsultaPresenter:
         Construye un ExpedienteItemOut desde una entidad Expediente (listado).
 
         Incluye archivos con URL para cache en frontend.
+        Phase 1: populates both legacy flat fields AND nested `archivo` object.
 
         Args:
             expediente: Entidad Expediente
@@ -52,15 +39,18 @@ class ExpedienteConsultaPresenter:
         Returns:
             ExpedienteItemOut listo para PaginatedData
         """
-        archivos = [
-            ExpedienteArchivoOut(
-                id=a.id,
-                tipo_archivo=a.tipo_archivo,
-                nombre_original=a.nombre_original,
-                url=_archivo_url(a),
+        archivos = []
+        for a in expediente.archivos.all():
+            archivo_out = map_archivo_to_out(a.archivo) if a.archivo else None
+            archivos.append(
+                ExpedienteArchivoOut(
+                    id=a.id,
+                    tipo_archivo=a.tipo_archivo,
+                    nombre_original=a.archivo.nombre_original if a.archivo else "",
+                    url=archivo_out.url if archivo_out else "",
+                    archivo=archivo_out,
+                )
             )
-            for a in expediente.archivos.all()
-        ]
 
         return ExpedienteItemOut(
             id=expediente.id,
@@ -114,15 +104,18 @@ class ExpedienteConsultaPresenter:
             ExpedienteDetailOut listo para respuesta HTTP
         """
         # Archivos
-        archivos = [
-            ExpedienteArchivoOut(
-                id=a.id,
-                tipo_archivo=a.tipo_archivo,
-                nombre_original=a.nombre_original,
-                url=_archivo_url(a),
+        archivos = []
+        for a in expediente.archivos.all():
+            archivo_out = map_archivo_to_out(a.archivo) if a.archivo else None
+            archivos.append(
+                ExpedienteArchivoOut(
+                    id=a.id,
+                    tipo_archivo=a.tipo_archivo,
+                    nombre_original=a.archivo.nombre_original if a.archivo else "",
+                    url=archivo_out.url if archivo_out else "",
+                    archivo=archivo_out,
+                )
             )
-            for a in expediente.archivos.all()
-        ]
 
         # Antecedentes
         antecedentes = [

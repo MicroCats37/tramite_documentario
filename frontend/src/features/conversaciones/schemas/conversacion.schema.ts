@@ -6,14 +6,27 @@ import { apiResponseSchema } from "@/types/api.types";
 /**
  * Archivo adjunto response from backend.
  * Includes archivo_url for download links.
+ * Phase 1: includes nested `archivo` object alongside legacy flat fields.
  */
 export const ArchivoAdjuntoSchema = z.object({
+  // Legacy flat fields — preserved for backward compat
   id: z.string().uuid(),
   nombre_original: z.string(),
   mime_type: z.string().nullable().optional(),
   tamano_bytes: z.number().nullable().optional(),
   archivo_url: z.string().nullable().optional(),
   descripcion: z.string().nullable().optional(),
+  // Nested canonical representation — archivo.id is the central Archivo id
+  archivo: z
+    .object({
+      id: z.string().uuid(),
+      nombre_original: z.string(),
+      mime_type: z.string().nullable().optional(),
+      tamano_bytes: z.number().nullable().optional(),
+      url: z.string().nullable().optional(),
+    })
+    .nullable()
+    .optional(),
 });
 
 export type ArchivoAdjunto = z.infer<typeof ArchivoAdjuntoSchema>;

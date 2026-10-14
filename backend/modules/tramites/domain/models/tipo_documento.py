@@ -22,7 +22,7 @@ class TipoDocumento(BaseModel):
     """
 
     nombre = models.CharField(
-        max_length=20,
+        max_length=50,
         unique=True,
         verbose_name="Nombre (código)",
         help_text="Código único, ej. OFICIO, CARTA, SOLICITUD",

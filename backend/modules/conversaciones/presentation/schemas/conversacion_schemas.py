@@ -13,12 +13,22 @@ from django.core.files.uploadedfile import UploadedFile
 from ninja import Field
 
 from core.types import BaseSchema
+from modules.tramites.presentation.schemas.archivo_out import ArchivoOut
 
 
 class ArchivoAdjuntoOut(BaseSchema):
-    """Archivo adjunto en respuesta de mensaje."""
+    """
+    Archivo adjunto en respuesta de mensaje.
 
+    Wrapper `id` is the contextual row id (MensajeArchivoAdjunto.id).
+    Nested `archivo` carries the central Archivo id via `archivo.id`.
+    Legacy flat fields (nombre_original, archivo_url, mime_type, tamano_bytes)
+    preserved for backward compat — consumers should prefer `archivo.*`.
+    """
+
+    # Contextual row id — NOT a duplicate of archivo.id
     id: uuid.UUID
+    # Legacy flat fields — preserved for backward compat
     nombre_original: str
     mime_type: Optional[str]
     tamano_bytes: Optional[int]
@@ -30,6 +40,11 @@ class ArchivoAdjuntoOut(BaseSchema):
         default=None,
         max_length=500,
         description="Descripción opcional del archivo adjunto.",
+    )
+    # Nested canonical representation — archivo.id is the central Archivo id
+    archivo: Optional[ArchivoOut] = Field(
+        default=None,
+        description="Canonical nested Archivo representation. Use archivo.id as the central Archivo id.",
     )
 
 

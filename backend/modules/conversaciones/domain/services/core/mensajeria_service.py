@@ -35,6 +35,8 @@ from modules.conversaciones.domain.schemas.mensaje_schemas import (
     MensajeDeleteData,
     MensajeMencionData,
 )
+from core_application.storage.services import AbstractStorageService
+from core_application.storage.archivo_factory import create_archivo_from_storage_result
 
 
 class MensajeriaCoreService:
@@ -44,6 +46,15 @@ class MensajeriaCoreService:
     Operations are sync and do NOT open transaction.atomic() internally.
     The calling flujo provides atomicity when composing multiple writes.
     """
+
+    @inject
+    def __init__(self, storage_service: AbstractStorageService):
+        """
+        Args:
+            storage_service: AbstractStorageService implementation injected via DI.
+                Handles file storage (local or SAAA).
+        """
+        self._storage = storage_service
 
     # ── Conversacion operations ───────────────────────────────────────────────
 
@@ -154,13 +165,35 @@ class MensajeriaCoreService:
         mensaje: Mensaje,
         data: MensajeArchivoAdjuntoData,
     ) -> MensajeArchivoAdjunto:
-        """Create a single MensajeArchivoAdjunto linked to a mensaje."""
+        """
+        Create a single MensajeArchivoAdjunto linked to a mensaje.
+
+        Two-step process:
+        1. If data.archivo is an UploadedFile, save to storage and create Archivo.
+        2. Create MensajeArchivoAdjunto with FK to Archivo.
+
+        Sync — for use inside transaction.atomic.
+        """
+        archivo_obj = None
+
+        # If there's a file, create Archivo first
+        if data.archivo is not None:
+            # Save to storage and get the storage path
+            storage_path = self._storage.save(data.archivo, data.nombre_original)
+
+            # Create Archivo from storage result
+            archivo_obj = create_archivo_from_storage_result(
+                storage_path=storage_path,
+                nombre_original=data.nombre_original,
+                mime_type=data.mime_type,
+                tamano_bytes=data.tamano_bytes,
+                subido_por_id=data.subido_por_id,
+            )
+            archivo_obj.save()
+
         return MensajeArchivoAdjunto.objects.create(
             mensaje=mensaje,
-            archivo=data.archivo,
-            nombre_original=data.nombre_original,
-            mime_type=data.mime_type,
-            tamano_bytes=data.tamano_bytes,
+            archivo=archivo_obj,
             subido_por_id=data.subido_por_id,
             fecha_archivo=data.fecha_archivo,
             descripcion=data.descripcion,

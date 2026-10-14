@@ -11,6 +11,8 @@ class Migration(migrations.Migration):
 
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
+        ("asignaciones", "0001_initial"),
+        ("conversaciones", "0001_initial"),
         ("tramites", "0004_add_tipo_documento_model"),
     ]
 

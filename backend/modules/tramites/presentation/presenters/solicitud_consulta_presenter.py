@@ -22,7 +22,7 @@ from modules.tramites.presentation.schemas.solicitud_list_out import (
 from modules.conversaciones.domain.constants import EstadoConversacion
 from modules.tramites.presentation.schemas.expediente_out import ExpedienteArchivoOut
 from modules.tramites.presentation.schemas.expediente_list_out import ExpedienteItemOut, ExpedienteDetailOut, ExpedienteAntecedenteOut
-from core_application.storage.resolvers import resolve_public_url
+from core_application.storage.resolvers import resolve_storage_url
 
 
 class SolicitudConsultaPresenter:
@@ -51,13 +51,13 @@ class SolicitudConsultaPresenter:
         # Build nested expediente with archivos
         # NOTE: SAAA pointers (saaa/{app_id}/{archivo_id}/{nombre}) are remote
         # references — a.archivo.url would return a broken local path.
-        # Use resolve_public_url() to get the correct proxy URL for SAAA pointers.
+        # Use resolve_storage_url() to get the correct proxy URL for SAAA pointers.
         exp_archivos = [
             ExpedienteArchivoOut(
                 id=a.id,
                 tipo_archivo=a.tipo_archivo,
-                nombre_original=a.nombre_original,
-                url=resolve_public_url(a.archivo.name, a.archivo if a.archivo else None),
+                nombre_original=a.archivo.nombre_original if a.archivo else "",
+                url=resolve_storage_url(a.archivo.storage_backend, a.archivo.storage_reference) if a.archivo else "",
             )
             for a in exp.archivos.all()
         ]
@@ -148,14 +148,13 @@ class SolicitudConsultaPresenter:
         # Build archivos with url
         # NOTE: SAAA pointers (saaa/{app_id}/{archivo_id}/{nombre}) are remote
         # references — a.archivo.url would return a broken local path for them.
-        # resolve_public_url() distinguishes SAAA pointers from local files and
-        # returns the correct URL in each case.
+        # resolve_storage_url() handles SAAA, local, and external_url backends correctly.
         archivos_out = [
             ExpedienteArchivoOut(
                 id=a.id,
                 tipo_archivo=a.tipo_archivo,
-                nombre_original=a.nombre_original,
-                url=resolve_public_url(a.archivo.name, a.archivo if a.archivo else None),
+                nombre_original=a.archivo.nombre_original if a.archivo else "",
+                url=resolve_storage_url(a.archivo.storage_backend, a.archivo.storage_reference) if a.archivo else "",
             )
             for a in exp_archivos
         ]

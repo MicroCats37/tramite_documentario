@@ -6,6 +6,9 @@ Phase 2: binds MensajeriaCoreService, ConversacionFlujo, ConversacionOrchestrato
 Phase 4: binds SolicitudComentarioFlujo, SolicitudComentarioOrchestrator.
 """
 
+import os
+
+from django.conf import settings
 from injector import Module, singleton
 
 from modules.conversaciones.domain.services.core.mensajeria_service import (
@@ -23,12 +26,28 @@ from modules.conversaciones.domain.services.orchestrators.conversacion_orchestra
 from modules.conversaciones.domain.services.orchestrators.solicitud_comentario_orchestrator import (
     SolicitudComentarioOrchestrator,
 )
+from modules.tramites.domain.ports.saaa_ports import AbstractSaaaClient
+from modules.tramites.infrastructure.saaa_client import FakeSaaaClient, RealSaaaClient
+from core_application.storage.services import AbstractStorageService, SaaaStorageService
 
 
 class ConversacionesModule(Module):
     """Wires dependencies for the conversaciones module."""
 
     def configure(self, binder) -> None:
+        # SAAA Client — same logic as tramites module
+        env_fake = os.environ.get("SAAA_USE_FAKE", "").lower()
+        use_fake = env_fake not in ("false", "0", "no") and (
+            env_fake != "" or getattr(settings, "SAAA_USE_FAKE", settings.DEBUG)
+        )
+        if use_fake:
+            binder.bind(AbstractSaaaClient, to=FakeSaaaClient, scope=singleton)
+        else:
+            binder.bind(AbstractSaaaClient, to=RealSaaaClient, scope=singleton)
+
+        # Storage service — used by MensajeriaCoreService for file uploads
+        binder.bind(AbstractStorageService, to=SaaaStorageService, scope=singleton)
+
         binder.bind(MensajeriaCoreService, to=MensajeriaCoreService, scope=singleton)
         binder.bind(ConversacionFlujo, to=ConversacionFlujo, scope=singleton)
         binder.bind(

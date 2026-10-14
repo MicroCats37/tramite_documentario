@@ -9,18 +9,31 @@ from ninja import Field
 
 from core.types import BaseSchema
 from modules.tramites.domain.constants import TipoPersona, TipoArchivo
+from modules.tramites.presentation.schemas.archivo_out import ArchivoOut
 from modules.tramites.presentation.schemas.tipo_documento_out import TipoDocumentoOut
 
 
 class ExpedienteArchivoOut(BaseSchema):
     """
     Respuesta HTTP para un archivo adjunto de expediente.
+
+    Wrapper `id` is the contextual row id (ExpedienteArchivo.id).
+    Nested `archivo` carries the central Archivo id via `archivo.id`.
+    Legacy flat fields (nombre_original, url, mime_type, tamano_bytes)
+    preserved for backward compat — consumers should prefer `archivo.*`.
     """
 
-    id: uuid.UUID = Field(..., description="ID único del archivo")
+    # Contextual row id — NOT a duplicate of archivo.id
+    id: uuid.UUID = Field(..., description="ID único del archivo adjunto (ExpedienteArchivo.id)")
+    # Legacy flat fields — preserved for backward compat
     tipo_archivo: TipoArchivo = Field(..., description="Tipo de archivo (PRINCIPAL o ANEXO)")
     nombre_original: str = Field(..., description="Nombre original del archivo")
     url: str = Field(..., description="URL to access the file")
+    # Nested canonical representation — archivo.id is the central Archivo id
+    archivo: Optional[ArchivoOut] = Field(
+        default=None,
+        description="Canonical nested Archivo representation. Use archivo.id as the central Archivo id.",
+    )
 
 
 class ExpedienteOut(BaseSchema):

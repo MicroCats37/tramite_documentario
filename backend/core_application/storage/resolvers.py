@@ -3,7 +3,7 @@ Shared URL resolution helpers for FileField.name values.
 
 This module provides a single entry point for resolving the public URL of any
 file referenced in a FileField — whether the file is stored locally or is a
-SAAA remote pointer.
+SAAA remote pointers.
 
 IMPORTANT — SAAA Remote Pointers:
 When a FileField.name starts with "saaa/", the actual file bytes are stored
@@ -30,6 +30,7 @@ Configuration:
   NOTE: Do NOT mix with MEDIA_URL — this is ONLY for SAAA proxy endpoints.
 """
 from django.conf import settings
+from django.core.files.storage import default_storage
 
 from core_application.storage.pointer import is_saaa_pointer, parse_saaa_pointer
 
@@ -43,6 +44,61 @@ def _get_proxy_base() -> str:
     (e.g., http://localhost:12001/api/archivo/public/) values.
     """
     return getattr(settings, "FILE_PROXY_URL", "/api/archivo/public/")
+
+
+def resolve_storage_url(storage_backend: str | None, storage_reference: str | None) -> str:
+    """
+    Resolves the public URL from Archivo model storage fields.
+
+    This is the successor to resolve_public_url() for the new Archivo FK approach.
+    Given storage_backend + storage_reference, produces the appropriate URL.
+
+    Args:
+        storage_backend: The storage backend identifier ('saaa', 'local', 'external_url').
+        storage_reference: The backend-specific identifier:
+            - For SAAA: the archivo_id
+            - For local: the file path
+            - For external_url: the full URL
+
+    Returns:
+        - SAAA: /api/archivo/public/{archivo_id}
+        - Local: URL via Django's default_storage
+        - External URL: the reference as-is
+        - Empty/None: empty string
+
+    Example:
+        # In a presenter with Archivo FK:
+        url = resolve_storage_url(archivo.storage_backend, archivo.storage_reference)
+
+        # storage_backend='saaa', storage_reference='abc12345'
+        # Returns: "/api/archivo/public/abc12345"
+
+        # storage_backend='local', storage_reference='tramites/expedientes/doc.pdf'
+        # Returns: "/media/tramites/expedientes/doc.pdf"
+    """
+    if not storage_backend or not storage_reference:
+        return ""
+
+    if storage_backend == "saaa":
+        # SAAA: storage_reference is the archivo_id
+        proxy_base = _get_proxy_base()
+        base = proxy_base.rstrip("/")
+        return f"{base}/{storage_reference}"
+
+    elif storage_backend == "external_url":
+        # External URL: storage_reference is already a full URL
+        return storage_reference
+
+    elif storage_backend == "local":
+        # Local file: use Django's default storage to get URL
+        try:
+            return default_storage.url(storage_reference)
+        except Exception:
+            # If storage reference is not found, return empty string
+            return ""
+
+    # Unknown backend
+    return ""
 
 
 def resolve_public_url(archivo_field_name: str | None, archivo_url_attr=None) -> str:

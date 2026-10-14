@@ -2,6 +2,25 @@ import { z } from "zod";
 
 // ── Shared Pagination Schema ────────────────────────────────────────────────────
 
+// ── Archivo Schema (canonical nested file representation) ──────────────────────
+
+/**
+ * ArchivoOutSchema — canonical nested file representation.
+ * Matches backend: ArchivoOut
+ *
+ * Phase 1: nested representation alongside legacy flat fields.
+ * New consumers should prefer archivo.* over flat fields.
+ */
+export const ArchivoOutSchema = z.object({
+  id: z.string().uuid(),
+  nombre_original: z.string(),
+  mime_type: z.string().nullable().optional(),
+  tamano_bytes: z.number().nullable().optional(),
+  url: z.string().nullable().optional(),
+});
+
+export type ArchivoOut = z.infer<typeof ArchivoOutSchema>;
+
 /**
  * Standard paginated response schema.
  * Matches the backend contract: ApiResponse[PaginatedData[T]]
@@ -36,12 +55,18 @@ export type TipoDocumento = z.infer<typeof TipoDocumentoSchema>;
 /**
  * ExpedienteArchivoSchema — archivo adjunto de expediente.
  * Backend: ExpedienteArchivoOut
+ *
+ * Phase 1: includes both legacy flat fields AND nested `archivo` object.
+ * Legacy fields preserved for backward compat.
  */
 export const ExpedienteArchivoSchema = z.object({
+  // Legacy flat fields — preserved for backward compat
   id: z.string().uuid(),
   tipo_archivo: z.enum(["PRINCIPAL", "ANEXO"]),
   nombre_original: z.string(),
   url: z.string(),
+  // Nested canonical representation — archivo.id is the central Archivo id
+  archivo: ArchivoOutSchema.nullable().optional(),
 });
 
 export type ExpedienteArchivo = z.infer<typeof ExpedienteArchivoSchema>;

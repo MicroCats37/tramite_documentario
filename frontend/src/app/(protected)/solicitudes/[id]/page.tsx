@@ -303,6 +303,7 @@ export default function SolicitudDetallePage() {
             currentUserId={currentUserId}
             userAreaIds={userAreaIds}
             tomarPeriodo={tomarPeriodo}
+            iniciarGestion={iniciarGestion}
             onOperationSelect={handleOperationSelect}
             userCanFinalize={userCanFinalize}
             onFinalizar={() => setFinalizarModalOpen(true)}

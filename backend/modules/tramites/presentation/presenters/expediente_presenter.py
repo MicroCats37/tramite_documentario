@@ -1,9 +1,9 @@
 """
 ExpedientePresenter — transforma la entidad Expediente a esquema HTTP ExpedienteItemOut.
 """
-from core_application.storage.resolvers import resolve_public_url
 from modules.tramites.domain.models.expediente import Expediente
 from modules.tramites.domain.models import ExpedienteArchivo
+from modules.tramites.presentation.presenters.archivo_presenter import map_archivo_to_out
 from modules.tramites.presentation.schemas.expediente_out import ExpedienteArchivoOut
 from modules.tramites.presentation.schemas.expediente_list_out import ExpedienteItemOut
 from modules.tramites.presentation.schemas.tipo_documento_out import TipoDocumentoOut
@@ -65,20 +65,19 @@ class ExpedientePresenter:
 
     @staticmethod
     def _map_archivo(archivo: ExpedienteArchivo) -> ExpedienteArchivoOut:
-        """Transforma un ExpedienteArchivo a ExpedienteArchivoOut.
-
-        Si archivo.archivo.name es un puntero SAAA (saaa/{app_id}/{archivo_id}/{nombre}),
-        retorna la URL del proxy Django en lugar de la URL local.
-        Usa resolve_public_url() para respetar FILE_PROXY_URL (absoluto o relativo).
         """
-        url = resolve_public_url(
-            archivo_field_name=archivo.archivo.name if archivo.archivo else "",
-            archivo_url_attr=archivo.archivo,
-        )
+        Transforma un ExpedienteArchivo a ExpedienteArchivoOut.
+
+        Uses map_archivo_to_out() for the canonical nested representation.
+        Wrapper `id` is the ExpedienteArchivo row id; `archivo.id` is the central
+        Archivo id. No redundant archivo_id field — use archivo.id instead.
+        """
+        archivo_out = map_archivo_to_out(archivo.archivo) if archivo.archivo else None
 
         return ExpedienteArchivoOut(
             id=archivo.id,
             tipo_archivo=archivo.tipo_archivo,
-            nombre_original=archivo.nombre_original,
-            url=url,
+            nombre_original=archivo.archivo.nombre_original if archivo.archivo else "",
+            url=archivo_out.url if archivo_out else "",
+            archivo=archivo_out,
         )

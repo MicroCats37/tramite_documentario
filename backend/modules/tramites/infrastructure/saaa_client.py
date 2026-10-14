@@ -62,6 +62,8 @@ class RealSaaaClient(AbstractSaaaClient):
             raise SaaaConnectionError(f"Timeout conectando a SAAA: {e}")
         except httpx.ConnectError as e:
             raise SaaaConnectionError(f"Error de conexión a SAAA: {e}")
+        except httpx.RequestError as e:
+            raise SaaaConnectionError(f"Error de red conectando a SAAA: {e}")
         except httpx.HTTPStatusError as e:
             raise SaaaConnectionError(f"SAAA devolvió {e.response.status_code}: {e}")
 
@@ -78,6 +80,8 @@ class RealSaaaClient(AbstractSaaaClient):
             raise SaaaConnectionError(f"Timeout conectando a SAAA: {e}")
         except httpx.ConnectError as e:
             raise SaaaConnectionError(f"Error de conexión a SAAA: {e}")
+        except httpx.RequestError as e:
+            raise SaaaConnectionError(f"Error de red conectando a SAAA: {e}")
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:
                 raise SaaaNotFoundError(path.split("/")[-1])
@@ -145,6 +149,8 @@ class RealSaaaClient(AbstractSaaaClient):
             raise SaaaConnectionError(f"Timeout subiendo archivo a SAAA: {e}")
         except httpx.ConnectError as e:
             raise SaaaConnectionError(f"Error de conexión a SAAA: {e}")
+        except httpx.RequestError as e:
+            raise SaaaConnectionError(f"Error de red subiendo archivo a SAAA: {e}")
         except httpx.HTTPStatusError as e:
             raise SaaaUploadError(f"SAAA devolvió {e.response.status_code}: {e.response.text[:200]}")
 
@@ -180,6 +186,8 @@ class RealSaaaClient(AbstractSaaaClient):
             raise SaaaConnectionError(f"Timeout descargando archivo de SAAA: {e}")
         except httpx.ConnectError as e:
             raise SaaaConnectionError(f"Error de conexión a SAAA: {e}")
+        except httpx.RequestError as e:
+            raise SaaaConnectionError(f"Error de red descargando archivo de SAAA: {e}")
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:
                 raise SaaaNotFoundError(archivo_id)

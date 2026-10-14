@@ -113,27 +113,9 @@ class MensajeArchivoAdjunto(BaseModel):
         on_delete=models.CASCADE,
         verbose_name="Mensaje",
     )
-    archivo = models.FileField(
-        verbose_name="Archivo",
-    )
-    nombre_original = models.CharField(
-        max_length=255,
-        verbose_name="Nombre original",
-    )
-    mime_type = models.CharField(
-        max_length=100,
-        null=True,
-        blank=True,
-        verbose_name="Tipo MIME",
-    )
-    tamano_bytes = models.BigIntegerField(
-        null=True,
-        blank=True,
-        verbose_name="Tamaño (bytes)",
-    )
     subido_por = models.ForeignKey(
         Usuario,
-        related_name="archivos_subidos",
+        related_name="mensajes_archivos_subidos",
         on_delete=models.PROTECT,
         verbose_name="Subido por",
     )
@@ -146,6 +128,15 @@ class MensajeArchivoAdjunto(BaseModel):
         blank=True,
         verbose_name="Descripción",
     )
+    # Direct FK to central Archivo model — replaces legacy FileField.
+    archivo = models.ForeignKey(
+        "tramites.Archivo",
+        on_delete=models.PROTECT,
+        related_name="mensaje_archivos_adjuntos",
+        null=True,
+        blank=True,
+        verbose_name="Archivo",
+    )
 
     class Meta:
         db_table = "conversaciones_mensaje_archivo_adjunto"
@@ -153,7 +144,8 @@ class MensajeArchivoAdjunto(BaseModel):
         verbose_name_plural = "Archivos adjuntos"
 
     def __str__(self):
-        return f"Adjunto {self.id} — {self.nombre_original}"
+        nombre = self.archivo.nombre_original if self.archivo else "Sin archivo"
+        return f"Adjunto {self.id} — {nombre}"
 
 
 class MensajeMencion(BaseModel):

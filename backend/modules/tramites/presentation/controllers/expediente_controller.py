@@ -101,10 +101,10 @@ class ExpedienteController:
 
         items, total, page, page_size, total_pages = result
 
-        item_outs = [
-            ExpedienteConsultaPresenter.present_list_item(exp)
-            for exp in items
-        ]
+        item_outs = await sync_to_async(
+            lambda: [ExpedienteConsultaPresenter.present_list_item(exp) for exp in items],
+            thread_sensitive=True,
+        )()
 
         return success_response(PaginatedData(
             items=item_outs,
@@ -132,6 +132,9 @@ class ExpedienteController:
         if expediente is None:
             raise HttpError(404, "Expediente no encontrado")
 
-        detail_out = ExpedienteConsultaPresenter.present_detail(expediente)
+        detail_out = await sync_to_async(
+            ExpedienteConsultaPresenter.present_detail,
+            thread_sensitive=True,
+        )(expediente)
 
         return success_response(detail_out)
