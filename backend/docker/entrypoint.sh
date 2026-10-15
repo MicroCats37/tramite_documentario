@@ -19,5 +19,5 @@ chown -R appuser:appuser /app/staticfiles 2>/dev/null || true
 uv run python manage.py collectstatic --noinput
 
 echo "Starting server..."
-# Use gosu to run gunicorn as non-root appuser for security
-exec gosu appuser uv run gunicorn config.wsgi:application --bind 0.0.0.0:${BACKEND_INTERNAL_PORT:-8000} --workers 2
+# Daphne serves the ASGI application, including Django Channels WebSocket routes.
+exec gosu appuser uv run daphne -b 0.0.0.0 -p ${BACKEND_INTERNAL_PORT:-8000} config.asgi:application
