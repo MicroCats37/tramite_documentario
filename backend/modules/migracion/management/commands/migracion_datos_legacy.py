@@ -5,6 +5,8 @@ Usage:
     python manage.py migracion_datos_legacy
     python manage.py migracion_datos_legacy --files-backend local
     python manage.py migracion_datos_legacy --files-backend saaa-dry --dry-run
+    python manage.py migracion_datos_legacy --since 2026-10-14T00:00:00+00:00
+    python manage.py migracion_datos_legacy --expediente-id UUID --files-backend saaa
 
 Environment variables:
     LEGACY_DB_HOST, LEGACY_DB_PORT, LEGACY_DB_NAME, LEGACY_DB_USER, LEGACY_DB_PASSWORD
@@ -17,14 +19,14 @@ import json
 import mimetypes
 import os
 import uuid
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone as datetime_timezone
 from pathlib import Path
 
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
 from django.db import transaction
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
 from modules.usuarios.domain.models import Area, Usuario, Cargo, AsignacionUsuario
@@ -54,6 +56,8 @@ LEGACY_DB = {
     'user': os.environ.get('LEGACY_DB_USER', 'postgres'),
     'password': os.environ.get('LEGACY_DB_PASSWORD', 'postgres'),
 }
+
+LEGACY_ID_NAMESPACE = uuid.UUID("a0839a91-2fc5-4b12-a582-7f2a9d1fda9a")
 
 
 def _get_legacy_media_root() -> Path:
@@ -96,12 +100,32 @@ class Command(BaseCommand):
             action="store_true",
             help="Analyze legacy files and print report without migrating anything.",
         )
+        parser.add_argument(
+            "--since",
+            metavar="ISO_8601_DATETIME",
+            help=(
+                "Incremental mode cutoff. Strict ISO 8601 datetime with an explicit "
+                "UTC offset, for example 2026-10-14T00:00:00+00:00. "
+                "Only creates data sourced at or after this instant; existing "
+                "destination records are never updated."
+            ),
+        )
+        parser.add_argument(
+            "--expediente-id",
+            type=uuid.UUID,
+            help=(
+                "Migrate only this legacy expediente UUID and its dependent records. "
+                "When supplied, users and standalone assignments are not migrated."
+            ),
+        )
 
     def handle(self, *args, **options) -> None:
         dry_run: bool = options["dry_run"]
         skip_files: bool = options["skip_files"]
         files_backend: str = options["files_backend"]
         analyze_only: bool = options["analyze_only"]
+        since = self._parse_since(options.get("since"))
+        expediente_id: uuid.UUID | None = options.get("expediente_id")
 
         self.stdout.write(self.style.WARNING("=" * 60))
         self.stdout.write(self.style.WARNING("MIGRATION: migracion_datos_legacy"))
@@ -109,6 +133,14 @@ class Command(BaseCommand):
 
         if dry_run:
             self.stdout.write(self.style.WARNING("[DRY RUN MODE]"))
+        if since:
+            self.stdout.write(self.style.WARNING(
+                f"[INCREMENTAL MODE] Source cutoff (inclusive): {since.isoformat()}"
+            ))
+        if expediente_id:
+            self.stdout.write(self.style.WARNING(
+                f"[EXPEDIENTE SCOPE] Legacy expediente: {expediente_id}"
+            ))
 
         # Resolve media root
         legacy_media_root = _get_legacy_media_root()
@@ -141,8 +173,9 @@ class Command(BaseCommand):
             if dry_run:
                 self.stdout.write(self.style.WARNING("[DRY RUN] Would migrate:"))
 
-            # 1. Migrate users
-            users_count = self._migrate_users(legacy_conn, dry_run)
+            # A selected expediente uses destination users already present. Do not
+            # touch unrelated users or assignments during a scoped import.
+            users_count = 0 if expediente_id else self._migrate_users(legacy_conn, dry_run, since)
             self.stdout.write(self.style.SUCCESS(f"  Users migrated: {users_count}"))
 
             # 2. Migrate areas (from seeds, already loaded)
@@ -154,22 +187,22 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS(f"  TipoDocumento (from seeds): {td_count}"))
 
             # 4. Migrate asignaciones (AsignacionUsuario for adjuntados)
-            asignaciones_count = self._migrate_asignaciones(legacy_conn, dry_run)
+            asignaciones_count = 0 if expediente_id else self._migrate_asignaciones(legacy_conn, dry_run, since)
             self.stdout.write(self.style.SUCCESS(f"  Asignaciones migrated: {asignaciones_count}"))
 
             # 5. Migrate expedientes
-            exp_count = self._migrate_expedientes(legacy_conn, dry_run)
+            exp_count = self._migrate_expedientes(legacy_conn, dry_run, since, expediente_id)
             self.stdout.write(self.style.SUCCESS(f"  Expedientes migrated: {exp_count}"))
 
             # 6. Migrar solicitudes
-            sol_count = self._migrate_solicitudes(legacy_conn, dry_run)
+            sol_count = self._migrate_solicitudes(legacy_conn, dry_run, since, expediente_id)
             self.stdout.write(self.style.SUCCESS(f"  Solicitudes migrated: {sol_count}"))
 
             # 7. Migrar historial de estados y respuestas finales
-            historial_count = self._migrate_historial_estados(legacy_conn, dry_run)
+            historial_count = self._migrate_historial_estados(legacy_conn, dry_run, since, expediente_id)
             self.stdout.write(self.style.SUCCESS(f"  Historial estados migrated: {historial_count}"))
 
-            respuestas_count = self._migrate_respuestas_finales(legacy_conn, dry_run)
+            respuestas_count = self._migrate_respuestas_finales(legacy_conn, dry_run, since, expediente_id)
             self.stdout.write(self.style.SUCCESS(f"  Respuestas finales migrated: {respuestas_count}"))
 
             # 8. Migrate files
@@ -177,22 +210,22 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.SUCCESS(f"  File backend: {files_backend}"))
                 # 8a. Expediente principal files
                 princ_count = self._migrate_expediente_principal_archivos(
-                    legacy_conn, dry_run, files_backend, legacy_media_root
+                    legacy_conn, dry_run, files_backend, legacy_media_root, since, expediente_id
                 )
                 self.stdout.write(self.style.SUCCESS(f"  ExpedientePrincipal archivos migrated: {princ_count}"))
                 # 8b. Expediente anexo files (existing method, enhanced)
                 anexos_count = self._migrate_expediente_anexo_archivos(
-                    legacy_conn, dry_run, files_backend, legacy_media_root
+                    legacy_conn, dry_run, files_backend, legacy_media_root, since, expediente_id
                 )
                 self.stdout.write(self.style.SUCCESS(f"  ExpedienteAnexo archivos migrated: {anexos_count}"))
                 # 8c. Comment messages
                 msg_count = self._migrate_comentarios_to_mensajes(
-                    legacy_conn, dry_run, files_backend, legacy_media_root
+                    legacy_conn, dry_run, files_backend, legacy_media_root, since, expediente_id
                 )
                 self.stdout.write(self.style.SUCCESS(f"  Comentarios -> Mensajes migrated: {msg_count}"))
                 # 8d. Solicitud anexo files -> attach to conversation
                 sol_arch_count = self._migrate_solicitud_archivo_anexos(
-                    legacy_conn, dry_run, files_backend, legacy_media_root
+                    legacy_conn, dry_run, files_backend, legacy_media_root, since, expediente_id
                 )
                 self.stdout.write(self.style.SUCCESS(f"  SolicitudArchivoAnexo migrated: {sol_arch_count}"))
             else:
@@ -204,6 +237,8 @@ class Command(BaseCommand):
             #    one on every solicitud creation, so we mirror that here.
             conv_count = self._backfill_conversaciones(
                 dry_run=dry_run,
+                since=since,
+                expediente_id=expediente_id,
             )
             self.stdout.write(self.style.SUCCESS(
                 f"  Conversaciones backfilled: {conv_count}"
@@ -213,14 +248,39 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS("\nMigration completed successfully!"))
 
-    def _migrate_users(self, legacy_conn, dry_run: bool) -> int:
+    @staticmethod
+    def _parse_since(value: str | None) -> datetime | None:
+        """Return an aware ISO 8601 cutoff, or reject ambiguous local datetimes."""
+        if value is None:
+            return None
+        if "T" not in value:
+            raise CommandError("--since must use ISO 8601 date-time format with 'T'.")
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise CommandError("--since must be a valid ISO 8601 date-time.") from exc
+        if not timezone.is_aware(parsed):
+            raise CommandError("--since must include an explicit UTC offset, for example +00:00.")
+        return parsed.astimezone(datetime_timezone.utc)
+
+    @staticmethod
+    def _legacy_uuid(kind: str, source_id: object) -> uuid.UUID:
+        """Create a stable destination UUID from an immutable legacy row identity."""
+        return uuid.uuid5(LEGACY_ID_NAMESPACE, f"{kind}:{source_id}")
+
+    def _migrate_users(self, legacy_conn, dry_run: bool, since: datetime | None = None) -> int:
         """Migrate 102 users from legacy auth_user table."""
         cursor = legacy_conn.cursor(cursor_factory=RealDictCursor)
-        cursor.execute("""
+        query = """
             SELECT id, username, email, first_name, last_name, is_staff, is_active
             FROM auth_user
-            ORDER BY id
-        """)
+        """
+        params = []
+        if since:
+            query += " WHERE date_joined >= %s"
+            params.append(since)
+        query += " ORDER BY id"
+        cursor.execute(query, params)
         users = cursor.fetchall()
         cursor.close()
 
@@ -261,7 +321,7 @@ class Command(BaseCommand):
 
         return count
 
-    def _migrate_asignaciones(self, legacy_conn, dry_run: bool) -> int:
+    def _migrate_asignaciones(self, legacy_conn, dry_run: bool, since: datetime | None = None) -> int:
         """
         Migrate AsignacionUsuario from the union of:
          - usuario_asignado_id in solicitudes_solicitud (area principal)
@@ -270,21 +330,34 @@ class Command(BaseCommand):
         """
         # Union of assigned users (area principal) + adjuntados, with their profile area
         cursor = legacy_conn.cursor(cursor_factory=RealDictCursor)
-        cursor.execute("""
+        query = """
             SELECT DISTINCT u.id AS user_id, u.username, a.nombre AS area_nombre
             FROM (
                 SELECT DISTINCT s.usuario_asignado_id AS uid
                 FROM solicitudes_solicitud s
+                {solicitud_cutoff}
                 UNION
                 SELECT DISTINCT ua.usuario_id
                 FROM solicitudes_usuariosolicitudadjuntado ua
+                JOIN solicitudes_solicitud s ON s.id = ua.solicitud_id
+                {adjunto_cutoff}
             ) x
             JOIN auth_user u ON u.id = x.uid
             JOIN usuarios_perfilusuario up ON up.user_id = u.id
             JOIN usuarios_area a ON up.area_id = a.id
             WHERE up.area_id IS NOT NULL
             ORDER BY u.username
-        """)
+        """
+        params = []
+        if since:
+            query = query.format(
+                solicitud_cutoff="WHERE s.fecha_creacion >= %s",
+                adjunto_cutoff="WHERE s.fecha_creacion >= %s",
+            )
+            params = [since, since]
+        else:
+            query = query.format(solicitud_cutoff="", adjunto_cutoff="")
+        cursor.execute(query, params)
         adjuntados = cursor.fetchall()
         cursor.close()
 
@@ -331,15 +404,26 @@ class Command(BaseCommand):
 
         return count
 
-    def _migrate_expedientes(self, legacy_conn, dry_run: bool) -> int:
+    def _migrate_expedientes(
+        self, legacy_conn, dry_run: bool, since: datetime | None = None,
+        expediente_id: uuid.UUID | None = None,
+    ) -> int:
         """Migrate 487 expedientes, preserving legacy UUIDs."""
         cursor = legacy_conn.cursor(cursor_factory=RealDictCursor)
-        cursor.execute("""
+        query = """
             SELECT e.*, u.username as creado_por_username
             FROM expedientes_expediente e
             JOIN auth_user u ON e.creado_por_id = u.id
-            ORDER BY e.fecha_creacion
-        """)
+        """
+        params = []
+        if expediente_id:
+            query += " WHERE e.id = %s"
+            params.append(str(expediente_id))
+        elif since:
+            query += " WHERE e.fecha_creacion >= %s"
+            params.append(since)
+        query += " ORDER BY e.fecha_creacion"
+        cursor.execute(query, params)
         expedientes = cursor.fetchall()
         cursor.close()
 
@@ -419,7 +503,10 @@ class Command(BaseCommand):
 
         return count
 
-    def _migrate_solicitudes(self, legacy_conn, dry_run: bool) -> int:
+    def _migrate_solicitudes(
+        self, legacy_conn, dry_run: bool, since: datetime | None = None,
+        expediente_id: uuid.UUID | None = None,
+    ) -> int:
         """Migrate 480 solicitudes, mapping states and preserving UUIDs."""
         # Map legacy states -> new states
         STATE_MAP = {
@@ -430,7 +517,7 @@ class Command(BaseCommand):
         }
 
         cursor = legacy_conn.cursor(cursor_factory=RealDictCursor)
-        cursor.execute("""
+        query = """
             SELECT s.*,
                    u.username as creado_por_username,
                    ua.username as asignado_username,
@@ -442,8 +529,18 @@ class Command(BaseCommand):
             LEFT JOIN usuarios_perfilusuario up ON up.user_id = ua.id
             LEFT JOIN usuarios_area a ON up.area_id = a.id
             JOIN expedientes_expediente e ON s.expediente_id = e.id
-            ORDER BY s.fecha_creacion
-        """)
+        """
+        params = []
+        if expediente_id:
+            query += " WHERE e.id = %s"
+            params.append(str(expediente_id))
+        elif since:
+            # A newly created expediente brings all its dependent solicitudes,
+            # even if their timestamps predate the chosen cutoff.
+            query += " WHERE s.fecha_creacion >= %s OR e.fecha_creacion >= %s"
+            params = [since, since]
+        query += " ORDER BY s.fecha_creacion"
+        cursor.execute(query, params)
         solicitudes = cursor.fetchall()
         cursor.close()
 
@@ -598,10 +695,13 @@ class Command(BaseCommand):
             return EstadoSolicitud.EN_TRAMITE
         return EstadoSolicitud.EN_TRAMITE
 
-    def _migrate_historial_estados(self, legacy_conn, dry_run: bool) -> int:
+    def _migrate_historial_estados(
+        self, legacy_conn, dry_run: bool, since: datetime | None = None,
+        expediente_id: uuid.UUID | None = None,
+    ) -> int:
         """Migrate legacy django-simple-history rows into SolicitudEstadoHistorial."""
         cursor = legacy_conn.cursor(cursor_factory=RealDictCursor)
-        cursor.execute("""
+        query = """
             SELECT h.id AS solicitud_id,
                    h.estado,
                    h.finalizado,
@@ -610,11 +710,26 @@ class Command(BaseCommand):
                    h.history_type,
                    h.history_user_id,
                    h.creado_por_id,
-                   s.creado_por_id AS solicitud_creado_por_id
+                   s.creado_por_id AS solicitud_creado_por_id,
+                   s.fecha_creacion AS solicitud_fecha_creacion
             FROM solicitudes_historicalsolicitud h
             JOIN solicitudes_solicitud s ON s.id = h.id
-            ORDER BY h.id, h.history_date, h.history_id
-        """)
+            JOIN expedientes_expediente e ON s.expediente_id = e.id
+        """
+        params = []
+        if expediente_id:
+            query += " WHERE e.id = %s"
+            params.append(str(expediente_id))
+        elif since:
+            # Fetch the full chain only for solicitudes affected by the cutoff so
+            # appended transitions retain their true previous state.
+            query += """ WHERE s.fecha_creacion >= %s OR EXISTS (
+                SELECT 1 FROM solicitudes_historicalsolicitud changed
+                WHERE changed.id = s.id AND changed.history_date >= %s
+            )"""
+            params = [since, since]
+        query += " ORDER BY h.id, h.history_date, h.history_id"
+        cursor.execute(query, params)
         rows = cursor.fetchall()
         cursor.close()
 
@@ -629,7 +744,9 @@ class Command(BaseCommand):
             except Solicitud.DoesNotExist:
                 continue
 
-            if SolicitudEstadoHistorial.objects.filter(solicitud=solicitud).exists():
+            # Preserve the full-migration behavior for an existing destination.
+            # Incremental mode below appends only post-cutoff source transitions.
+            if not since and SolicitudEstadoHistorial.objects.filter(solicitud=solicitud).exists():
                 continue
 
             first = history_rows[0]
@@ -638,26 +755,38 @@ class Command(BaseCommand):
                 first.get("solicitud_creado_por_id") or first.get("creado_por_id"),
             ) or solicitud.creado_por
 
-            artificial_fecha = first["history_date"] - timedelta(hours=2)
-            if dry_run:
-                count += 1
-            else:
-                SolicitudEstadoHistorial.objects.create(
-                    solicitud=solicitud,
-                    estado_anterior=None,
-                    estado_nuevo=EstadoSolicitud.REGISTRADA,
-                    fecha_cambio=artificial_fecha,
-                    cambiado_por=creado_por,
-                    motivo="Estado inicial inferido para migración desde sistema legacy",
-                    observacion=None,
-                    origen=OrigenCambio.CREACION,
-                )
-                count += 1
+            if not SolicitudEstadoHistorial.objects.filter(solicitud=solicitud).exists():
+                artificial_fecha = first["history_date"] - timedelta(hours=2)
+                initial_id = self._legacy_uuid("solicitud_historial_inicial", solicitud_id)
+                if dry_run:
+                    count += 1
+                else:
+                    SolicitudEstadoHistorial.objects.create(
+                        id=initial_id,
+                        solicitud=solicitud,
+                        estado_anterior=None,
+                        estado_nuevo=EstadoSolicitud.REGISTRADA,
+                        fecha_cambio=artificial_fecha,
+                        cambiado_por=creado_por,
+                        motivo="Estado inicial inferido para migración desde sistema legacy",
+                        observacion=None,
+                        origen=OrigenCambio.CREACION,
+                    )
+                    count += 1
 
             previous_estado = EstadoSolicitud.REGISTRADA
             for row in history_rows:
                 mapped_estado = self._map_legacy_estado(row["estado"], row["finalizado"])
                 if mapped_estado == previous_estado:
+                    continue
+
+                if since and row["solicitud_fecha_creacion"] < since and row["history_date"] < since:
+                    previous_estado = mapped_estado
+                    continue
+
+                history_id = self._legacy_uuid("solicitud_historial", row["history_id"])
+                if SolicitudEstadoHistorial.objects.filter(id=history_id).exists():
+                    previous_estado = mapped_estado
                     continue
 
                 cambiado_por = (
@@ -673,12 +802,13 @@ class Command(BaseCommand):
                     count += 1
                 else:
                     SolicitudEstadoHistorial.objects.create(
+                        id=history_id,
                         solicitud=solicitud,
                         estado_anterior=previous_estado,
                         estado_nuevo=mapped_estado,
                         fecha_cambio=row["history_date"],
                         cambiado_por=cambiado_por,
-                        motivo="Migrado desde historial legacy",
+                        motivo=f"Migrado desde historial legacy #{row['history_id']}",
                         observacion=None,
                         origen=origen,
                     )
@@ -687,18 +817,30 @@ class Command(BaseCommand):
 
         return count
 
-    def _migrate_respuestas_finales(self, legacy_conn, dry_run: bool) -> int:
+    def _migrate_respuestas_finales(
+        self, legacy_conn, dry_run: bool, since: datetime | None = None,
+        expediente_id: uuid.UUID | None = None,
+    ) -> int:
         """Create final CONFORMIDAD responses for truly finalized legacy solicitudes."""
         cursor = legacy_conn.cursor(cursor_factory=RealDictCursor)
-        cursor.execute("""
+        query = """
             SELECT s.id,
                    s.fecha_cierre,
                    s.modificado_por_id,
                    s.usuario_asignado_id
             FROM solicitudes_solicitud s
+            JOIN expedientes_expediente e ON s.expediente_id = e.id
             WHERE s.estado = 'CERRADO' AND s.finalizado = true
-            ORDER BY s.fecha_cierre
-        """)
+        """
+        params = []
+        if expediente_id:
+            query += " AND e.id = %s"
+            params.append(str(expediente_id))
+        elif since:
+            query += " AND (s.fecha_creacion >= %s OR s.fecha_cierre >= %s)"
+            params = [since, since]
+        query += " ORDER BY s.fecha_cierre"
+        cursor.execute(query, params)
         rows = cursor.fetchall()
         cursor.close()
 
@@ -734,17 +876,23 @@ class Command(BaseCommand):
                 count += 1
                 continue
 
-            conversacion = Conversacion.objects.create(
-                titulo=f"Conversación - {solicitud.expediente.id_publico}",
-                creada_por=solicitud.creado_por,
-                fecha_inicio=solicitud.fecha_registro,
-                fecha_cierre=fecha,
-                cerrado_por=emitido_por,
-            )
-            SolicitudConversacion.objects.create(
-                solicitud=solicitud,
-                conversacion=conversacion,
-            )
+            puente = SolicitudConversacion.objects.filter(
+                solicitud=solicitud
+            ).select_related("conversacion").first()
+            if puente:
+                conversacion = puente.conversacion
+            else:
+                conversacion = Conversacion.objects.create(
+                    titulo=f"Conversación - {solicitud.expediente.id_publico}",
+                    creada_por=solicitud.creado_por,
+                    fecha_inicio=solicitud.fecha_registro,
+                    fecha_cierre=fecha,
+                    cerrado_por=emitido_por,
+                )
+                SolicitudConversacion.objects.create(
+                    solicitud=solicitud,
+                    conversacion=conversacion,
+                )
             mensaje = Mensaje.objects.create(
                 conversacion=conversacion,
                 autor_usuario=None,
@@ -1023,7 +1171,8 @@ class Command(BaseCommand):
     # ── Expediente principal file migration ─────────────────────────────────────
 
     def _migrate_expediente_principal_archivos(
-        self, legacy_conn, dry_run: bool, files_backend: str, media_root: Path
+        self, legacy_conn, dry_run: bool, files_backend: str, media_root: Path,
+        since: datetime | None = None, expediente_id: uuid.UUID | None = None,
     ) -> int:
         """
         Migrate expedientes_expediente.archivo_principal -> ExpedienteArchivo tipo PRINCIPAL.
@@ -1031,7 +1180,7 @@ class Command(BaseCommand):
         Each expediente can have only one principal file (enforced by UniqueConstraint).
         """
         cursor = legacy_conn.cursor(cursor_factory=RealDictCursor)
-        cursor.execute("""
+        query = """
             SELECT e.id AS expediente_uuid,
                    e.archivo_principal,
                    e.fecha_creacion,
@@ -1039,8 +1188,16 @@ class Command(BaseCommand):
             FROM expedientes_expediente e
             JOIN auth_user u ON e.creado_por_id = u.id
             WHERE e.archivo_principal IS NOT NULL AND e.archivo_principal != ''
-            ORDER BY e.fecha_creacion
-        """)
+        """
+        params = []
+        if expediente_id:
+            query += " AND e.id = %s"
+            params.append(str(expediente_id))
+        elif since:
+            query += " AND e.fecha_creacion >= %s"
+            params.append(since)
+        query += " ORDER BY e.fecha_creacion"
+        cursor.execute(query, params)
         rows = cursor.fetchall()
         cursor.close()
 
@@ -1126,14 +1283,15 @@ class Command(BaseCommand):
     # ── Expediente anexo file migration ─────────────────────────────────────────
 
     def _migrate_expediente_anexo_archivos(
-        self, legacy_conn, dry_run: bool, files_backend: str, media_root: Path
+        self, legacy_conn, dry_run: bool, files_backend: str, media_root: Path,
+        since: datetime | None = None, expediente_id: uuid.UUID | None = None,
     ) -> int:
         """
         Migrate expedientes_expedientearchivoanexo -> ExpedienteArchivo tipo ANEXO.
         Replaces the old _migrate_archivos with an improved idempotent version.
         """
         cursor = legacy_conn.cursor(cursor_factory=RealDictCursor)
-        cursor.execute("""
+        query = """
             SELECT ea.id AS anexo_row_id,
                    ea.archivo_anexo,
                    ea.nombre_original,
@@ -1143,8 +1301,18 @@ class Command(BaseCommand):
             FROM expedientes_expedientearchivoanexo ea
             JOIN expedientes_expediente e ON ea.expediente_id = e.id
             JOIN auth_user u ON e.creado_por_id = u.id
-            ORDER BY e.fecha_creacion
-        """)
+        """
+        params = []
+        if expediente_id:
+            query += " WHERE e.id = %s"
+            params.append(str(expediente_id))
+        elif since:
+            # This legacy table has no timestamp used by the current schema.
+            # Safely synchronize its rows only as dependencies of new expedientes.
+            query += " WHERE e.fecha_creacion >= %s"
+            params.append(since)
+        query += " ORDER BY e.fecha_creacion"
+        cursor.execute(query, params)
         rows = cursor.fetchall()
         cursor.close()
 
@@ -1195,6 +1363,11 @@ class Command(BaseCommand):
                 continue
 
             # Idempotency: check if this exact archivo already linked
+            expediente_archivo_id = self._legacy_uuid(
+                "expediente_archivo_anexo", row["anexo_row_id"]
+            )
+            if ExpedienteArchivo.objects.filter(id=expediente_archivo_id).exists():
+                continue
             existing = ExpedienteArchivo.objects.filter(
                 expediente=expediente,
                 archivo__storage_backend="local",
@@ -1220,6 +1393,7 @@ class Command(BaseCommand):
                 continue
 
             ExpedienteArchivo.objects.create(
+                id=expediente_archivo_id,
                 expediente=expediente,
                 tipo_archivo=TipoArchivo.ANEXO,
                 archivo=archivo,
@@ -1233,7 +1407,8 @@ class Command(BaseCommand):
     # ── Comentario -> Mensaje migration ─────────────────────────────────────────
 
     def _migrate_comentarios_to_mensajes(
-        self, legacy_conn, dry_run: bool, files_backend: str, media_root: Path
+        self, legacy_conn, dry_run: bool, files_backend: str, media_root: Path,
+        since: datetime | None = None, expediente_id: uuid.UUID | None = None,
     ) -> int:
         """
         Migrate solicitudes_comentariosolicitud -> Mensaje rows.
@@ -1250,15 +1425,27 @@ class Command(BaseCommand):
         """
         # First, ensure all solicitudes have a Conversacion
         cursor = legacy_conn.cursor(cursor_factory=RealDictCursor)
-        cursor.execute("""
+        solicitud_query = """
             SELECT DISTINCT s.id AS solicitud_uuid,
                    e.id AS expediente_uuid,
                    s.fecha_creacion
             FROM solicitudes_comentariosolicitud c
             JOIN solicitudes_solicitud s ON c.solicitud_id = s.id
             JOIN expedientes_expediente e ON s.expediente_id = e.id
-            ORDER BY s.fecha_creacion
-        """)
+        """
+        solicitud_params = []
+        if expediente_id:
+            solicitud_query += " WHERE e.id = %s"
+            solicitud_params.append(str(expediente_id))
+        elif since:
+            solicitud_query += """ WHERE c.fecha_creacion >= %s OR s.fecha_creacion >= %s
+                OR e.fecha_creacion >= %s OR EXISTS (
+                    SELECT 1 FROM solicitudes_comentariosolicitudarchivoanexo ca
+                    WHERE ca.comentario_id = c.id AND ca.fecha_creacion >= %s
+                )"""
+            solicitud_params = [since, since, since, since]
+        solicitud_query += " ORDER BY s.fecha_creacion"
+        cursor.execute(solicitud_query, solicitud_params)
         solicitud_rows = cursor.fetchall()
         cursor.close()
 
@@ -1274,19 +1461,25 @@ class Command(BaseCommand):
                 self._solicitud_conversacion_cache = {}
 
             if solicitud.id not in self._solicitud_conversacion_cache:
-                conv, _ = Conversacion.objects.get_or_create(
-                    titulo=f"Conversación migrated - {solicitud.expediente.id_publico}",
-                    defaults={
-                        "creada_por": solicitud.creado_por,
-                        "fecha_inicio": solicitud.fecha_registro,
-                    },
-                )
-                SolicitudConversacion.objects.get_or_create(solicitud=solicitud, conversacion=conv)
-                self._solicitud_conversacion_cache[solicitud.id] = conv
+                puente = SolicitudConversacion.objects.filter(
+                    solicitud=solicitud
+                ).select_related("conversacion").first()
+                if puente:
+                    self._solicitud_conversacion_cache[solicitud.id] = puente.conversacion
+                elif not dry_run:
+                    conv, _ = Conversacion.objects.get_or_create(
+                        titulo=f"Conversación migrated - {solicitud.expediente.id_publico}",
+                        defaults={
+                            "creada_por": solicitud.creado_por,
+                            "fecha_inicio": solicitud.fecha_registro,
+                        },
+                    )
+                    SolicitudConversacion.objects.get_or_create(solicitud=solicitud, conversacion=conv)
+                    self._solicitud_conversacion_cache[solicitud.id] = conv
 
         # Now migrate comments
         cursor = legacy_conn.cursor(cursor_factory=RealDictCursor)
-        cursor.execute("""
+        comment_query = """
             SELECT c.id AS legado_id,
                    c.solicitud_id,
                    c.texto,
@@ -1294,8 +1487,23 @@ class Command(BaseCommand):
                    u.username AS autor_username
             FROM solicitudes_comentariosolicitud c
             JOIN auth_user u ON c.usuario_id = u.id
-            ORDER BY c.fecha_creacion
-        """)
+            JOIN solicitudes_solicitud s ON c.solicitud_id = s.id
+            JOIN expedientes_expediente e ON s.expediente_id = e.id
+        """
+        comment_params = []
+        if expediente_id:
+            comment_query += " WHERE e.id = %s"
+            comment_params.append(str(expediente_id))
+        elif since:
+            # A new expediente or solicitud carries every dependent comment.
+            comment_query += """ WHERE c.fecha_creacion >= %s OR s.fecha_creacion >= %s
+                OR e.fecha_creacion >= %s OR EXISTS (
+                    SELECT 1 FROM solicitudes_comentariosolicitudarchivoanexo ca
+                    WHERE ca.comentario_id = c.id AND ca.fecha_creacion >= %s
+                )"""
+            comment_params = [since, since, since, since]
+        comment_query += " ORDER BY c.fecha_creacion"
+        cursor.execute(comment_query, comment_params)
         comment_rows = cursor.fetchall()
         cursor.close()
 
@@ -1311,15 +1519,28 @@ class Command(BaseCommand):
 
             conv = self._solicitud_conversacion_cache.get(solicitud.id)
             if conv is None:
+                if dry_run:
+                    self.stdout.write(
+                        f"    [DRY] Mensaje: legacy_id={row['legado_id']} "
+                        f"content={str(row['texto'] or '')[:40]}"
+                    )
+                    count += 1
+                    continue
                 # Create conversacion now
-                conv, _ = Conversacion.objects.get_or_create(
-                    titulo=f"Conversación migrated - {solicitud.expediente.id_publico}",
-                    defaults={
-                        "creada_por": solicitud.creado_por,
-                        "fecha_inicio": solicitud.fecha_registro,
-                    },
-                )
-                SolicitudConversacion.objects.get_or_create(solicitud=solicitud, conversacion=conv)
+                puente = SolicitudConversacion.objects.filter(
+                    solicitud=solicitud
+                ).select_related("conversacion").first()
+                if puente:
+                    conv = puente.conversacion
+                else:
+                    conv, _ = Conversacion.objects.get_or_create(
+                        titulo=f"Conversación migrated - {solicitud.expediente.id_publico}",
+                        defaults={
+                            "creada_por": solicitud.creado_por,
+                            "fecha_inicio": solicitud.fecha_registro,
+                        },
+                    )
+                    SolicitudConversacion.objects.get_or_create(solicitud=solicitud, conversacion=conv)
                 self._solicitud_conversacion_cache[solicitud.id] = conv
 
             autor = None
@@ -1337,31 +1558,26 @@ class Command(BaseCommand):
                 count += 1
                 continue
 
-            # Idempotency: check if mensaje with this legacy id exists
-            # We use storage_metadata on the first archivo as a marker since there's
-            # no direct legacy_id field on Mensaje.
-            # Alternative: check via MensajeArchivoAdjunto linked to legacy path.
-            existing_mensaje = None
-            # Scan existing mensajes in this conversation for a match
-            for msg in conv.mensajes.all():
-                if msg.archivos_adjuntos.exists():
-                    first_adj = msg.archivos_adjuntos.first()
-                    if first_adj and first_adj.archivo:
-                        meta = first_adj.archivo.storage_metadata or {}
-                        if meta.get("legacy_comentario_id") == str(row["legado_id"]):
-                            existing_mensaje = msg
-                            break
-
-            if existing_mensaje is not None:
-                continue
-
-            mensaje = Mensaje.objects.create(
-                conversacion=conv,
-                autor_usuario=autor,
-                contenido=row["texto"] or "",
-                tipo=TipoMensaje.MENSAJE,
-                fecha_envio=row["fecha_creacion"],
-            )
+            mensaje_id = self._legacy_uuid("comentario", row["legado_id"])
+            mensaje = Mensaje.objects.filter(id=mensaje_id).first()
+            if mensaje is None:
+                # The initial full migration predates deterministic IDs. Match its
+                # immutable legacy payload only to attach a newly added legacy file.
+                mensaje = Mensaje.objects.filter(
+                    conversacion=conv,
+                    autor_usuario=autor,
+                    contenido=row["texto"] or "",
+                    fecha_envio=row["fecha_creacion"],
+                ).first()
+            if mensaje is None:
+                mensaje = Mensaje.objects.create(
+                    id=mensaje_id,
+                    conversacion=conv,
+                    autor_usuario=autor,
+                    contenido=row["texto"] or "",
+                    tipo=TipoMensaje.MENSAJE,
+                    fecha_envio=row["fecha_creacion"],
+                )
 
             # Migrate attached files for this comment
             self._migrate_legacy_comentario_archivos(
@@ -1374,7 +1590,8 @@ class Command(BaseCommand):
     # ── SolicitudArchivoAnexo migration ─────────────────────────────────────────
 
     def _migrate_solicitud_archivo_anexos(
-        self, legacy_conn, dry_run: bool, files_backend: str, media_root: Path
+        self, legacy_conn, dry_run: bool, files_backend: str, media_root: Path,
+        since: datetime | None = None, expediente_id: uuid.UUID | None = None,
     ) -> int:
         """
         Migrate solicitudes_solicitudarchivoanexo -> MensajeArchivoAdjunto.
@@ -1386,7 +1603,7 @@ class Command(BaseCommand):
         (if not already created for this solicitud) and attaches all files to it.
         """
         cursor = legacy_conn.cursor(cursor_factory=RealDictCursor)
-        cursor.execute("""
+        query = """
             SELECT sa.id AS legado_id,
                    sa.solicitud_id,
                    sa.archivo_anexo,
@@ -1396,8 +1613,17 @@ class Command(BaseCommand):
             FROM solicitudes_solicitudarchivoanexo sa
             JOIN solicitudes_solicitud s ON sa.solicitud_id = s.id
             JOIN auth_user u ON s.creado_por_id = u.id
-            ORDER BY sa.fecha_creacion
-        """)
+            JOIN expedientes_expediente e ON s.expediente_id = e.id
+        """
+        params = []
+        if expediente_id:
+            query += " WHERE e.id = %s"
+            params.append(str(expediente_id))
+        elif since:
+            query += " WHERE sa.fecha_creacion >= %s OR s.fecha_creacion >= %s OR e.fecha_creacion >= %s"
+            params = [since, since, since]
+        query += " ORDER BY sa.fecha_creacion"
+        cursor.execute(query, params)
         rows = cursor.fetchall()
         cursor.close()
 
@@ -1475,6 +1701,7 @@ class Command(BaseCommand):
                     msg = existing_sys_msg
                 else:
                     msg = Mensaje.objects.create(
+                        id=self._legacy_uuid("solicitud_archivos_mensaje", solicitud.id),
                         conversacion=conv,
                         autor_usuario=None,
                         contenido="Archivos migrados desde sistema legacy",
@@ -1486,6 +1713,9 @@ class Command(BaseCommand):
                 msg = solicitud_mensaje_cache[solicitud.id]
 
             # Idempotency: check if archivo already attached to this mensaje
+            adjunto_id = self._legacy_uuid("solicitud_archivo_anexo", row["legado_id"])
+            if MensajeArchivoAdjunto.objects.filter(id=adjunto_id).exists():
+                continue
             existing_adj = MensajeArchivoAdjunto.objects.filter(
                 mensaje=msg,
                 archivo__storage_backend="local",
@@ -1511,6 +1741,7 @@ class Command(BaseCommand):
                 continue
 
             MensajeArchivoAdjunto.objects.create(
+                id=adjunto_id,
                 mensaje=msg,
                 archivo=archivo,
                 subido_por=subido_por or msg.conversacion.creada_por,
@@ -1594,6 +1825,9 @@ class Command(BaseCommand):
                 continue
 
             # Idempotency
+            adjunto_id = self._legacy_uuid("comentario_archivo_anexo", row["legado_row_id"])
+            if MensajeArchivoAdjunto.objects.filter(id=adjunto_id).exists():
+                continue
             existing = MensajeArchivoAdjunto.objects.filter(
                 mensaje=mensaje,
                 archivo__storage_backend="local",
@@ -1619,6 +1853,7 @@ class Command(BaseCommand):
                 continue
 
             MensajeArchivoAdjunto.objects.create(
+                id=adjunto_id,
                 mensaje=mensaje,
                 archivo=archivo,
                 subido_por=subido_por or mensaje.autor_usuario or mensaje.conversacion.creada_por,
@@ -1631,7 +1866,10 @@ class Command(BaseCommand):
 
     # ── Conversacion backfill ──────────────────────────────────────────────────────
 
-    def _backfill_conversaciones(self, dry_run: bool) -> int:
+    def _backfill_conversaciones(
+        self, dry_run: bool, since: datetime | None = None,
+        expediente_id: uuid.UUID | None = None,
+    ) -> int:
         """
         Create an empty Conversacion (and SolicitudConversacion bridge) for
         every Solicitud that does not yet have one.
@@ -1658,6 +1896,10 @@ class Command(BaseCommand):
                 "solicitud_id", flat=True
             )
         ).select_related("expediente")
+        if expediente_id:
+            qs = qs.filter(expediente_id=expediente_id)
+        elif since:
+            qs = qs.filter(fecha_registro__gte=since)
 
         count = 0
         for solicitud in qs.iterator():

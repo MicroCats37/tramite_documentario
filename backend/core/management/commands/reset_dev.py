@@ -34,7 +34,7 @@ SKIP_DIRS = {
 
 
 class Command(BaseCommand):
-    help = "Clean local migrations, Python cache artifacts, and development database state."
+    help = "Clean local migrations and cache artifacts; reset SQLite databases or flush non-SQLite data."
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -60,7 +60,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--database",
             action="store_true",
-            help="Reset the configured development database state.",
+            help="Recreate a SQLite database file, or flush data from a non-SQLite database without changing its schema.",
         )
         parser.add_argument(
             "--skip-migrate",
@@ -221,7 +221,7 @@ class Command(BaseCommand):
         else:
             self.stdout.write(
                 self.style.WARNING(
-                    f"  Non-SQLite database detected ({engine}). Will use Django flush instead of dropping the database."
+                    f"  Non-SQLite database detected ({engine}). Will flush data only; schema and migration history are retained."
                 )
             )
             if dry_run:
