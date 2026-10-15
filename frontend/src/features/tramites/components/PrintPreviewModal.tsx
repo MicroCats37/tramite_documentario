@@ -4,6 +4,8 @@ import { Printer } from "lucide-react";
 import { useCallback } from "react";
 import { GenericModal } from "@/components/genericModal/GenericModal";
 import { Button } from "@/components/ui/button";
+import { waitForImages } from "@/components-app/pdf/pdfShell";
+import { inlineImagesAsDataUri } from "./printExpediente";
 
 /**
  * PrintPreviewModal — reusable modal for print previews of Expediente and Solicitud.
@@ -74,8 +76,11 @@ export function PrintPreviewModal({
   htmlContent,
   previewContent,
 }: PrintPreviewModalProps) {
-  const handlePrint = useCallback(() => {
+  const handlePrint = useCallback(async () => {
     if (!htmlContent) return;
+
+    // The print iframe cannot reliably load relative paths such as the CIP logo.
+    const printableHtml = await inlineImagesAsDataUri(htmlContent);
 
     const iframe = document.createElement("iframe");
     iframe.style.position = "fixed";
@@ -268,10 +273,11 @@ ${tokensBlock}
 
     iframeDoc.open();
     iframeDoc.write(
-      `<!doctype html><html lang="es"><head><meta charset="utf-8" /><title>${title.replace(/[<>]/g, "")}</title><style>${styles}</style></head><body>${htmlContent}</body></html>`,
+      `<!doctype html><html lang="es"><head><meta charset="utf-8" /><title>${title.replace(/[<>]/g, "")}</title><style>${styles}</style></head><body>${printableHtml}</body></html>`,
     );
     iframeDoc.close();
 
+    await waitForImages(iframeDoc.body);
     iframe.contentWindow?.focus();
     iframe.contentWindow?.print();
 

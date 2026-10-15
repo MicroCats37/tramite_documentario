@@ -364,7 +364,7 @@ export function buildSolicitudPrintHTML(solicitud: SolicitudItem): string {
  * The data URI travels with the HTML so the <img> renders immediately inside
  * the print iframe, no network request needed.
  */
-async function inlineImagesAsDataUri(html: string): Promise<string> {
+export async function inlineImagesAsDataUri(html: string): Promise<string> {
   if (typeof window === "undefined") return html;
   // Find all relative image paths in the HTML
   const matches = [...html.matchAll(/src="(\/[^"]+)"/g)];
